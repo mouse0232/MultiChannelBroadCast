@@ -1,5 +1,9 @@
 export async function onRequest(context, next) {
-  context.locals.SITE_URL = `${import.meta.env.SITE ?? ''}${import.meta.env.BASE_URL}`
+  // 确保 SITE_URL 正确生成,优先使用 context.url.origin
+  const siteBase = import.meta.env.SITE || context.url.origin
+  const baseUrl = import.meta.env.BASE_URL || '/'
+  context.locals.SITE_URL = siteBase + (baseUrl.endsWith('/') ? baseUrl : baseUrl + '/')
+  
   context.locals.RSS_URL = `${context.locals.SITE_URL}rss.xml`
   context.locals.RSS_PREFIX = ''
 
