@@ -2,7 +2,6 @@
 import Layout from '../layouts/base.astro'
 import Header from '../components/header.astro'
 import Item from '../components/item.astro'
-import ChannelNav from '../components/channel-nav.astro'
 
 const { SITE_URL } = Astro.locals
 const { channel, before = true, after = true, isItem = false, currentChannel } = Astro.props
@@ -16,9 +15,7 @@ const beforeCursor = displayPosts[displayPosts.length - 1]?.id
 const afterCursor = displayPosts[0]?.id
 ---
 
-<Layout channel={channel} id="main-container">
-  <ChannelNav currentChannel={currentChannel} />
-  
+<Layout channel={channel} currentChannel={currentChannel} id="main-container">
   <slot name="header">
     <Header channel={channel} />
   </slot>

@@ -17,4 +17,4 @@ if (!channels.includes(channelName)) {
 const channel = await getSingleChannelInfo(Astro, channelName)
 ---
 
-<List channel={channel} after={false} />
+<List channel={channel} currentChannel={channelName} after={false} />

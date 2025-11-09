@@ -103,21 +103,29 @@ a.item-link:hover {
   text-decoration: underline;
 }
 
-#container {
-  width: 100%;
-  max-width: 800px;
-  margin: 0px auto 0px auto;
+#wrapper {
   display: flex;
+  width: 100%;
+  min-height: 100vh;
+}
+
+#container {
+  display: flex;
+  flex: 1;
+  width: 100%;
+  max-width: none;
+  margin: 0;
 }
 
 #main-container {
   flex: 1;
-  max-width: 500px;
   padding-top: 20px;
   padding-right: 30px;
   padding-bottom: 20px;
+  padding-left: 30px;
   margin-right: 20px;
   border-right: 1px solid var(--border-color);
+  overflow-x: auto;
 }
 
 #header {
@@ -360,9 +368,10 @@ audio::-webkit-media-controls-panel {
 }
 
 #aside-container {
+  flex: 0 0 33.333%;
+  width: 33.333%;
   padding-bottom: 20px;
-  width: 200px;
-  min-width: 200px;
+  padding-left: 20px;
 }
 
 #aside-container .nav {
@@ -809,6 +818,23 @@ li:has(input[type='checkbox']:checked:disabled)::before {
 
 /* END: To Do Items */
 
+@media screen and (max-width: 1024px) {
+  #wrapper {
+    flex-direction: column;
+  }
+
+  #container {
+    flex-direction: column-reverse;
+  }
+
+  #main-container,
+  #aside-container {
+    flex: 1;
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
 @media screen and (max-width: 799px) {
   #container {
     width: 100%;
@@ -825,7 +851,9 @@ li:has(input[type='checkbox']:checked:disabled)::before {
   #main-container {
     padding-right: 0px;
     margin-right: 0px;
+    padding-left: 20px;
     width: 100%;
+    max-width: 100%;
     border-right: none;
     padding-top: 10px;
   }

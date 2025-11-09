@@ -5,11 +5,49 @@ import '../assets/item.css'
 import '../assets/global.css'
 import { SEO } from 'astro-seo'
 import { getEnv } from '../lib/env'
+import { getSingleChannelInfo } from '../lib/telegram'
 
 const { SITE_URL, RSS_URL, RSS_PREFIX } = Astro.locals
-const { channel } = Astro.props
+const { channel, currentChannel } = Astro.props
 
 const locale = getEnv(import.meta.env, Astro, 'LOCALE') || 'zh-cn'
+
+// 获取所有频道用于左侧导航
+const channelsStr = getEnv(import.meta.env, Astro, 'CHANNELS') || getEnv(import.meta.env, Astro, 'CHANNEL')
+const channels = channelsStr ? channelsStr.split(',').map(c => c.trim()).filter(Boolean) : []
+
+// 自动获取频道显示名称
+const channelNameMap = new Map()
+if (channels.length > 1) {
+  try {
+    const channelInfos = await Promise.all(
+      channels.map(async (ch) => {
+        try {
+          const info = await getSingleChannelInfo(Astro, ch, {})
+          return { channel: ch, title: info.title || ch }
+        } catch (error) {
+          return { channel: ch, title: ch }
+        }
+      })
+    )
+    channelInfos.forEach(({ channel: ch, title }) => {
+      channelNameMap.set(ch, title)
+    })
+  } catch (error) {
+    channels.forEach(ch => channelNameMap.set(ch, ch))
+  }
+}
+
+// 备用:从环境变量读取
+const channelNamesEnv = getEnv(import.meta.env, Astro, 'CHANNEL_NAMES')
+if (channelNamesEnv) {
+  channelNamesEnv.split(';').forEach(pair => {
+    const [username, displayName] = pair.split(':')
+    if (username && displayName) {
+      channelNameMap.set(username.trim(), displayName.trim())
+    }
+  })
+}
 
 const seo = channel?.seo
 const reqPathname = Astro.url.pathname.replace(/\/$/, '')
@@ -93,6 +131,38 @@ const navs = (getEnv(import.meta.env, Astro, 'NAVS') || '')
 
   <body>
     <div id="wrapper">
+      {channels.length > 1 && (
+        <aside class="channel-sidebar">
+          <div class="channel-sidebar-header">
+            <h3>频道列表</h3>
+          </div>
+          <nav class="channel-sidebar-nav">
+            <a 
+              href={SITE_URL} 
+              class={`channel-sidebar-item ${!currentChannel ? 'active' : ''}`}
+              title="所有频道"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                <polyline points="9 22 9 12 15 12 15 22"></polyline>
+              </svg>
+              <span>全部频道</span>
+            </a>
+            {channels.map(ch => (
+              <a 
+                href={`${SITE_URL}channel/${ch}`}
+                class={`channel-sidebar-item ${currentChannel === ch ? 'active' : ''}`}
+                title={channelNameMap.get(ch) || ch}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                </svg>
+                <span>{channelNameMap.get(ch) || ch}</span>
+              </a>
+            ))}
+          </nav>
+        </aside>
+      )}
       <div id="container">
         <div id="main-container">
           <slot />
@@ -149,21 +219,21 @@ const navs = (getEnv(import.meta.env, Astro, 'NAVS') || '')
             <div class="copyright-wrap">
               Powered by
               <a
-                href="https://github.com/ccbikai/BroadcastChannel"
-                title="BroadcastChannel"
-                target="_blank"
-                rel="noopener"
-              >
-                BroadcastChannel
-              </a>
-              <br />
-              <a
                 href="https://github.com/banlanzs/MultiChannelBroadCast"
                 title="Multi-Channel Fork"
                 target="_blank"
                 rel="noopener"
               >
               Multi-Channel Fork
+              </a>
+              <br />
+              <a
+                href="https://github.com/ccbikai/BroadcastChannel"
+                title="BroadcastChannel"
+                target="_blank"
+                rel="noopener"
+              >
+                BroadcastChannel
             </div>
           </slot>
         </div>
@@ -175,3 +245,94 @@ const navs = (getEnv(import.meta.env, Astro, 'NAVS') || '')
     <Fragment set:html={FOOTER_INJECT} />
   </body>
 </html>
+
+<style>
+  .channel-sidebar {
+    flex: 0 0 33.333%;
+    width: 33.333%;
+    background: var(--background-color, #fff);
+    border-right: 1px solid var(--border-color, #e0e0e0);
+    overflow-y: auto;
+    height: 100vh;
+    position: sticky;
+    top: 0;
+  }
+
+  .channel-sidebar-header {
+    padding: 20px 16px 12px;
+    border-bottom: 1px solid var(--border-color, #e0e0e0);
+  }
+
+  .channel-sidebar-header h3 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--secondary-color, #666);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .channel-sidebar-nav {
+    padding: 8px;
+  }
+
+  .channel-sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    margin-bottom: 4px;
+    border-radius: 8px;
+    text-decoration: none;
+    color: var(--text-color, #333);
+    background: transparent;
+    transition: all 0.2s;
+    font-size: 14px;
+    line-height: 1.4;
+  }
+
+  .channel-sidebar-item:hover {
+    background: var(--hover-background, #f5f5f5);
+  }
+
+  .channel-sidebar-item.active {
+    background: var(--highlight-color, #ff6b6b);
+    color: white;
+  }
+
+  .channel-sidebar-item svg {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+  }
+
+  .channel-sidebar-item span {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .channel-sidebar::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .channel-sidebar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .channel-sidebar::-webkit-scrollbar-thumb {
+    background: var(--border-color, #e0e0e0);
+    border-radius: 3px;
+  }
+
+  .channel-sidebar::-webkit-scrollbar-thumb:hover {
+    background: var(--secondary-color, #999);
+  }
+
+  @media (max-width: 1024px) {
+    .channel-sidebar {
+      display: none;
+    }
+  }
+</style>
