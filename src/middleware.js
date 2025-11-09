@@ -1,8 +1,14 @@
 export async function onRequest(context, next) {
   // 确保 SITE_URL 正确生成,优先使用 context.url.origin
+  // 修复Cloudflare Pages默认域名和预览域名的处理问题
   const siteBase = import.meta.env.SITE || context.url.origin
   const baseUrl = import.meta.env.BASE_URL || '/'
   context.locals.SITE_URL = siteBase + (baseUrl.endsWith('/') ? baseUrl : baseUrl + '/')
+  
+  // 确保SITE_URL以斜杠结尾，避免路径问题
+  if (!context.locals.SITE_URL.endsWith('/')) {
+    context.locals.SITE_URL += '/'
+  }
   
   context.locals.RSS_URL = `${context.locals.SITE_URL}rss.xml`
   context.locals.RSS_PREFIX = ''
