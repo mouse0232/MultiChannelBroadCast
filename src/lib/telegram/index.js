@@ -4,8 +4,6 @@ import { LRUCache } from 'lru-cache'
 import flourite from 'flourite'
 import prism from '../prism'
 import { getEnv } from '../env'
-import fs from 'fs'
-import path from 'path'
 
 // LRU缓存配置 - 增强缓存策略避免频繁请求
 const cache = new LRUCache({
@@ -18,31 +16,6 @@ const cache = new LRUCache({
   allowStale: true, // 允许返回过期数据
   ttlAutopurge: false, // 禁用自动清理,保留过期数据
 })
-
-// 尝试从磁盘加载预构建的缓存数据
-function loadPrebuildCache() {
-  try {
-    const cacheDir = path.join(process.cwd(), '.cache')
-    const cacheFile = path.join(cacheDir, 'telegram-cache.json')
-    
-    if (fs.existsSync(cacheFile)) {
-      const cacheData = JSON.parse(fs.readFileSync(cacheFile, 'utf8'))
-      console.log(`从磁盘加载了 ${cacheData.length} 个缓存项`)
-      
-      // 将数据加载到LRU缓存中
-      cacheData.forEach(({ key, value }) => {
-        cache.set(key, value)
-      })
-      
-      console.log('预构建缓存加载完成')
-    }
-  } catch (error) {
-    console.warn('加载预构建缓存时出错:', error.message)
-  }
-}
-
-// 在模块初始化时尝试加载预构建缓存
-loadPrebuildCache()
 
 // 请求速率限制器 - 防止Telegram风控
 class RateLimiter {

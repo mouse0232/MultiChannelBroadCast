@@ -11,7 +11,8 @@
   "scripts": {
     "dev": "astro dev",
     "start": "astro dev",
-    "build": "node scripts/prebuild-cache.js && astro build",
+    "build": "astro build",
+    "build:node": "node scripts/prebuild-cache.js && astro build",
     "preview": "astro preview",
     "astro": "astro",
     "prebuild": "node scripts/prebuild-cache.js"

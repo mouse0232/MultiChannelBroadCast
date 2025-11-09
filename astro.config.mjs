@@ -18,6 +18,7 @@ const providers = {
   }),
   cloudflare_pages: cloudflare({
     mode: 'directory',
+    imageService: 'compile',
   }),
   netlify: netlify({
     cacheOnDemandPages: false,
@@ -55,41 +56,9 @@ export default defineConfig({
   vite: {
     ssr: {
       noExternal: process.env.DOCKER ? !!process.env.DOCKER : undefined,
-      external: [
-        ...adapterProvider === 'cloudflare_pages'
-          ? [
-              'module',
-              'url',
-              'events',
-              'worker_threads',
-              'async_hooks',
-              'util',
-              'node:diagnostics_channel',
-              'node:net',
-              'node:tls',
-              'node:worker_threads',
-              'node:util',
-              'node:fs',
-              'node:path',
-              'node:process',
-              'node:buffer',
-              'node:string_decoder',
-              'node:readline',
-              'node:events',
-              'node:stream',
-              'node:assert',
-              'node:os',
-              'node:crypto',
-              'node:zlib',
-              'node:http',
-              'node:https',
-              'node:url',
-              'node:querystring',
-              'node:child_process',
-              'node:inspector',
-            ]
-          : [],
-      ],
+      external: adapterProvider === 'cloudflare_pages' 
+        ? ['node:fs', 'node:path', 'fs', 'path']
+        : [],
     },
   },
 })
