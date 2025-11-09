@@ -1,8 +1,8 @@
-# 使用阿里云镜像 - 解决国内网络问题
-FROM registry.cn-hangzhou.aliyuncs.com/library/node:22-alpine AS base
+# 使用 Docker 官方镜像 (配置镜像加速器后可用)
+FROM node:22-alpine AS base
 WORKDIR /app
 
-# 配置npm使用淘宝镜像
+# 配置npm使用淘宝镜像加速
 RUN npm config set registry https://registry.npmmirror.com
 
 # 安装pnpm
