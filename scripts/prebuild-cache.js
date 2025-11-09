@@ -140,8 +140,10 @@ async function getSingleChannelInfo(channel, { before = '', after = '', q = '' }
         channel,
         type: $(postItem).attr('class')?.includes('service_message') ? 'service' : 'text',
         datetime: $(postItem).find('.tgme_widget_message_date time')?.attr('datetime'),
+        text: content?.text() || '',
+        content: 'prebuilt', // 标记为预构建缓存
       };
-    })?.get()?.reverse().filter(post => ['text'].includes(post.type) && post.id && post.content);
+    })?.get()?.reverse().filter(post => ['text'].includes(post.type) && post.id);
 
     const channelInfo = {
       posts: posts || [],
