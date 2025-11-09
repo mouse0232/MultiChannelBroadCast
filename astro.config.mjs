@@ -11,6 +11,9 @@ const providers = {
   vercel: vercel({
     isr: false,
     edgeMiddleware: false,
+    functionPerRoute: false,
+    imageService: true,
+    devImageService: 'sharp',
   }),
   cloudflare_pages: cloudflare(),
   netlify: netlify({
