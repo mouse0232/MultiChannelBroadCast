@@ -4,6 +4,8 @@ services:
   app:
     build:
       context: .
+      # 国内用户推荐使用 Dockerfile.cn (阿里云镜像,更快)
+      # dockerfile: Dockerfile.cn
       dockerfile: Dockerfile
     image: multi-channel-broadcast:latest
     container_name: multi-channel-broadcast

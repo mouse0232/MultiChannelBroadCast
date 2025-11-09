@@ -48,14 +48,23 @@ ERROR: failed to solve: failed to fetch oauth token: Post "https://auth.docker.i
 
 2. **重启 Docker 并重试构建**
 
-#### 方案 3: 使用备用基础镜像
+#### 方案 3: 使用备用基础镜像 (推荐国内用户)
 
-修改 Dockerfile 使用阿里云镜像:
+**已提供国内优化的 Dockerfile: `Dockerfile.cn`**
 
-```dockerfile
-FROM registry.cn-hangzhou.aliyuncs.com/library/node:20-alpine AS base
-# 其余配置保持不变
+使用阿里云镜像构建:
+
+```bash
+# 使用国内优化的 Dockerfile
+docker build -f Dockerfile.cn -t multi-channel-broadcast .
+
+# 或使用 docker-compose (修改 docker-compose.yml 中的 dockerfile 字段)
 ```
+
+`Dockerfile.cn` 的优化:
+- ✅ 使用阿里云 Node.js 镜像
+- ✅ 配置淘宝 npm 镜像
+- ✅ 更快的构建速度
 
 #### 方案 4: 离线构建
 
