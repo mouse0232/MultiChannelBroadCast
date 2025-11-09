@@ -14,8 +14,11 @@ const providers = {
     functionPerRoute: false,
     imageService: true,
     devImageService: 'sharp',
+    runtime: 'nodejs20.x',
   }),
-  cloudflare_pages: cloudflare(),
+  cloudflare_pages: cloudflare({
+    mode: 'directory',
+  }),
   netlify: netlify({
     cacheOnDemandPages: false,
     edgeMiddleware: false,

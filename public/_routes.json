@@ -1,30 +1,12 @@
 {
   "version": 1,
   "include": [
-    "/",
-    "/channel/*",
-    "/before/*",
-    "/after/*",
-    "/posts/*",
-    "/search/*",
-    "/rss.xml",
-    "/rss.json",
-    "/sitemap.xml",
-    "/sitemap/*",
-    "/tags",
-    "/links"
+    "/*"
   ],
   "exclude": [
     "/robots.txt",
     "/favicon.ico",
     "/favicon.svg",
-    "/rss.xsl",
-    "/_astro/*",
-    "/*.css",
-    "/*.js",
-    "/*.png",
-    "/*.jpg",
-    "/*.svg",
-    "/*.webp"
+    "/rss.xsl"
   ]
 }
