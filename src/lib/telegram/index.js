@@ -4,81 +4,18 @@ import { LRUCache } from 'lru-cache'
 import flourite from 'flourite'
 import prism from '../prism'
 import { getEnv } from '../env'
-import { preloadCache } from './preload-cache.js'
 
-// LRU缓存配置 - 增强缓存策略避免频繁请求
+// 使用 BroadcastChannel 的简单缓存配置
 const cache = new LRUCache({
-  ttl: 1000 * 60 * 30, // 30分钟TTL - 进一步延长缓存时间以提高性能
-  maxSize: 150 * 1024 * 1024, // 150MB最大缓存 - 增加缓存空间
+  ttl: 1000 * 60 * 5, // 5分钟TTL
+  maxSize: 50 * 1024 * 1024, // 50MB最大缓存
   sizeCalculation: (item) => {
     return JSON.stringify(item).length
   },
-  updateAgeOnGet: true, // 访问时更新年龄
-  allowStale: true, // 允许返回过期数据
-  ttlAutopurge: false, // 禁用自动清理,保留过期数据
 })
-
-// 从预加载的缓存数据初始化 LRU 缓存
-if (preloadCache && preloadCache.length > 0) {
-  console.info(`加载预构建缓存: ${preloadCache.length} 个缓存项`)
-  preloadCache.forEach(({ key, value }) => {
-    try {
-      cache.set(key, value)
-    } catch (error) {
-      console.warn('加载缓存项失败:', error.message)
-    }
-  })
-  console.info('预构建缓存加载完成')
-}
-
-// 请求速率限制器 - 防止Telegram风控
-class RateLimiter {
-  constructor(maxRequests = 5, timeWindow = 10000) {
-    this.maxRequests = maxRequests // 每个时间窗口最多请求数
-    this.timeWindow = timeWindow // 时间窗口(毫秒)
-    this.requests = []
-  }
-
-  async waitForSlot() {
-    const now = Date.now()
-    // 清理过期的请求记录
-    this.requests = this.requests.filter(time => now - time < this.timeWindow)
-
-    if (this.requests.length >= this.maxRequests) {
-      // 需要等待
-      const oldestRequest = this.requests[0]
-      const waitTime = this.timeWindow - (now - oldestRequest) + Math.random() * 1000
-      console.info(`Rate limit reached, waiting ${Math.round(waitTime)}ms...`)
-      await new Promise(resolve => setTimeout(resolve, waitTime))
-      return this.waitForSlot() // 递归检查
-    }
-
-    this.requests.push(now)
-  }
-}
-
-const rateLimiter = new RateLimiter(3, 10000) // 每10秒最多3个请求
 
 // 不必要的请求头
 const unnecessaryHeaders = ['host', 'cookie', 'origin', 'referer']
-
-// 随机延迟函数 - 模拟真实用户行为
-function randomDelay(min = 1000, max = 3000) {
-  const delay = Math.floor(Math.random() * (max - min + 1)) + min
-  return new Promise(resolve => setTimeout(resolve, delay))
-}
-
-// 用户代理池
-const userAgents = [
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/121.0',
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15',
-]
-
-function getRandomUserAgent() {
-  return userAgents[Math.floor(Math.random() * userAgents.length)]
-}
 
 function getVideoStickers($, item, { staticProxy, index }) {
   return $(item).find('.js-videosticker_video')?.map((_index, video) => {
@@ -249,12 +186,9 @@ export async function getSingleChannelInfo(Astro, channel, { before = '', after 
   const cachedResult = cache.get(cacheKey)
 
   if (cachedResult) {
-    console.info('Cache hit for channel:', channel)
+    console.info('Match Cache', channel, { before, after, q, type, id })
     return JSON.parse(JSON.stringify(cachedResult))
   }
-
-  // 速率限制
-  await rateLimiter.waitForSlot()
 
   const host = getEnv(import.meta.env, Astro, 'TELEGRAM_HOST') ?? 't.me'
   const staticProxy = getEnv(import.meta.env, Astro, 'STATIC_PROXY') ?? ''
@@ -268,64 +202,42 @@ export async function getSingleChannelInfo(Astro, channel, { before = '', after 
     }
   })
 
-  // 添加随机User-Agent
-  headers['User-Agent'] = getRandomUserAgent()
+  console.info('Fetching', url, { before, after, q, type, id })
 
-  console.info('Fetching channel:', channel, { before, after, q, type, id })
+  const html = await $fetch(url, {
+    headers,
+    query: {
+      before: before || undefined,
+      after: after || undefined,
+      q: q || undefined,
+    },
+    retry: 3,
+    retryDelay: 100,
+  })
 
-  try {
-    const html = await $fetch(url, {
-      headers,
-      query: {
-        before: before || undefined,
-        after: after || undefined,
-        q: q || undefined,
-      },
-      retry: 3,
-      retryDelay: 1000, // 增加重试延迟
-      timeout: 15000, // 增加超时时间
-    })
+  const $ = cheerio.load(html, {}, false)
 
-    const $ = cheerio.load(html, {}, false)
-
-    if (id) {
-      const post = getPost($, null, { channel, staticProxy })
-      cache.set(cacheKey, post)
-      return post
-    }
-
-    const posts = $('.tgme_channel_history .tgme_widget_message_wrap')?.map((index, item) => {
-      return getPost($, item, { channel, staticProxy, index })
-    })?.get()?.reverse().filter(post => ['text'].includes(post.type) && post.id && post.content)
-
-    const channelInfo = {
-      posts,
-      title: $('.tgme_channel_info_header_title')?.text(),
-      description: $('.tgme_channel_info_description')?.text(),
-      descriptionHTML: modifyHTMLContent($, $('.tgme_channel_info_description'))?.html(),
-      avatar: $('.tgme_page_photo_image img')?.attr('src'),
-      username: channel,
-    }
-
-    cache.set(cacheKey, channelInfo)
-
-    // 添加随机延迟
-    await randomDelay(500, 1500)
-
-    return channelInfo
+  if (id) {
+    const post = getPost($, null, { channel, staticProxy })
+    cache.set(cacheKey, post)
+    return post
   }
-  catch (error) {
-    console.error(`Error fetching channel ${channel}:`, error)
-    // 返回空数据而不是抛出错误
-    return {
-      posts: [],
-      title: channel,
-      description: '',
-      descriptionHTML: '',
-      avatar: null,
-      username: channel,
-    }
+
+  const posts = $('.tgme_channel_history .tgme_widget_message_wrap')?.map((index, item) => {
+    return getPost($, item, { channel, staticProxy, index })
+  })?.get()?.reverse().filter(post => ['text'].includes(post.type) && post.id && post.content)
+
+  const channelInfo = {
+    posts,
+    title: $('.tgme_channel_info_header_title')?.text(),
+    description: $('.tgme_channel_info_description')?.text(),
+    descriptionHTML: modifyHTMLContent($, $('.tgme_channel_info_description'))?.html(),
+    avatar: $('.tgme_page_photo_image img')?.attr('src'),
+    username: channel,
   }
+
+  cache.set(cacheKey, channelInfo)
+  return channelInfo
 }
 
 /**
@@ -351,64 +263,58 @@ export async function getChannelInfo(Astro, { before = '', after = '', q = '' } 
   const cachedResult = cache.get(cacheKey)
 
   if (cachedResult) {
-    console.info('Cache hit for multi-channel')
+    console.info('Match Cache (multi-channel)')
     return JSON.parse(JSON.stringify(cachedResult))
   }
 
   console.info('Fetching multi-channel:', channels)
 
-  try {
-    // 并发获取所有频道数据(带速率限制)
-    const channelInfos = await Promise.all(
-      channels.map(channel => getSingleChannelInfo(Astro, channel, { before, after, q }))
-    )
+  // 并发获取所有频道数据
+  const channelInfos = await Promise.all(
+    channels.map(channel => getSingleChannelInfo(Astro, channel, { before, after, q }))
+  )
 
-    // 聚合所有帖子
-    let allPosts = []
-    channelInfos.forEach(info => {
-      if (info.posts && info.posts.length > 0) {
-        allPosts = allPosts.concat(info.posts)
-      }
-    })
-
-    // 按时间倒序排序
-    allPosts.sort((a, b) => {
-      const timeA = new Date(a.datetime).getTime()
-      const timeB = new Date(b.datetime).getTime()
-      return timeB - timeA // 降序
-    })
-
-    // 去重(基于频道+ID)
-    const seen = new Set()
-    allPosts = allPosts.filter(post => {
-      const key = `${post.channel}-${post.id}`
-      if (seen.has(key)) {
-        return false
-      }
-      seen.add(key)
-      return true
-    })
-
-    // 构建聚合结果
-    const siteName = getEnv(import.meta.env, Astro, 'SITE_NAME') || 'Multi-Channel Broadcast'
-    const aggregatedInfo = {
-      posts: allPosts,
-      title: siteName,
-      description: `Aggregated content from ${channels.length} channels: ${channels.join(', ')}`,
-      descriptionHTML: `<p>Aggregated content from ${channels.length} channels: ${channels.join(', ')}</p>`,
-      avatar: channelInfos[0]?.avatar || null,
-      channels: channelInfos.map(info => ({
-        username: info.username,
-        title: info.title,
-        avatar: info.avatar,
-      })),
+  // 聚合所有帖子
+  let allPosts = []
+  channelInfos.forEach(info => {
+    if (info.posts && info.posts.length > 0) {
+      allPosts = allPosts.concat(info.posts)
     }
+  })
 
-    cache.set(cacheKey, aggregatedInfo)
-    return aggregatedInfo
+  // 按时间倒序排序
+  allPosts.sort((a, b) => {
+    const timeA = new Date(a.datetime).getTime()
+    const timeB = new Date(b.datetime).getTime()
+    return timeB - timeA
+  })
+
+  // 去重(基于频道+ID)
+  const seen = new Set()
+  allPosts = allPosts.filter(post => {
+    const key = `${post.channel}-${post.id}`
+    if (seen.has(key)) {
+      return false
+    }
+    seen.add(key)
+    return true
+  })
+
+  // 构建聚合结果
+  const siteName = getEnv(import.meta.env, Astro, 'SITE_NAME') || 'Multi-Channel Broadcast'
+  const aggregatedInfo = {
+    posts: allPosts,
+    title: siteName,
+    description: `Aggregated content from ${channels.length} channels: ${channels.join(', ')}`,
+    descriptionHTML: `<p>Aggregated content from ${channels.length} channels: ${channels.join(', ')}</p>`,
+    avatar: channelInfos[0]?.avatar || null,
+    channels: channelInfos.map(info => ({
+      username: info.username,
+      title: info.title,
+      avatar: info.avatar,
+    })),
   }
-  catch (error) {
-    console.error('Error fetching multi-channel:', error)
-    throw error
-  }
+
+  cache.set(cacheKey, aggregatedInfo)
+  return aggregatedInfo
 }
