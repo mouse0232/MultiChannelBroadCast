@@ -7,13 +7,14 @@ import { getEnv } from '../env'
 
 // LRU缓存配置 - 增强缓存策略避免频繁请求
 const cache = new LRUCache({
-  ttl: 1000 * 60 * 5, // 5分钟TTL
-  maxSize: 50 * 1024 * 1024, // 50MB最大缓存
+  ttl: 1000 * 60 * 15, // 15分钟TTL - 延长缓存时间
+  maxSize: 100 * 1024 * 1024, // 100MB最大缓存 - 增加缓存空间
   sizeCalculation: (item) => {
     return JSON.stringify(item).length
   },
   updateAgeOnGet: true, // 访问时更新年龄
   allowStale: true, // 允许返回过期数据
+  ttlAutopurge: false, // 禁用自动清理,保留过期数据
 })
 
 // 请求速率限制器 - 防止Telegram风控
