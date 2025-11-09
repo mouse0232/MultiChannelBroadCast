@@ -128,6 +128,16 @@ const navs = (getEnv(import.meta.env, Astro, 'NAVS') || '')
   </head>
 
   <body>
+    {channels.length > 1 && (
+      <>
+        <button class="mobile-menu-toggle" aria-label="Toggle menu">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+        <div class="mobile-overlay"></div>
+      </>
+    )}
     <div id="wrapper">
       {channels.length > 1 && (
         <aside class="channel-sidebar">
@@ -322,9 +332,137 @@ const navs = (getEnv(import.meta.env, Astro, 'NAVS') || '')
     background: var(--secondary-color, #999);
   }
 
+  /* 移动端汉堡菜单 */
+  .mobile-menu-toggle {
+    display: none;
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    z-index: 1001;
+    width: 40px;
+    height: 40px;
+    background: white;
+    border: 1px solid var(--border-color, #e0e0e0);
+    border-radius: 8px;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .mobile-menu-toggle span {
+    width: 20px;
+    height: 2px;
+    background: var(--text-color, #333);
+    border-radius: 2px;
+    transition: all 0.3s;
+  }
+
+  .mobile-menu-toggle.active span:nth-child(1) {
+    transform: translateY(6px) rotate(45deg);
+  }
+
+  .mobile-menu-toggle.active span:nth-child(2) {
+    opacity: 0;
+  }
+
+  .mobile-menu-toggle.active span:nth-child(3) {
+    transform: translateY(-6px) rotate(-45deg);
+  }
+
+  .mobile-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+  }
+
+  .mobile-overlay.active {
+    display: block;
+  }
+
   @media (max-width: 1024px) {
+    .mobile-menu-toggle {
+      display: flex;
+    }
+
     .channel-sidebar {
-      display: none;
+      position: fixed;
+      left: -100%;
+      top: 0;
+      z-index: 1000;
+      transition: left 0.3s ease;
+      box-shadow: 2px 0 8px rgba(0,0,0,0.1);
+    }
+
+    .channel-sidebar.active {
+      left: 0;
+    }
+
+    .channel-sidebar-header,
+    .channel-sidebar-nav {
+      max-width: 100%;
+    }
+
+    #main-container {
+      padding-left: 20px;
+    }
+  }
+
+  @media (max-width: 600px) {
+    .mobile-menu-toggle {
+      top: 10px;
+      left: 10px;
+      width: 36px;
+      height: 36px;
+    }
+
+    .channel-sidebar {
+      width: 280px;
+      max-width: 80vw;
+    }
+
+    #main-container {
+      padding-left: 15px;
+      padding-right: 15px;
     }
   }
 </style>
+
+<script>
+  // 移动端菜单切换
+  document.addEventListener('DOMContentLoaded', () => {
+    const toggle = document.querySelector('.mobile-menu-toggle')
+    const sidebar = document.querySelector('.channel-sidebar')
+    const overlay = document.querySelector('.mobile-overlay')
+
+    if (toggle && sidebar && overlay) {
+      toggle.addEventListener('click', () => {
+        toggle.classList.toggle('active')
+        sidebar.classList.toggle('active')
+        overlay.classList.toggle('active')
+      })
+
+      overlay.addEventListener('click', () => {
+        toggle.classList.remove('active')
+        sidebar.classList.remove('active')
+        overlay.classList.remove('active')
+      })
+
+      // 点击链接后关闭菜单
+      sidebar.querySelectorAll('a').forEach(link => {
+        link.addEventListener('click', () => {
+          toggle.classList.remove('active')
+          sidebar.classList.remove('active')
+          overlay.classList.remove('active')
+        })
+      })
+    }
+  })
+</script>

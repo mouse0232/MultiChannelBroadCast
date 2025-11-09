@@ -827,11 +827,19 @@ li:has(input[type='checkbox']:checked:disabled)::before {
     flex-direction: column-reverse;
   }
 
-  #main-container,
+  #main-container {
+    flex: 1;
+    width: 100%;
+    max-width: 100%;
+    padding-left: 30px;
+    padding-right: 30px;
+  }
+
   #aside-container {
     flex: 1;
     width: 100%;
     max-width: 100%;
+    padding-left: 20px;
   }
 }
 
@@ -842,6 +850,11 @@ li:has(input[type='checkbox']:checked:disabled)::before {
 }
 
 @media screen and (max-width: 600px) {
+  #wrapper {
+    margin-left: 10px;
+    margin-right: 10px;
+  }
+
   #container {
     display: flex;
     width: 100%;
@@ -849,9 +862,9 @@ li:has(input[type='checkbox']:checked:disabled)::before {
   }
 
   #main-container {
-    padding-right: 0px;
+    padding-right: 15px;
+    padding-left: 15px;
     margin-right: 0px;
-    padding-left: 20px;
     width: 100%;
     max-width: 100%;
     border-right: none;
@@ -859,61 +872,172 @@ li:has(input[type='checkbox']:checked:disabled)::before {
   }
 
   #header {
-    padding: 0px;
+    padding: 5px 0px;
+    margin-bottom: 15px;
+  }
+
+  .header-avatar {
+    width: 32px;
+    height: 32px;
+    border-width: 2px;
+  }
+
+  .header-title {
+    font-size: 18px;
+    margin-left: 8px;
   }
 
   .items {
     margin-left: 0px;
   }
 
+  .title-box {
+    padding: 20px 0px 0px 20px;
+    font-size: 20px;
+    margin-left: 2px;
+  }
+
+  .text-box {
+    padding: 20px 0px 20px 20px;
+    font-size: 15px;
+    margin-left: 2px;
+  }
+
+  .image-box,
+  .video-box,
+  .audio-box {
+    padding: 20px 0px 20px 20px;
+    margin-left: 2px;
+  }
+
+  .attachment-box {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .tag-box {
+    padding: 0px 0px 20px 20px;
+    margin-left: 2px;
+    font-size: 13px;
+  }
+
+  .time-box > .time {
+    font-size: 13px;
+  }
+
   #aside-container {
     width: 100%;
     border-bottom: 1px solid var(--border-color);
     padding-bottom: 10px;
+    padding-left: 15px;
+    padding-right: 15px;
     background-color: var(--background-color);
     position: sticky;
     top: 0;
     box-shadow: 0px 4px 16px -16px rgba(0, 0, 0, 0.5);
+    z-index: 10;
   }
 
   #aside-container .nav {
+    padding-top: 10px;
     display: flex;
     flex-wrap: wrap;
-    gap: 2px;
+    gap: 4px;
   }
 
   #aside-container .nav-item {
-    font-size: 14px;
+    font-size: 13px;
     line-height: 1;
+    margin-bottom: 0;
+  }
+
+  .nav-link:link,
+  .nav-link:visited {
+    padding: 6px 12px;
+    font-size: 13px;
   }
 
   .section-title {
     padding: 10px 0px 0px 0px;
+    font-size: 15px;
+  }
+
+  .page-title {
+    font-size: 18px;
+    padding: 5px 0px;
+  }
+
+  .pages-container {
+    margin-top: 15px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .pages-info {
+    flex: 1 1 100%;
+    order: -1;
+    margin-bottom: 5px;
+    font-size: 11px;
+  }
+
+  a.page:link,
+  a.page:visited {
+    padding: 6px 12px;
+    font-size: 13px;
   }
 
   .tag-cloud {
-    margin-top: 20px;
+    column-count: 1;
+    margin-top: 15px;
   }
 
   .tag-cloud-item {
     padding-left: 0px;
+    font-size: 14px;
   }
 
   .archive-list {
-    margin-top: 20px;
+    column-count: 1;
+    margin-top: 15px;
   }
 
   .archive-list-item {
     padding-left: 0px;
+    font-size: 14px;
   }
 
   .archive-list-header {
     padding-left: 0px;
+    font-size: 15px;
   }
 
   #site-intro {
     margin-left: 0px;
-    margin-top: 20px;
-    margin-bottom: 20px;
+    margin-top: 15px;
+    margin-bottom: 15px;
+    padding: 15px;
+    font-size: 14px;
+  }
+
+  .content img {
+    border-radius: 6px;
+  }
+
+  .content pre {
+    font-size: 0.85em;
+    padding: 8px;
+  }
+
+  /* 优化表格在移动端的显示 */
+  .content table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* 搜索框优化 */
+  .search-form input[type="text"] {
+    font-size: 14px;
   }
 }
