@@ -128,22 +128,9 @@ async function getSingleChannelInfo(channel, { before = '', after = '', q = '' }
 
     const $ = cheerio.load(html, {}, false);
 
-    const posts = $('.tgme_channel_history .tgme_widget_message_wrap')?.map((index, item) => {
-      const postItem = $(item).find('.tgme_widget_message');
-      const content = $(postItem).find('.tgme_widget_message_text');
-      const title = content?.text()?.match(/^.*?(?=[。\n]|http\S)/g)?.[0] ?? content?.text() ?? '';
-      const id = $(postItem).attr('data-post')?.replace(new RegExp(`${channel}/`, 'i'), '');
-
-      return {
-        id,
-        title,
-        channel,
-        type: $(postItem).attr('class')?.includes('service_message') ? 'service' : 'text',
-        datetime: $(postItem).find('.tgme_widget_message_date time')?.attr('datetime'),
-        text: content?.text() || '',
-        content: 'prebuilt', // 标记为预构建缓存
-      };
-    })?.get()?.reverse().filter(post => ['text'].includes(post.type) && post.id);
+    // 预构建时不解析完整内容,只缓存基本信息以加速首次加载
+    // 实际访问时会由运行时获取完整内容
+    const posts = [];
 
     const channelInfo = {
       posts: posts || [],
@@ -259,33 +246,30 @@ async function preloadChannelData() {
   
   if (channels.length === 0) {
     console.log('未配置任何频道，跳过预加载');
-    return true; // 返回true而不是false，以避免构建失败
+    return true;
   }
   
-  console.log(`开始预加载 ${channels.length} 个频道的数据...`);
+  console.log(`开始预加载 ${channels.length} 个频道的基本信息...`);
+  console.log('注意: 预构建只缓存频道元数据,帖子内容将在首次访问时获取');
   
   try {
-    // 预加载首页聚合数据
-    console.log('预加载首页聚合数据...');
-    const aggregatedData = await getChannelInfo({});
-    console.log('首页聚合数据预加载完成');
-    
-    // 预加载每个单独频道的数据
+    // 仅预加载频道元数据(标题、头像等),不加载帖子内容
     for (const channel of channels) {
-      console.log(`预加载频道 ${channel} 的数据...`);
+      console.log(`预加载频道 ${channel} 的元数据...`);
       try {
-        await getChannelInfo({ channel });
-        console.log(`频道 ${channel} 数据预加载完成`);
+        await getSingleChannelInfo(channel, {});
+        console.log(`频道 ${channel} 元数据预加载完成`);
       } catch (error) {
-        console.error(`预加载频道 ${channel} 数据时出错:`, error.message);
+        console.error(`预加载频道 ${channel} 元数据时出错:`, error.message);
       }
     }
     
-    console.log('所有频道数据预加载完成');
+    console.log('所有频道元数据预加载完成');
+    console.log('首次访问页面时将获取实际帖子内容');
     return true;
   } catch (error) {
     console.error('预加载数据时出错:', error);
-    return true; // 即使出错也返回true，以避免构建失败
+    return true;
   }
 }
 
