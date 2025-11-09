@@ -121,26 +121,6 @@ DISCORD=https://discord.gg/invite
 PODCAST=https://your-podcast.com
 ```
 
-### SEO 配置
-
-```env
-## 搜索引擎索引控制
-NOFOLLOW=false
-NOINDEX=false
-
-## 启用Google站内搜索 (可选)
-GOOGLE_SEARCH_SITE=your-domain.com
-
-## 启用标签页 (使用英文逗号分隔)
-TAGS=技术,生活,随笔
-
-## 链接页面 (格式: 标题,URL;标题,URL)
-LINKS=GitHub,https://github.com;博客,https://blog.com
-
-## 侧边栏导航 (格式: 标题,URL;标题,URL)
-NAVS=关于,/about;友链,/links
-```
-
 ### 高级配置
 
 ```env
@@ -162,50 +142,42 @@ SENTRY_AUTH_TOKEN=your_auth_token
 
 ---
 
-## 📦 部署指南
+## 🎯 性能优化
 
-### Vercel 部署
+### 预构建缓存
 
-1. Fork 本项目到你的 GitHub
-2. 在 [Vercel](https://vercel.com) 导入项目
-3. 设置环境变量 `CHANNELS=channel1,channel2,channel3`
-4. 点击部署
+为了提升首次访问速度，项目支持在构建时预加载数据到缓存中：
 
-### Cloudflare Pages 部署
+1. 在构建过程中自动预加载频道数据
+2. 部署完成后用户访问站点时可直接显示内容
+3. 减少用户等待时间，提升用户体验
 
-1. Fork 本项目到你的 GitHub
-2. 在 [Cloudflare Pages](https://pages.cloudflare.com) 创建项目
-3. 选择你的 GitHub 仓库
-4. 构建设置:
-   - 构建命令: `pnpm build`
-   - 输出目录: `dist`
-5. 设置环境变量 `CHANNELS`
-6. 部署
+### 后台定时更新
 
-### Docker 部署
+项目支持后台定时更新缓存数据：
 
-```bash
-# 构建镜像
-docker build -t multi-channel-broadcast .
+- **Vercel**: 使用Cron Jobs每30分钟自动更新一次缓存
+- **Cloudflare**: 可配置Workers定时任务更新缓存
+- **其他平台**: 可通过定时执行脚本更新缓存
 
-# 运行容器
-docker run -d \
-  -p 4321:4321 \
-  -e CHANNELS=channel1,channel2,channel3 \
-  -e SITE_NAME="My Blog" \
-  --name multi-channel-broadcast \
-  multi-channel-broadcast
+### 缓存配置
+
+```env
+## 预构建缓存: 在构建时预加载数据到缓存中
+PREBUILD_CACHE=true
+
+## 后台定时更新缓存的时间间隔(分钟)
+CACHE_UPDATE_INTERVAL=30
 ```
 
-### Node.js 部署
+---
 
-```bash
-# 构建
-pnpm build
+## 📈 缓存策略
 
-# 运行(生产模式)
-node ./dist/server/entry.mjs
-```
+- **LRU缓存**: 30分钟TTL，150MB最大缓存
+- **预构建缓存**: 构建时预加载数据
+- **后台更新**: 定时更新缓存数据
+- **智能过期**: 允许返回过期数据，同时在后台更新
 
 ---
 
@@ -274,18 +246,4 @@ node ./dist/server/entry.mjs
 
 ## 📄 许可证
 
-MIT License
-
----
-
-## 🙏 致谢
-
-- 基于 [BroadcastChannel](https://github.com/ccbikai/BroadcastChannel) 项目
-- 使用 [Sepia](https://github.com/Planetable/SiteTemplateSepia) 模板
-- 感谢 [Astro](https://astro.build/) 框架
-
----
-
-## 📧 联系方式
-
-如有问题或建议,欢迎通过 Issue 反馈。
+MIT

@@ -120,91 +120,71 @@ CHANNELS=miantiao_me,v2ex,telegram
 SITE_NAME=我的多频道博客
 ```
 
-### 完整配置
+### 完整配置示例
 
 ```env
-## 多频道配置(必需)
-CHANNELS=channel1,channel2,channel3
+## =====================================
+## 核心配置
+## =====================================
 
-## 站点信息
-SITE_NAME=我的博客
-SITE=https://your-domain.com
+CHANNELS=miantiao_me,zaihuapd,sspai,zaobao_news,AI_News_CN,tnews365,kkaifenxiang
+SITE_NAME=多频道聚合
+SITE_AVATAR=https://your-avatar-url.png
 
+## =====================================
 ## 语言和时区
+## =====================================
+
 LOCALE=zh-cn
 TIMEZONE=Asia/Shanghai
 
+## =====================================
 ## 社交媒体
+## =====================================
+
 TELEGRAM=your_telegram
-TWITTER=your_twitter  
+TWITTER=your_twitter
 GITHUB=your_github
-MASTODON=https://mastodon.social/@user
-BLUESKY=https://bsky.app/profile/user
-
-## SEO 设置
-NOFOLLOW=false
-NOINDEX=false
-GOOGLE_SEARCH_SITE=your-domain.com
-
-## 标签和链接
-TAGS=技术,生活,随笔
-LINKS=GitHub,https://github.com;博客,https://blog.com
-NAVS=关于,/about;友链,/links
-
-## 高级设置
-TELEGRAM_HOST=t.me
-STATIC_PROXY=/static/
-HEADER_INJECT=<!-- Analytics -->
-FOOTER_INJECT=<!-- Footer -->
-
-## Sentry 错误追踪(可选)
-SENTRY_DSN=your_dsn
-SENTRY_PROJECT=your_project
-SENTRY_AUTH_TOKEN=your_token
 ```
-
-详细说明请查看 [.env.example](.env.example)
 
 ---
 
-## 📦 部署到其他平台
+## 🎯 性能优化
 
-### Cloudflare Pages
+### 预构建缓存
 
-1. Fork 项目到 GitHub
-2. 在 Cloudflare Pages 创建项目
-3. 连接 GitHub 仓库
-4. 构建设置:
-   - 构建命令: `pnpm build`
-   - 输出目录: `dist`
-5. 环境变量: `CHANNELS=your_channels`
-6. 部署
+为了提升首次访问速度，项目支持在构建时预加载数据到缓存中：
 
-### Netlify
+1. 在构建过程中自动预加载频道数据
+2. 部署完成后用户访问站点时可直接显示内容
+3. 减少用户等待时间，提升用户体验
 
-1. Fork 项目到 GitHub
-2. 在 Netlify 导入项目
-3. 构建设置:
-   - 构建命令: `pnpm build`
-   - 发布目录: `dist`
-4. 环境变量: `CHANNELS=your_channels`
-5. 部署
+### 后台定时更新
 
-### Node.js VPS
+项目支持后台定时更新缓存数据：
 
-```bash
-# 安装依赖
-pnpm install
+- **Vercel**: 使用Cron Jobs每30分钟自动更新一次缓存
+- **Cloudflare**: 可配置Workers定时任务更新缓存
+- **其他平台**: 可通过定时执行脚本更新缓存
 
-# 构建项目
-pnpm build
+### 缓存配置
 
-# 使用 PM2 运行(推荐)
-pm2 start dist/server/entry.mjs --name multi-channel
+```env
+## 预构建缓存: 在构建时预加载数据到缓存中
+PREBUILD_CACHE=true
 
-# 或直接运行
-node dist/server/entry.mjs
+## 后台定时更新缓存的时间间隔(分钟)
+CACHE_UPDATE_INTERVAL=30
 ```
+
+---
+
+## 📈 缓存策略
+
+- **LRU缓存**: 30分钟TTL，150MB最大缓存
+- **预构建缓存**: 构建时预加载数据
+- **后台更新**: 定时更新缓存数据
+- **智能过期**: 允许返回过期数据，同时在后台更新
 
 ---
 
@@ -281,43 +261,3 @@ node dist/server/entry.mjs
 - 📊 [项目总结](./PROJECT_SUMMARY.md)
 
 ---
-
-## 🗺️ 路线图
-
-- [ ] 频道过滤 UI
-- [ ] 频道分组功能
-- [ ] 统计数据展示
-- [ ] 支持 RSS 源
-- [ ] 管理后台
-
----
-
-## 🤝 贡献
-
-欢迎提交 Issue 和 Pull Request!
-
----
-
-## 📄 开源协议
-
-MIT License
-
----
-
-## 🙏 致谢
-
-- 基于 [BroadcastChannel](https://github.com/ccbikai/BroadcastChannel) 重构
-- 使用 [Sepia](https://github.com/Planetable/SiteTemplateSepia) 模板
-- 感谢 [Astro](https://astro.build/) 框架
-
----
-
-## 📧 反馈
-
-有问题或建议?欢迎:
-- 提交 [GitHub Issue](../../issues)
-- 参与 [Discussions](../../discussions)
-
----
-
-**⭐ 如果这个项目对你有帮助,请给个星标支持一下!**
