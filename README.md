@@ -96,7 +96,7 @@ cd MultiChannelBroadcast
 cp .env.example .env
 # 编辑 .env 文件,设置 CHANNELS 等配置
 
-# 使用 Docker Compose 构建并启动
+# 使用 Docker Compose 构建并启动 (国内用户默认使用 Dockerfile.cn)
 docker-compose up -d
 
 # 查看日志
@@ -105,6 +105,11 @@ docker-compose logs -f
 # 停止服务
 docker-compose down
 ```
+
+**国内用户优化**:
+- 默认使用 `Dockerfile.cn` (配置淘宝 npm 镜像)
+- 更快的依赖下载速度
+- 更稳定的构建过程
 
 或者使用 Docker 命令:
 

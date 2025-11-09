@@ -1,12 +1,13 @@
-# 使用 Docker 官方镜像 (配置镜像加速器后可用)
+# 国内优化版 Dockerfile - 使用淘宝镜像加速
 FROM node:22-alpine AS base
 WORKDIR /app
 
 # 配置npm使用淘宝镜像加速
 RUN npm config set registry https://registry.npmmirror.com
 
-# 安装pnpm
-RUN npm install -g pnpm@9.9.0
+# 安装pnpm并配置淘宝镜像
+RUN npm install -g pnpm@9.9.0 \
+    && pnpm config set registry https://registry.npmmirror.com
 
 # 安装所有依赖(包括开发依赖,用于构建)
 FROM base AS deps
@@ -20,10 +21,12 @@ COPY . .
 ENV DOCKER=true
 RUN pnpm run build
 
-# 仅安装生产依赖
+# 仅安装生产依赖并清理缓存
 FROM base AS prod-deps
 COPY package.json pnpm-lock.yaml* ./
-RUN pnpm install --prod --frozen-lockfile
+RUN pnpm install --prod --frozen-lockfile \
+    && pnpm store prune \
+    && rm -rf ~/.pnpm-store ~/.npm ~/.cache
 
 # 生产运行 - 使用最小化的镜像
 FROM node:22-alpine AS runtime
@@ -32,6 +35,12 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=4321
+
+# 清理不必要的包管理工具,减小镜像体积
+RUN rm -rf /usr/local/lib/node_modules/npm \
+    && rm -rf /usr/local/lib/node_modules/corepack \
+    && rm -rf /tmp/* \
+    && rm -rf /var/cache/apk/*
 
 # 只复制必要的文件
 COPY --from=build /app/dist ./dist
