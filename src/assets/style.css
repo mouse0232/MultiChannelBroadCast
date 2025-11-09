@@ -112,6 +112,7 @@ a.item-link:hover {
 
 #main-container {
   flex: 1;
+  max-width: 500px;
   padding-top: 20px;
   padding-right: 30px;
   padding-bottom: 20px;

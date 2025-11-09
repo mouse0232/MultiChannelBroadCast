@@ -2,7 +2,8 @@
 import List from '../../components/list.astro'
 import { getChannelInfo } from '../../lib/telegram'
 
-const { q } = Astro.params
+// 支持两种搜索方式: /search/关键词 或 /search/result?q=关键词
+const q = Astro.url.searchParams.get('q') || Astro.params.q
 
 const channel = await getChannelInfo(Astro, { q })
 

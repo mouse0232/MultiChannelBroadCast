@@ -1,5 +1,6 @@
 ---
 import { getEnv } from '../lib/env'
+import { getSingleChannelInfo } from '../lib/telegram'
 
 const { SITE_URL } = Astro.locals
 const { currentChannel } = Astro.props
@@ -8,11 +9,37 @@ const { currentChannel } = Astro.props
 const channelsStr = getEnv(import.meta.env, Astro, 'CHANNELS') || getEnv(import.meta.env, Astro, 'CHANNEL')
 const channels = channelsStr ? channelsStr.split(',').map(c => c.trim()).filter(Boolean) : []
 
-// 获取频道显示名称映射(可选配置)
-const channelNames = getEnv(import.meta.env, Astro, 'CHANNEL_NAMES')
+// 自动获取频道显示名称
 const channelNameMap = new Map()
-if (channelNames) {
-  channelNames.split(';').forEach(pair => {
+if (channels.length > 0) {
+  try {
+    // 并发获取所有频道信息以提取显示名称
+    const channelInfos = await Promise.all(
+      channels.map(async (channel) => {
+        try {
+          const info = await getSingleChannelInfo(Astro, channel, {})
+          return { channel, title: info.title || channel }
+        } catch (error) {
+          console.error(`Failed to fetch info for channel ${channel}:`, error)
+          return { channel, title: channel }
+        }
+      })
+    )
+    
+    channelInfos.forEach(({ channel, title }) => {
+      channelNameMap.set(channel, title)
+    })
+  } catch (error) {
+    console.error('Error fetching channel names:', error)
+    // 出错时使用频道用户名作为显示名称
+    channels.forEach(channel => channelNameMap.set(channel, channel))
+  }
+}
+
+// 备用:从环境变量读取频道显示名称映射(手动覆盖)
+const channelNamesEnv = getEnv(import.meta.env, Astro, 'CHANNEL_NAMES')
+if (channelNamesEnv) {
+  channelNamesEnv.split(';').forEach(pair => {
     const [username, displayName] = pair.split(':')
     if (username && displayName) {
       channelNameMap.set(username.trim(), displayName.trim())
