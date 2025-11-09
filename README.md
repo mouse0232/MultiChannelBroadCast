@@ -83,6 +83,60 @@ pnpm dev
 
 访问 `http://localhost:4321` 查看效果
 
+### Docker 部署
+
+使用 Docker 和 Docker Compose 部署:
+
+```bash
+# 克隆项目
+git clone <your-repo-url>
+cd MultiChannelBroadcast
+
+# 配置环境变量
+cp .env.example .env
+# 编辑 .env 文件,设置 CHANNELS 等配置
+
+# 使用 Docker Compose 构建并启动
+docker-compose up -d
+
+# 查看日志
+docker-compose logs -f
+
+# 停止服务
+docker-compose down
+```
+
+或者使用 Docker 命令:
+
+```bash
+# 构建镜像
+docker build -t multi-channel-broadcast .
+
+# 运行容器
+docker run -d \
+  --name multi-channel-broadcast \
+  -p 4321:4321 \
+  -e CHANNELS="channel1,channel2,channel3" \
+  -e SITE_NAME="My Blog" \
+  -e LOCALE="zh-cn" \
+  -e TIMEZONE="Asia/Shanghai" \
+  multi-channel-broadcast
+
+# 查看日志
+docker logs -f multi-channel-broadcast
+
+# 停止容器
+docker stop multi-channel-broadcast
+docker rm multi-channel-broadcast
+```
+
+访问 `http://localhost:4321` 查看效果
+
+**注意事项**:
+- 确保 Docker 和 Docker Compose 已安装
+- 建议使用 `.env` 文件管理环境变量
+- 生产环境建议配置反向代理(如 Nginx)
+
 ---
 
 ## ⚒️ 配置说明
