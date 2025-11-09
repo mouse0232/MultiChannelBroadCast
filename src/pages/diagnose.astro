@@ -1,0 +1,48 @@
+---
+import Layout from '../layouts/base.astro'
+
+// 导入缓存模块查看内容
+import { preloadCache } from '../lib/telegram/preload-cache.js'
+import { getChannelInfo } from '../lib/telegram'
+
+const channel = await getChannelInfo(Astro)
+const posts = channel?.posts || []
+
+const info = {
+  preloadCacheLength: preloadCache?.length || 0,
+  preloadCacheKeys: preloadCache?.map(item => item.key) || [],
+  channelTitle: channel?.title,
+  postsCount: posts.length,
+  firstPost: posts[0] ? {
+    id: posts[0].id,
+    channel: posts[0].channel,
+    title: posts[0].title?.substring(0, 50),
+    hasContent: !!posts[0].content,
+  } : null,
+}
+---
+
+<Layout channel={channel}>
+  <div style="padding: 20px; font-family: monospace;">
+    <h1>诊断信息</h1>
+    
+    <h2>预构建缓存</h2>
+    <pre>{JSON.stringify({
+      length: info.preloadCacheLength,
+      keys: info.preloadCacheKeys,
+    }, null, 2)}</pre>
+    
+    <h2>当前页面数据</h2>
+    <pre>{JSON.stringify({
+      title: info.channelTitle,
+      postsCount: info.postsCount,
+      firstPost: info.firstPost,
+    }, null, 2)}</pre>
+    
+    <h2>环境变量</h2>
+    <pre>{JSON.stringify({
+      CHANNELS: import.meta.env.CHANNELS,
+      SITE_NAME: import.meta.env.SITE_NAME,
+    }, null, 2)}</pre>
+  </div>
+</Layout>
