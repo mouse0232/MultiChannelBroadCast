@@ -1,8 +1,14 @@
 ---
-import List from '../components/list.astro'
-import { getChannelInfo } from '../lib/telegram'
+import { getEnv } from '../lib/env'
 
-const channel = await getChannelInfo(Astro)
+// 重定向到第一个频道,避免多频道聚合的性能问题
+const channelsStr = getEnv(import.meta.env, Astro, 'CHANNELS') || getEnv(import.meta.env, Astro, 'CHANNEL')
+const channels = channelsStr ? channelsStr.split(',').map(c => c.trim()).filter(Boolean) : []
+
+if (channels.length > 0) {
+  return Astro.redirect(`/channel/${channels[0]}`)
+}
+
+// 如果没有配置频道,返回404
+return Astro.redirect('/404')
 ---
-
-<List channel={channel} currentChannel={undefined} after={false} />
