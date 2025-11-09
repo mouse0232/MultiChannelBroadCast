@@ -233,7 +233,7 @@ const navs = (getEnv(import.meta.env, Astro, 'NAVS') || '')
                 target="_blank"
                 rel="noopener"
               >
-                BroadcastChannel
+                based on BroadcastChannel
             </div>
           </slot>
         </div>
@@ -256,16 +256,19 @@ const navs = (getEnv(import.meta.env, Astro, 'NAVS') || '')
     height: 100vh;
     position: sticky;
     top: 0;
+    display: flex;
+    flex-direction: column;
   }
 
   .channel-sidebar-header {
     padding: 20px 16px 12px;
     border-bottom: 1px solid var(--border-color, #e0e0e0);
+    max-width: 50%;
   }
 
   .channel-sidebar-header h3 {
     margin: 0;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--secondary-color, #666);
     text-transform: uppercase;
@@ -274,21 +277,23 @@ const navs = (getEnv(import.meta.env, Astro, 'NAVS') || '')
 
   .channel-sidebar-nav {
     padding: 8px;
+    max-width: 50%;
   }
 
   .channel-sidebar-item {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 10px 12px;
-    margin-bottom: 4px;
-    border-radius: 8px;
+    gap: 8px;
+    padding: 8px 10px;
+    margin-bottom: 3px;
+    border-radius: 6px;
     text-decoration: none;
     color: var(--text-color, #333);
     background: transparent;
     transition: all 0.2s;
-    font-size: 14px;
+    font-size: 13px;
     line-height: 1.4;
+    white-space: nowrap;
   }
 
   .channel-sidebar-item:hover {
@@ -298,16 +303,16 @@ const navs = (getEnv(import.meta.env, Astro, 'NAVS') || '')
   .channel-sidebar-item.active {
     background: var(--highlight-color, #ff6b6b);
     color: white;
+    font-weight: 500;
   }
 
   .channel-sidebar-item svg {
     flex-shrink: 0;
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
   }
 
   .channel-sidebar-item span {
-    flex: 1;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
