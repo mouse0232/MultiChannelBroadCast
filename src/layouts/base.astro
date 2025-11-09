@@ -158,6 +158,56 @@ const navs = (getEnv(import.meta.env, Astro, 'NAVS') || '')
               </a>
             ))}
           </nav>
+
+          {/* 移动端显示导航和搜索 */}
+          <div class="channel-sidebar-section">
+            <h4 class="channel-sidebar-section-title">导航</h4>
+            <div class="sidebar-nav-list">
+              <a href={`${SITE_URL}channel/${channels[0] || ''}`} 
+                 class={`sidebar-nav-link ${pathname.startsWith('/channel/') ? 'current' : ''}`}>
+                Home
+              </a>
+              {TAGS && (
+                <a href={`${SITE_URL}tags`} 
+                   class={`sidebar-nav-link ${pathname === '/tags' ? 'current' : ''}`}>
+                  Tags
+                </a>
+              )}
+              {LINKS && (
+                <a href={`${SITE_URL}links`} 
+                   class={`sidebar-nav-link ${pathname === '/links' ? 'current' : ''}`}>
+                  Links
+                </a>
+              )}
+              {navs.map((nav) => (
+                <a href={nav.href} 
+                   target="_blank" 
+                   rel="noopener" 
+                   class="sidebar-nav-link">
+                  {nav.title}
+                </a>
+              ))}
+            </div>
+          </div>
+
+          <div class="channel-sidebar-section">
+            <h4 class="channel-sidebar-section-title">搜索</h4>
+            <form class="sidebar-search-form" action={searchAction} method="get">
+              {GOOGLE_SEARCH_SITE ? <input type="hidden" name="as_sitesearch" value={GOOGLE_SEARCH_SITE} /> : null}
+              <input type="text" name="q" placeholder="搜索..." />
+            </form>
+          </div>
+
+          <div class="sidebar-copyright">
+            Powered by
+            <a href="https://github.com/banlanzs/MultiChannelBroadCast" target="_blank" rel="noopener">
+              Multi-Channel Fork
+            </a>
+            <br />
+            <a href="https://github.com/ccbikai/BroadcastChannel" target="_blank" rel="noopener">
+              based on BroadcastChannel
+            </a>
+          </div>
         </aside>
       )}
       <div id="container">
@@ -260,7 +310,6 @@ const navs = (getEnv(import.meta.env, Astro, 'NAVS') || '')
   .channel-sidebar-header {
     padding: 20px 16px 12px;
     border-bottom: 1px solid var(--border-color, #e0e0e0);
-    max-width: 50%;
   }
 
   .channel-sidebar-header h3 {
@@ -274,7 +323,94 @@ const navs = (getEnv(import.meta.env, Astro, 'NAVS') || '')
 
   .channel-sidebar-nav {
     padding: 8px;
-    max-width: 50%;
+  }
+
+  /* 右侧导航区域 */
+  .channel-sidebar-section {
+    padding: 16px;
+    border-top: 1px solid var(--border-color, #e0e0e0);
+  }
+
+  .channel-sidebar-section-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--secondary-color, #666);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0 0 12px 0;
+  }
+
+  .sidebar-nav-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .sidebar-nav-link {
+    display: block;
+    padding: 8px 10px;
+    border-radius: 6px;
+    text-decoration: none;
+    color: var(--text-color, #333);
+    background: transparent;
+    transition: all 0.2s;
+    font-size: 13px;
+  }
+
+  .sidebar-nav-link:hover {
+    background: var(--hover-background, #f5f5f5);
+    text-decoration: none;
+  }
+
+  .sidebar-nav-link.current {
+    background: var(--highlight-color, #ff6b6b);
+    color: white;
+    font-weight: 500;
+  }
+
+  .sidebar-search-form {
+    margin-top: 8px;
+  }
+
+  .sidebar-search-form input[type="text"] {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color, #e0e0e0);
+    border-radius: 6px;
+    font-size: 13px;
+    box-sizing: border-box;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .sidebar-search-form input[type="text"]:focus {
+    border-color: var(--highlight-color, #ff6b6b);
+  }
+
+  .sidebar-copyright {
+    padding: 16px;
+    border-top: 1px solid var(--border-color, #e0e0e0);
+    font-size: 11px;
+    color: var(--secondary-color, #999);
+    line-height: 1.6;
+  }
+
+  .sidebar-copyright a {
+    color: var(--secondary-color, #999);
+    text-decoration: none;
+  }
+
+  .sidebar-copyright a:hover {
+    color: var(--highlight-color, #ff6b6b);
+    text-decoration: underline;
+  }
+
+  /* 在桌面端隐藏侧边栏中的导航和搜索 */
+  @media (min-width: 1025px) {
+    .channel-sidebar-section,
+    .sidebar-copyright {
+      display: none;
+    }
   }
 
   .channel-sidebar-item {
@@ -424,13 +560,18 @@ const navs = (getEnv(import.meta.env, Astro, 'NAVS') || '')
     }
 
     .channel-sidebar {
-      width: 280px;
-      max-width: 80vw;
+      width: 85vw;
+      max-width: 320px;
     }
 
     #main-container {
       padding-left: 15px;
       padding-right: 15px;
+    }
+
+    /* 移动端隐藏右侧边栏 */
+    #aside-container {
+      display: none !important;
     }
   }
 </style>
