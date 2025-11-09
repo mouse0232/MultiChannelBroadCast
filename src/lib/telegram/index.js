@@ -7,8 +7,8 @@ import { getEnv } from '../env'
 
 // LRU缓存配置 - 增强缓存策略避免频繁请求
 const cache = new LRUCache({
-  ttl: 1000 * 60 * 15, // 15分钟TTL - 延长缓存时间
-  maxSize: 100 * 1024 * 1024, // 100MB最大缓存 - 增加缓存空间
+  ttl: 1000 * 60 * 30, // 30分钟TTL - 进一步延长缓存时间以提高性能
+  maxSize: 150 * 1024 * 1024, // 150MB最大缓存 - 增加缓存空间
   sizeCalculation: (item) => {
     return JSON.stringify(item).length
   },
