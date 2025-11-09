@@ -22,6 +22,9 @@ dist
 build/
 .cache/
 
+# Auto-generated cache module (regenerated on each build)
+src/lib/telegram/preload-cache.js
+
 # Logs
 logs
 *.log

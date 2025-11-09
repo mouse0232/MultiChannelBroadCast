@@ -4,6 +4,7 @@ import { LRUCache } from 'lru-cache'
 import flourite from 'flourite'
 import prism from '../prism'
 import { getEnv } from '../env'
+import { preloadCache } from './preload-cache.js'
 
 // LRU缓存配置 - 增强缓存策略避免频繁请求
 const cache = new LRUCache({
@@ -16,6 +17,19 @@ const cache = new LRUCache({
   allowStale: true, // 允许返回过期数据
   ttlAutopurge: false, // 禁用自动清理,保留过期数据
 })
+
+// 从预加载的缓存数据初始化 LRU 缓存
+if (preloadCache && preloadCache.length > 0) {
+  console.info(`加载预构建缓存: ${preloadCache.length} 个缓存项`)
+  preloadCache.forEach(({ key, value }) => {
+    try {
+      cache.set(key, value)
+    } catch (error) {
+      console.warn('加载缓存项失败:', error.message)
+    }
+  })
+  console.info('预构建缓存加载完成')
+}
 
 // 请求速率限制器 - 防止Telegram风控
 class RateLimiter {
