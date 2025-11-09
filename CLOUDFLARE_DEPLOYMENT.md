@@ -1,34 +1,129 @@
 # Cloudflare Pages 部署指南
 
-## 问题诊断
+## 🚨 关键问题修复
 
-### 1. URL 显示问题: `/channel/xxx/page/:page`
+### 问题 1: URL 错误显示为 `/channel/xxx/page/:page`
 
-**原因**: 这通常是由于:
-- Cloudflare Pages 的路由自动生成问题
-- 环境变量未正确设置
-- 缓存或构建缓存导致
+**根本原因**: 
+- Cloudflare Pages 可能缓存了旧的路由配置
+- 或者 `SITE_URL` 环境变量设置不正确
 
-**解决方案**:
+**解决步骤**:
 
-1. **清除 Cloudflare Pages 构建缓存**
+1. **删除现有部署**
+   - 进入 Cloudflare Pages 项目
+   - 删除所有现有部署
+
+2. **清除构建缓存**
+   - Settings → Builds & deployments → Clear build cache
+
+3. **正确设置环境变量** (重要!)
    ```bash
-   # 在 Cloudflare Pages 控制台:
-   # Settings -> Builds & deployments -> Clear build cache
-   ```
-
-2. **检查环境变量**
-   确保在 Cloudflare Pages 设置中添加了所有必需的环境变量:
-   ```
    CHANNELS=miantiao_me,zaihuapd,sspai,zaobao_news,AI_News_CN,tnews365,kkaifenxiang
-   SITE_URL=https://multichannelbroadcast.pages.dev/
+   SITE=https://multichannelbroadcast.pages.dev
    SITE_TITLE=多频道聚合
+   SITE_AVATAR=https://linux.do/user_avatar/linux.do/banlan/288/1119097_2.png
+   ```
+   
+   **注意**: 
+   - `SITE` 不要加尾部斜杠 `/`
+   - 或者根本不设置 `SITE`,让 Cloudflare 自动检测
+
+4. **重新部署**
+   - 触发新的构建
+   - 等待完成
+
+### 问题 2: 头像图片无法显示
+
+**根本原因**: 
+- 之前使用 `wsrv.nl` 图片代理,但处理 URL 时移除了协议前缀
+- 导致 `https://linux.do/...` 变成了 `linux.do/...`
+
+**已修复**:
+- 移除了所有 `wsrv.nl` 图片代理逻辑
+- 直接使用原始图片 URL
+- 现在 `SITE_AVATAR` 可以正常工作
+
+## 完整部署配置
+
+### Cloudflare Pages 构建设置
+
+```yaml
+Framework preset: Astro
+Build command: pnpm build  
+Build output directory: dist
+Root directory: /
+Node version: 18 或 20
+```
+
+### 环境变量配置 (Production & Preview)
+
+**必需**:
+```bash
+CHANNELS=channel1,channel2,channel3
+```
+
+**推荐设置**:
+```bash
+# 站点基础配置
+SITE_TITLE=您的站点名称
+SITE_AVATAR=https://your-avatar-url.com/avatar.png
+
+# 不要设置 SITE_URL,让 Cloudflare 自动检测
+# 如果一定要设置,确保格式正确(没有尾部斜杠):
+# SITE=https://your-site.pages.dev
+
+# 语言和时区
+LOCALE=zh-cn
+TIMEZONE=Asia/Shanghai
+
+# 社交媒体
+TELEGRAM=your_telegram
+GITHUB=your_github
+TWITTER=your_twitter
+```
+
+### 关键点检查清单
+
+部署前检查:
+- [ ] `CHANNELS` 环境变量已设置
+- [ ] 不要设置 `SITE_URL`,或确保格式正确(无尾部斜杠)
+- [ ] `SITE_AVATAR` 使用完整的 HTTPS URL
+- [ ] 清除了构建缓存
+- [ ] 删除了旧的部署
+
+部署后验证:
+- [ ] 访问首页 `/` 正常
+- [ ] 访问频道页 `/channel/xxx` URL 正确
+- [ ] 左侧导航显示正常
+- [ ] 头像图片显示正常
+- [ ] 点击"更早"/"更新"链接正确
+
+### 常见URL问题调试
+
+如果仍然出现 `/page/:page` 问题:
+
+1. **检查浏览器开发者工具**
+   ```
+   Network → Headers → Request URL
+   ```
+   看实际请求的URL是什么
+
+2. **检查 HTML 源代码**
+   右键查看源代码,搜索 `href=`
+   看生成的链接是否正确
+
+3. **检查环境变量**
+   ```bash
+   # 在 Cloudflare Pages Functions 日志中查看
+   console.log(process.env.SITE)
+   console.log(import.meta.env.SITE)
    ```
 
-3. **重新部署**
-   - 删除现有部署
-   - 触发新的构建
-   - 确保使用 `pnpm build` 命令
+4. **临时禁用缓存**
+   在 URL 后加 `?t=123` 强制刷新
+
+### 性能优化
 
 ### 2. 首次访问加载慢
 

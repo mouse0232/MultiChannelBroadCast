@@ -21,9 +21,7 @@ const avatarUrl = siteAvatar || channel?.avatar
   {avatarUrl && (
     <a href={SITE_URL}>
       <img
-        src={avatarUrl.startsWith('http')
-          ? `https://wsrv.nl/?w=128&h=128&fit=cover&mask=circle&url=ssl:${avatarUrl.replace(/^https?:\/\//, '')}`
-          : avatarUrl}
+        src={avatarUrl}
         alt={channel?.title || 'Site Avatar'}
         class="header-avatar"
       />
