@@ -1,0 +1,20 @@
+---
+import List from '../../components/list.astro'
+import { getSingleChannelInfo } from '../../lib/telegram'
+import { getEnv } from '../../lib/env'
+
+const { channel: channelName } = Astro.params
+
+// 验证频道是否在配置中
+const channelsStr = getEnv(import.meta.env, Astro, 'CHANNELS') || getEnv(import.meta.env, Astro, 'CHANNEL')
+const channels = channelsStr.split(',').map(c => c.trim()).filter(Boolean)
+
+if (!channels.includes(channelName)) {
+  return Astro.redirect('/404')
+}
+
+// 获取单个频道的数据
+const channel = await getSingleChannelInfo(Astro, channelName)
+---
+
+<List channel={channel} after={false} />

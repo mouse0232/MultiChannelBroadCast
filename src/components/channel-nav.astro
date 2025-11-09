@@ -1,0 +1,117 @@
+---
+import { getEnv } from '../lib/env'
+
+const { SITE_URL } = Astro.locals
+const { currentChannel } = Astro.props
+
+// 获取所有频道
+const channelsStr = getEnv(import.meta.env, Astro, 'CHANNELS') || getEnv(import.meta.env, Astro, 'CHANNEL')
+const channels = channelsStr ? channelsStr.split(',').map(c => c.trim()).filter(Boolean) : []
+
+// 获取频道显示名称映射(可选配置)
+const channelNames = getEnv(import.meta.env, Astro, 'CHANNEL_NAMES')
+const channelNameMap = new Map()
+if (channelNames) {
+  channelNames.split(';').forEach(pair => {
+    const [username, displayName] = pair.split(':')
+    if (username && displayName) {
+      channelNameMap.set(username.trim(), displayName.trim())
+    }
+  })
+}
+---
+
+{channels.length > 1 && (
+  <nav class="channel-nav">
+    <div class="channel-nav-container">
+      <a 
+        href={SITE_URL} 
+        class={`channel-nav-item ${!currentChannel ? 'active' : ''}`}
+        title="所有频道"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+          <polyline points="9 22 9 12 15 12 15 22"></polyline>
+        </svg>
+        <span>全部</span>
+      </a>
+      {channels.map(channel => (
+        <a 
+          href={`${SITE_URL}channel/${channel}`}
+          class={`channel-nav-item ${currentChannel === channel ? 'active' : ''}`}
+          title={channelNameMap.get(channel) || channel}
+        >
+          <span>@{channelNameMap.get(channel) || channel}</span>
+        </a>
+      ))}
+    </div>
+  </nav>
+)}
+
+<style>
+  .channel-nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--background-color, #fff);
+    border-bottom: 1px solid var(--border-color, #e0e0e0);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  }
+
+  .channel-nav-container {
+    display: flex;
+    gap: 4px;
+    padding: 12px 20px;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .channel-nav-container::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  .channel-nav-container::-webkit-scrollbar-thumb {
+    background: var(--border-color, #e0e0e0);
+    border-radius: 2px;
+  }
+
+  .channel-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 20px;
+    text-decoration: none;
+    color: var(--text-color, #333);
+    background: transparent;
+    white-space: nowrap;
+    transition: all 0.2s;
+    font-size: 14px;
+    border: 1px solid transparent;
+  }
+
+  .channel-nav-item:hover {
+    background: var(--hover-background, #f5f5f5);
+  }
+
+  .channel-nav-item.active {
+    background: var(--highlight-color, #ff6b6b);
+    color: white;
+    border-color: var(--highlight-color, #ff6b6b);
+  }
+
+  .channel-nav-item svg {
+    width: 16px;
+    height: 16px;
+  }
+
+  @media (max-width: 768px) {
+    .channel-nav-item span {
+      font-size: 13px;
+    }
+    
+    .channel-nav-item {
+      padding: 6px 12px;
+    }
+  }
+</style>

@@ -1,0 +1,92 @@
+---
+import Layout from '../layouts/base.astro'
+import Header from '../components/header.astro'
+import Item from '../components/item.astro'
+import ChannelNav from '../components/channel-nav.astro'
+
+const { SITE_URL } = Astro.locals
+const { channel, before = true, after = true, isItem = false, currentChannel } = Astro.props
+const posts = channel.posts ?? []
+
+// 分页优化: 每页显示20条
+const POSTS_PER_PAGE = 20
+const displayPosts = posts.slice(0, POSTS_PER_PAGE)
+
+const beforeCursor = displayPosts[displayPosts.length - 1]?.id
+const afterCursor = displayPosts[0]?.id
+---
+
+<Layout channel={channel} id="main-container">
+  <ChannelNav currentChannel={currentChannel} />
+  
+  <slot name="header">
+    <Header channel={channel} />
+  </slot>
+
+  <div class="items">
+    {displayPosts.map((post) => <Item post={post} isItem={isItem} />)}
+  </div>
+  
+  {!isItem && displayPosts.length === 0 && (
+    <div class="no-posts">
+      <p>暂无内容</p>
+    </div>
+  )}
+  
+  {!isItem && posts.length > POSTS_PER_PAGE && (
+    <div class="load-more-info">
+      <p>显示 {displayPosts.length} / {posts.length} 条内容</p>
+    </div>
+  )}
+
+  <div class="pages-container">
+    {
+      before && beforeCursor > 1 ? (
+        currentChannel ? (
+          <a href={`${SITE_URL}channel/${currentChannel}/before/${beforeCursor}`} title="更早" class="page">
+            ← 更早
+          </a>
+        ) : (
+          <a href={`${SITE_URL}before/${beforeCursor}`} title="更早" class="page">
+            ← 更早
+          </a>
+        )
+      ) : (
+        <span class="page-placeholder">&nbsp;</span>
+      )
+    }
+
+    <div class="pages-info"></div>
+    {
+      after && afterCursor ? (
+        currentChannel ? (
+          <a href={`${SITE_URL}channel/${currentChannel}/after/${afterCursor}`} title="更新" class="page">
+            更新 →
+          </a>
+        ) : (
+          <a href={`${SITE_URL}after/${afterCursor}`} title="更新" class="page">
+            更新 →
+          </a>
+        )
+      ) : (
+        <span class="page-placeholder">&nbsp;</span>
+      )
+    }
+  </div>
+</Layout>
+
+<style>
+  .no-posts {
+    padding: 60px 20px;
+    text-align: center;
+    color: var(--secondary-color, #999);
+  }
+
+  .load-more-info {
+    padding: 20px;
+    text-align: center;
+    color: var(--secondary-color, #666);
+    font-size: 14px;
+    border-top: 1px solid var(--border-color, #e0e0e0);
+  }
+</style>

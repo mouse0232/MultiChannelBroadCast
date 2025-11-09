@@ -1,0 +1,47 @@
+---
+import List from '../../components/list.astro'
+import { getSingleChannelInfo } from '../../lib/telegram'
+import { getEnv } from '../../lib/env'
+
+const { id } = Astro.params
+
+// 获取单个帖子需要指定频道
+const channelsStr = getEnv(import.meta.env, Astro, 'CHANNELS') || getEnv(import.meta.env, Astro, 'CHANNEL')
+const channels = channelsStr.split(',').map(c => c.trim())
+
+// 尝试从所有频道中获取该帖子
+let post = null
+let channelName = null
+
+for (const channel of channels) {
+  try {
+    const result = await getSingleChannelInfo(Astro, channel, { id })
+    if (result && result.id) {
+      post = result
+      channelName = channel
+      break
+    }
+  } catch (e) {
+    // 继续尝试下一个频道
+    continue
+  }
+}
+
+if (!post) {
+  return Astro.redirect('/404')
+}
+
+// 构造频道信息用于显示
+const channel = {
+  posts: [post],
+  title: channelName,
+  username: channelName,
+}
+
+channel.seo = {
+  title: post.title,
+  text: post.text,
+}
+---
+
+<List channel={channel} isItem={true} before={false} after={false} />

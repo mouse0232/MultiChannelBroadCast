@@ -1,0 +1,72 @@
+---
+import dayjs from '../lib/dayjs'
+import { getEnv } from '../lib/env'
+
+const { post, isItem = false } = Astro.props
+const { SITE_URL } = Astro.locals
+
+const locale = getEnv(import.meta.env, Astro, 'LOCALE') || 'en'
+const timezone = getEnv(import.meta.env, Astro, 'TIMEZONE') || 'UTC'
+
+dayjs.locale(locale)
+dayjs.tz.setDefault(timezone)
+
+const datetime = dayjs(post.datetime)
+const url = `${SITE_URL}posts/${post.id}`
+---
+
+<div class="item">
+  <div class="time-box">
+    <div class="dot"></div>
+    <div class="time">
+      <a href={url} class="item-link">
+        <time datetime={post.datetime} title={post.datetime}>
+          {isItem ? datetime.format('LLLL') : datetime.fromNow()}
+        </time>
+      </a>
+    </div>
+  </div>
+
+  {post.content && (
+    <div class="text-box content" set:html={post.content} />
+  )}
+
+  {post.tags && post.tags.length > 0 && (
+    <div class="tag-box">
+      {post.tags.map((tag) => (
+        <a href={`${SITE_URL}search/${encodeURIComponent(`#${tag}`)}`} class="tag">
+          #{tag}
+        </a>
+      ))}
+    </div>
+  )}
+
+  {/* 显示频道来源 - 多频道特有 */}
+  {post.channel && (
+    <div class="channel-source">
+      <small>
+        来自频道: <a href={`https://t.me/${post.channel}`} target="_blank" rel="noopener">@{post.channel}</a>
+      </small>
+    </div>
+  )}
+</div>
+
+<style>
+  .channel-source {
+    margin-top: 10px;
+    padding: 8px 12px;
+    background-color: var(--background-color, #f5f5f5);
+    border-radius: 4px;
+    font-size: 13px;
+    color: var(--secondary-color, #666);
+  }
+
+  .channel-source a {
+    color: var(--highlight-color, #ff6b6b);
+    text-decoration: none;
+  }
+
+  .channel-source a:hover {
+    text-decoration: underline;
+  }
+</style>

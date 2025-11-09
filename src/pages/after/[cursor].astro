@@ -1,0 +1,10 @@
+---
+import List from '../../components/list.astro'
+import { getChannelInfo } from '../../lib/telegram'
+
+const { cursor } = Astro.params
+
+const channel = await getChannelInfo(Astro, { after: cursor })
+---
+
+<List channel={channel} />
