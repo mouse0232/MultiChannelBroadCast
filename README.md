@@ -194,45 +194,15 @@ SENTRY_AUTH_TOKEN=your_auth_token
 
 ### 如何启用评论功能?
 
-#### 本地开发
 1. 在 `.env` 文件中添加 `COMMENTS=true`
 2. 确保你的 Telegram 频道已开启讨论组功能
-3. 重启开发服务器: `pnpm dev`
-4. 点击帖子时间戳进入详情页,会在下方显示评论区
-
-#### Cloudflare Pages 部署
-1. 登录 [Cloudflare Dashboard](https://dash.cloudflare.com/)
-2. 进入你的项目 → Settings → Environment variables
-3. 添加环境变量:
-   - 变量名: `COMMENTS`
-   - 变量值: `true`
-   - 应用范围: `Production` 和 `Preview`
-4. 点击 Save 保存
-5. 重新部署项目 (Deployments → Retry deployment)
-
-#### Vercel 部署
-1. 登录 [Vercel Dashboard](https://vercel.com/dashboard)
-2. 进入你的项目 → Settings → Environment Variables
-3. 添加:
-   - Name: `COMMENTS`
-   - Value: `true`
-   - Environment: 选择 `Production`, `Preview`, `Development`
-4. 点击 Save
-5. 重新部署 (Deployments → Redeploy)
-
-#### Docker 部署
-在 `docker-compose.yml` 或启动命令中添加环境变量:
-```yaml
-environment:
-  - COMMENTS=true
-```
+3. 点击帖子时间戳进入详情页,会在下方显示评论区
 
 **注意事项**:
 - 评论功能使用 Telegram 官方 widget,数据存储在 Telegram
 - 只有开启了讨论组的频道消息才能显示评论
 - 评论区会异步加载,可能需要几秒钟
 - 每个帖子最多显示 50 条评论
-- ⚠️ **部署平台必须在环境变量中配置 `COMMENTS=true`**
 
 ---
 

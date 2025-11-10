@@ -193,16 +193,45 @@ export async function getSingleChannelInfo(Astro, channel, { before = '', after 
   const host = getEnv(import.meta.env, Astro, 'TELEGRAM_HOST') ?? 't.me'
   const staticProxy = getEnv(import.meta.env, Astro, 'STATIC_PROXY') ?? ''
 
-  const url = id ? `https://${host}/${channel}/${id}?embed=1&mode=tme` : `https://${host}/s/${channel}`
   const headers = Object.fromEntries(Astro.request.headers)
-
   Object.keys(headers).forEach((key) => {
     if (unnecessaryHeaders.includes(key)) {
       delete headers[key]
     }
   })
 
-  console.info('Fetching', url, { before, after, q, type, id })
+  // 如果是单个帖子,先获取频道首页来提取频道标题
+  let channelTitle = channel
+  let channelAvatar = null
+  
+  if (id) {
+    try {
+      // 请求频道首页获取频道标题
+      const channelPageUrl = `https://${host}/s/${channel}`
+      console.info('Fetching channel info from:', channelPageUrl)
+      
+      const channelHtml = await $fetch(channelPageUrl, {
+        headers,
+        retry: 2,
+        retryDelay: 100,
+      })
+      
+      const $channel = cheerio.load(channelHtml, {}, false)
+      channelTitle = $channel('.tgme_page_title span')?.text()?.trim() || 
+                     $channel('.tgme_page_title')?.text()?.trim() ||
+                     $channel('.tgme_channel_info_header_title')?.text()?.trim() ||
+                     channel
+      channelAvatar = $channel('.tgme_page_photo_image img')?.attr('src')
+      
+      console.info('Channel info extracted:', { channel, channelTitle, hasAvatar: !!channelAvatar })
+    } catch (error) {
+      console.warn('Failed to fetch channel info, using username:', error.message)
+    }
+  }
+
+  // 请求帖子内容
+  const url = id ? `https://${host}/${channel}/${id}?embed=1&mode=tme` : `https://${host}/s/${channel}`
+  console.info('Fetching content from:', url, { before, after, q, type, id })
 
   const html = await $fetch(url, {
     headers,
@@ -219,8 +248,27 @@ export async function getSingleChannelInfo(Astro, channel, { before = '', after 
 
   if (id) {
     const post = getPost($, null, { channel, staticProxy })
-    cache.set(cacheKey, post)
-    return post
+    
+    // 返回包含频道信息的对象
+    const result = {
+      ...post,
+      channelTitle, // 从频道首页获取的昵称
+      channelAvatar,
+    }
+    cache.set(cacheKey, result)
+    return result
+  }
+  
+  // 列表页获取频道信息
+  if (!channelTitle || channelTitle === channel) {
+    channelTitle = $('.tgme_page_title span')?.text()?.trim() || 
+                   $('.tgme_page_title')?.text()?.trim() ||
+                   $('.tgme_channel_info_header_title')?.text()?.trim() ||
+                   channel
+  }
+  
+  if (!channelAvatar) {
+    channelAvatar = $('.tgme_page_photo_image img')?.attr('src')
   }
 
   const posts = $('.tgme_channel_history .tgme_widget_message_wrap')?.map((index, item) => {
@@ -229,10 +277,10 @@ export async function getSingleChannelInfo(Astro, channel, { before = '', after 
 
   const channelInfo = {
     posts,
-    title: $('.tgme_channel_info_header_title')?.text(),
+    title: channelTitle,
     description: $('.tgme_channel_info_description')?.text(),
     descriptionHTML: modifyHTMLContent($, $('.tgme_channel_info_description'))?.html(),
-    avatar: $('.tgme_page_photo_image img')?.attr('src'),
+    avatar: channelAvatar,
     username: channel,
   }
 

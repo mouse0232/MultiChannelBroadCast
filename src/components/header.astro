@@ -15,11 +15,14 @@ const podcast = getEnv(import.meta.env, Astro, 'PODCAST')
 // 自定义站点图标,优先级: SITE_AVATAR > channel.avatar
 const siteAvatar = getEnv(import.meta.env, Astro, 'SITE_AVATAR')
 const avatarUrl = siteAvatar || channel?.avatar
+
+// 确定链接目标:如果有频道用户名,链接到频道页面;否则链接到首页
+const channelUrl = channel?.username ? `${SITE_URL}channel/${channel.username}` : SITE_URL
 ---
 
 <div id="header">
   {avatarUrl && (
-    <a href={SITE_URL}>
+    <a href={channelUrl}>
       <img
         src={avatarUrl}
         alt={channel?.title || 'Site Avatar'}
@@ -28,7 +31,7 @@ const avatarUrl = siteAvatar || channel?.avatar
     </a>
   )}
   <div class="header-title">
-    <a href={SITE_URL} class="site-title" title={channel?.title}>
+    <a href={channelUrl} class="site-title" title={channel?.title}>
       {channel?.title}
     </a>
   </div>

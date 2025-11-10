@@ -9,9 +9,22 @@ const { id } = Astro.params
 const channelsStr = getEnv(import.meta.env, Astro, 'CHANNELS') || getEnv(import.meta.env, Astro, 'CHANNEL')
 const channels = channelsStr.split(',').map(c => c.trim())
 
+// 读取频道名称映射
+const channelNameMap = new Map()
+const channelNamesEnv = getEnv(import.meta.env, Astro, 'CHANNEL_NAMES')
+if (channelNamesEnv) {
+  channelNamesEnv.split(';').forEach(pair => {
+    const [username, displayName] = pair.split(':')
+    if (username && displayName) {
+      channelNameMap.set(username.trim(), displayName.trim())
+    }
+  })
+}
+
 // 尝试从所有频道中获取该帖子
 let post = null
-let channelName = null
+let channelUsername = null
+let channelTitle = null
 
 for (const channel of channels) {
   try {
@@ -20,7 +33,9 @@ for (const channel of channels) {
       post = result
       // 将频道名称添加到 post 对象中,用于评论功能
       post.channel = channel
-      channelName = channel
+      channelUsername = channel
+      // 从 Telegram 页面获取的频道昵称
+      channelTitle = result.channelTitle
       break
     }
   } catch (e) {
@@ -33,11 +48,15 @@ if (!post) {
   return Astro.redirect('/404')
 }
 
+// 获取频道显示名称(优先级: 手动映射 > Telegram昵称 > 用户名)
+const channelDisplayName = channelNameMap.get(channelUsername) || channelTitle || channelUsername
+
 // 构造频道信息用于显示
 const channel = {
   posts: [post],
-  title: channelName,
-  username: channelName,
+  title: channelDisplayName,
+  username: channelUsername,
+  avatar: post.channelAvatar,
 }
 
 channel.seo = {
