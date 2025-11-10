@@ -1,4 +1,43 @@
-# 更新日志 - 2025年11月9日
+# 更新日志
+
+## [未发布] - 2024-01-XX
+
+### ✨ 新增 - Telegram 评论功能
+
+#### 功能说明
+在帖子详情页集成 Telegram 官方评论 widget,支持多频道评论功能。
+
+#### 实现特性
+- ✅ 基于 Telegram 官方 widget
+- ✅ 支持多频道架构(每个帖子自动识别所属频道)
+- ✅ 可通过 `COMMENTS=true` 启用/禁用
+- ✅ 异步加载,不阻塞页面渲染
+- ✅ 移动端完美适配
+- ✅ 深色模式支持
+
+#### 配置方法
+在 `.env` 文件中添加:
+```env
+COMMENTS=true
+```
+
+**注意**: 频道必须开启讨论组功能才能显示评论。
+
+#### 相关文档
+- `COMMENTS_FEATURE.md` - 完整功能文档
+- `COMMENTS_IMPLEMENTATION.md` - 实现总结
+- `QUICK_START_COMMENTS.md` - 快速启用指南
+- `test-comments.html` - 测试页面
+
+#### 代码变更
+- `src/components/item.astro` - 添加评论区渲染
+- `src/pages/posts/[id].astro` - 添加频道信息传递
+- `.env.example` - 新增 `COMMENTS` 配置项
+- `README.md` - 更新功能说明和 FAQ
+
+---
+
+## 2025年11月9日
 
 ## 🎉 重要更新
 

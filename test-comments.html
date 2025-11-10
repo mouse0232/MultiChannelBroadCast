@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>测试 Telegram 评论功能</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      margin-bottom: 20px;
+    }
+    .post-info {
+      background: #f9f9f9;
+      padding: 15px;
+      border-radius: 4px;
+      margin-bottom: 30px;
+    }
+    .post-info p {
+      margin: 5px 0;
+      color: #666;
+    }
+    .comments {
+      margin-top: 30px;
+      padding-top: 30px;
+      border-top: 2px solid #e0e0e0;
+    }
+    .comments h2 {
+      margin-bottom: 20px;
+      color: #444;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Telegram 评论功能测试</h1>
+    
+    <div class="post-info">
+      <p><strong>测试说明:</strong></p>
+      <p>此页面用于测试 Telegram 评论 widget 的加载和显示</p>
+      <p><strong>频道:</strong> miantiao_me</p>
+      <p><strong>消息ID:</strong> 1234 (示例)</p>
+    </div>
+
+    <div class="post-content">
+      <h2>帖子内容</h2>
+      <p>这是一个测试帖子的内容。评论区应该显示在下方。</p>
+    </div>
+
+    <div class="comments">
+      <h2>评论区</h2>
+      <p style="color: #999; font-size: 14px; margin-bottom: 15px;">
+        如果评论加载成功,下方应该显示 Telegram 评论组件
+      </p>
+      
+      <!-- Telegram 评论 Widget -->
+      <!-- 注意: 需要确保频道开启了讨论功能 -->
+      <script 
+        async 
+        src="https://telegram.org/js/telegram-widget.js" 
+        data-telegram-discussion="miantiao_me/1234"
+        data-comments-limit="50"
+        data-colorful="1"
+        data-color="454545">
+      </script>
+    </div>
+
+    <div style="margin-top: 40px; padding: 20px; background: #fff3cd; border-radius: 4px; border-left: 4px solid #ffc107;">
+      <h3 style="margin-top: 0; color: #856404;">⚠️ 注意事项</h3>
+      <ul style="color: #856404; line-height: 1.8;">
+        <li>评论功能需要频道开启讨论组功能</li>
+        <li>如果评论区不显示,可能是因为该消息没有开启评论</li>
+        <li>确保频道名称和消息ID正确</li>
+        <li>评论 widget 会异步加载,可能需要几秒钟</li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    // 检测评论 widget 是否加载
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        const iframe = document.querySelector('iframe[src*="telegram"]');
+        if (iframe) {
+          console.log('✅ Telegram 评论 widget 加载成功');
+        } else {
+          console.warn('⚠️ Telegram 评论 widget 未加载');
+        }
+      }, 3000);
+    });
+  </script>
+</body>
+</html>

@@ -18,6 +18,8 @@ for (const channel of channels) {
     const result = await getSingleChannelInfo(Astro, channel, { id })
     if (result && result.id) {
       post = result
+      // 将频道名称添加到 post 对象中,用于评论功能
+      post.channel = channel
       channelName = channel
       break
     }
