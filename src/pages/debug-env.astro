@@ -1,0 +1,170 @@
+---
+// 调试环境变量读取
+import { getEnv } from '../lib/env'
+
+const envVars = {
+  COMMENTS: getEnv(import.meta.env, Astro, 'COMMENTS'),
+  CHANNELS: getEnv(import.meta.env, Astro, 'CHANNELS'),
+  LOCALE: getEnv(import.meta.env, Astro, 'LOCALE'),
+  TIMEZONE: getEnv(import.meta.env, Astro, 'TIMEZONE'),
+}
+
+// 检查运行时环境变量
+const runtimeEnv = Astro?.locals?.runtime?.env || {}
+const importMetaEnv = import.meta.env || {}
+
+// 调试信息
+console.log('=== Environment Variables Debug ===')
+console.log('getEnv results:', envVars)
+console.log('Runtime env keys:', Object.keys(runtimeEnv))
+console.log('import.meta.env.COMMENTS:', importMetaEnv.COMMENTS)
+console.log('runtime.env.COMMENTS:', runtimeEnv.COMMENTS)
+---
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>环境变量调试</title>
+  <style>
+    body {
+      font-family: monospace;
+      max-width: 1200px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h1 { color: #333; margin-bottom: 30px; }
+    h2 { 
+      color: #666; 
+      margin-top: 30px; 
+      border-bottom: 2px solid #007bff;
+      padding-bottom: 10px;
+    }
+    .env-item {
+      padding: 15px;
+      margin: 10px 0;
+      background: #f8f9fa;
+      border-left: 4px solid #007bff;
+      border-radius: 4px;
+    }
+    .env-key {
+      font-weight: bold;
+      color: #007bff;
+      font-size: 16px;
+    }
+    .env-value {
+      margin-top: 8px;
+      color: #28a745;
+      font-size: 14px;
+      word-break: break-all;
+    }
+    .env-type {
+      color: #6c757d;
+      font-size: 12px;
+      margin-top: 5px;
+    }
+    .status {
+      padding: 10px 20px;
+      border-radius: 4px;
+      margin: 20px 0;
+      font-weight: bold;
+    }
+    .status.success { background: #d4edda; color: #155724; }
+    .status.error { background: #f8d7da; color: #721c24; }
+    .status.warning { background: #fff3cd; color: #856404; }
+    pre {
+      background: #272822;
+      color: #f8f8f2;
+      padding: 15px;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔍 环境变量调试页面</h1>
+    
+    <div class={`status ${envVars.COMMENTS ? 'success' : 'error'}`}>
+      评论功能状态: {envVars.COMMENTS ? '✅ 已启用' : '❌ 未启用'}
+    </div>
+
+    <h2>📋 通过 getEnv() 读取的环境变量</h2>
+    {Object.entries(envVars).map(([key, value]) => (
+      <div class="env-item">
+        <div class="env-key">{key}</div>
+        <div class="env-value">
+          {value ? `"${value}"` : '(未设置)'}
+        </div>
+        <div class="env-type">
+          类型: {typeof value} | 布尔值: {value === 'true' || value === true ? '✅ true' : '❌ false'}
+        </div>
+      </div>
+    ))}
+
+    <h2>🔧 import.meta.env (构建时环境变量)</h2>
+    <pre>{JSON.stringify(
+      Object.fromEntries(
+        Object.entries(importMetaEnv)
+          .filter(([key]) => !key.startsWith('PUBLIC_'))
+          .filter(([key]) => ['COMMENTS', 'CHANNELS', 'LOCALE', 'TIMEZONE', 'MODE', 'DEV', 'PROD'].includes(key))
+      ),
+      null,
+      2
+    )}</pre>
+
+    <h2>🚀 runtime.env (运行时环境变量)</h2>
+    <div class={`status ${Object.keys(runtimeEnv).length > 0 ? 'success' : 'warning'}`}>
+      {Object.keys(runtimeEnv).length > 0 
+        ? `✅ 检测到 ${Object.keys(runtimeEnv).length} 个运行时环境变量` 
+        : '⚠️ 未检测到运行时环境变量 (可能是本地开发环境)'}
+    </div>
+    <pre>{JSON.stringify(
+      Object.fromEntries(
+        Object.entries(runtimeEnv)
+          .filter(([key]) => ['COMMENTS', 'CHANNELS', 'LOCALE', 'TIMEZONE'].includes(key))
+      ),
+      null,
+      2
+    )}</pre>
+
+    <h2>💡 诊断建议</h2>
+    <div class="env-item">
+      {envVars.COMMENTS ? (
+        <>
+          <div class="env-value">✅ COMMENTS 环境变量已设置为: {envVars.COMMENTS}</div>
+          <div class="env-type">
+            {envVars.COMMENTS === 'true' || envVars.COMMENTS === true 
+              ? '✅ 评论功能应该正常工作' 
+              : '⚠️ 值不是 "true",评论功能未启用'}
+          </div>
+        </>
+      ) : (
+        <>
+          <div class="env-value">❌ 未检测到 COMMENTS 环境变量</div>
+          <div class="env-type">
+            <strong>解决方法:</strong><br/>
+            1. 本地开发: 在 .env 文件中添加 COMMENTS=true<br/>
+            2. Cloudflare Pages: 在 Dashboard → Settings → Environment variables 中添加<br/>
+            3. 添加后需要重新部署才能生效
+          </div>
+        </>
+      )}
+    </div>
+
+    <h2>🔗 相关链接</h2>
+    <ul>
+      <li><a href="/">返回首页</a></li>
+      <li><a href="https://developers.cloudflare.com/pages/platform/build-configuration/#environment-variables" target="_blank">Cloudflare Pages 环境变量文档</a></li>
+    </ul>
+  </div>
+</body>
+</html>

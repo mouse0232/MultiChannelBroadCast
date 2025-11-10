@@ -13,6 +13,15 @@ dayjs.tz.setDefault(timezone)
 
 const datetime = dayjs(post.datetime)
 const url = `${SITE_URL}posts/${post.id}`
+
+// 读取评论配置 - 支持多种格式
+const commentsEnabled = getEnv(import.meta.env, Astro, 'COMMENTS')
+const showComments = commentsEnabled === 'true' || commentsEnabled === true
+
+// 调试信息(仅开发环境)
+if (import.meta.env.DEV && isItem) {
+  console.log('Comments config:', { commentsEnabled, showComments, isItem, hasChannel: !!post.channel })
+}
 ---
 
 <div class="item">
@@ -51,17 +60,60 @@ const url = `${SITE_URL}posts/${post.id}`
   )}
 
   {/* Telegram 评论区 */}
-  {getEnv(import.meta.env, Astro, 'COMMENTS') === 'true' && isItem && post.channel && (
+  {showComments && isItem && post.channel && (
     <div class="comments">
-      <script
-        is:inline
-        async
-        src="https://telegram.org/js/telegram-widget.js"
-        data-telegram-discussion={`${post.channel}/${post.id}`}
-        data-comments-limit="50"
-        data-colorful="1"
-        data-color="454545"
-      />
+      <div id="telegram-comments-placeholder" style="display: none; padding: 20px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; margin-bottom: 20px;">
+        <p style="margin: 0; color: #856404;">
+          ⚠️ <strong>评论区加载失败</strong><br/>
+          可能原因:
+          <ul style="margin: 10px 0; padding-left: 20px;">
+            <li>浏览器广告拦截器阻止了 Telegram widget</li>
+            <li>网络连接问题</li>
+          </ul>
+          <strong>解决方法:</strong>
+          <ol style="margin: 10px 0; padding-left: 20px;">
+            <li>临时禁用广告拦截器(如 AdBlock、uBlock Origin)</li>
+            <li>或将本站添加到广告拦截器的白名单</li>
+            <li>或直接访问 <a href={`https://t.me/${post.channel}/${post.id}`} target="_blank" rel="noopener" style="color: #007bff;">Telegram 查看评论</a></li>
+          </ol>
+        </p>
+      </div>
+      <div id="telegram-comments-container"></div>
+      <script is:inline define:vars={{ channel: post.channel, id: post.id }}>
+        (function() {
+          const container = document.getElementById('telegram-comments-container');
+          const placeholder = document.getElementById('telegram-comments-placeholder');
+          
+          // 创建 script 元素
+          const script = document.createElement('script');
+          script.async = true;
+          script.src = 'https://telegram.org/js/telegram-widget.js';
+          script.setAttribute('data-telegram-discussion', `${channel}/${id}`);
+          script.setAttribute('data-comments-limit', '50');
+          script.setAttribute('data-colorful', '1');
+          script.setAttribute('data-color', '454545');
+          
+          // 监听加载错误
+          script.onerror = function() {
+            if (placeholder) {
+              placeholder.style.display = 'block';
+            }
+          };
+          
+          // 检测 widget 是否成功加载
+          script.onload = function() {
+            // 5秒后检查是否有 iframe 生成
+            setTimeout(function() {
+              const iframe = container.querySelector('iframe');
+              if (!iframe && placeholder) {
+                placeholder.style.display = 'block';
+              }
+            }, 5000);
+          };
+          
+          container.appendChild(script);
+        })();
+      </script>
     </div>
   )}
 </div>
