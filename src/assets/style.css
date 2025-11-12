@@ -128,7 +128,8 @@ a.item-link:hover {
 }
 
 #main-container {
-  flex: 1;
+  /* 增加主区域宽度 (相对于右侧 sidebar 保持不变)，向左扩展约 1/6 */
+  flex: 1.5;
   padding-top: 20px;
   padding-right: 30px;
   padding-bottom: 20px;
@@ -247,8 +248,7 @@ hr {
   margin-left: 28px;
 }
 
-.item {
-}
+
 
 .image-box,
 .video-box,
@@ -399,8 +399,7 @@ audio::-webkit-media-controls-panel {
   margin-bottom: var(--box-margin);
 }
 
-.nav-icon {
-}
+
 
 .nav-link:link,
 .nav-link:visited {

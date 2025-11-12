@@ -1,14 +1,151 @@
 ---
+import Layout from '../layouts/base.astro'
+import Header from '../components/header.astro'
 import { getEnv } from '../lib/env'
+import { getSingleChannelInfo } from '../lib/telegram'
 
-// 重定向到第一个频道,避免多频道聚合的性能问题
+// 读取频道配置
 const channelsStr = getEnv(import.meta.env, Astro, 'CHANNELS') || getEnv(import.meta.env, Astro, 'CHANNEL')
 const channels = channelsStr ? channelsStr.split(',').map(c => c.trim()).filter(Boolean) : []
 
-if (channels.length > 0) {
-  return Astro.redirect(`/channel/${channels[0]}`)
+// 没有配置频道,返回404
+if (channels.length === 0) {
+  return Astro.redirect('/404')
 }
 
-// 如果没有配置频道,返回404
-return Astro.redirect('/404')
+const { SITE_URL, SITE_NAME, SITE_AVATAR } = Astro.locals
+
+// 并发获取每个频道的基本信息(昵称/头像)以便展示卡片
+const channelInfos = await Promise.all(channels.map(async (ch) => {
+  try {
+    const info = await getSingleChannelInfo(Astro, ch, {})
+    return {
+      username: ch,
+      title: info.title || ch,
+      avatar: info.avatar || ''
+    }
+  } catch (e) {
+    // 获取失败时使用备用数据
+    return {
+      username: ch,
+      title: ch,
+      avatar: ''
+    }
+  }
+}))
+
+const siteHeader = {
+  title: SITE_NAME || '频道列表',
+  avatar: SITE_AVATAR || null
+}
+
+---
+
+<Layout channel={siteHeader} currentChannel={null}>
+  <Header channel={siteHeader} />
+
+  <main class="home-channels">
+    <h2 class="home-title">频道列表</h2>
+    <div class="channel-grid">
+      {channelInfos.map((info) => (
+        <a class="channel-card" href={`${SITE_URL}channel/${info.username}`} title={info.title}>
+          <div class="avatar-wrap">
+            {info.avatar ? (
+              <img src={info.avatar} alt={info.title} loading="lazy" />
+            ) : (
+              <div class="avatar-fallback">@</div>
+            )}
+          </div>
+          <div class="card-body">
+            <div class="card-title">{info.title}</div>
+            <div class="card-username">@{info.username}</div>
+          </div>
+        </a>
+      ))}
+    </div>
+  </main>
+
+</Layout>
+
+<style>
+  .home-channels {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+
+  .home-title {
+    font-size: 20px;
+    margin: 8px 0 16px;
+    color: var(--text-color, #333);
+  }
+
+  .channel-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+  }
+
+  .channel-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 8px;
+    text-decoration: none;
+    color: inherit;
+    background: var(--card-bg, #fff);
+    border: 1px solid var(--border-color, #e9e9e9);
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+  }
+
+  .channel-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+  }
+
+  .avatar-wrap {
+    width: 56px;
+    height: 56px;
+    flex-shrink: 0;
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--avatar-bg, #f5f5f5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .avatar-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .avatar-fallback {
+    font-weight: 600;
+    color: var(--secondary-color, #666);
+  }
+
+  .card-body {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .card-title {
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--text-color, #333);
+  }
+
+  .card-username {
+    font-size: 13px;
+    color: var(--secondary-color, #777);
+  }
+
+  @media (max-width: 600px) {
+    .channel-card { padding: 10px }
+    .avatar-wrap { width: 48px; height: 48px }
+  }
+</style>
 ---

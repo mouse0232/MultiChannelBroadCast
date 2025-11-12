@@ -128,7 +128,8 @@ const navs = (getEnv(import.meta.env, Astro, 'NAVS') || '')
   </head>
 
   <body>
-    {channels.length > 1 && (
+    {/* 移动端汉堡菜单: 当存在自定义导航或链接时显示 (频道列表已移至首页) */}
+    {(navs.length > 0 || TAGS || LINKS) && (
       <>
         <button class="mobile-menu-toggle" aria-label="Toggle menu">
           <span></span>
@@ -139,86 +140,33 @@ const navs = (getEnv(import.meta.env, Astro, 'NAVS') || '')
       </>
     )}
     <div id="wrapper">
-      {channels.length > 1 && (
-        <aside class="channel-sidebar">
-          <div class="channel-sidebar-header">
-            <h3>频道列表</h3>
+      {/* 左侧频道列表已移除：主页已提供频道目录，避免重复展示 */}
+      <!-- 顶部栏: 将 Home 按钮与搜索框移到页面顶端 (仅在非首页显示，且仅在移动端可见) -->
+      {pathname !== '/' && (
+        <div class="topbar">
+          <div class="topbar-left">
+            <a href={SITE_URL} class="topbar-home" title="Home">Home</a>
           </div>
-          <nav class="channel-sidebar-nav">
-            {channels.map(ch => (
-              <a 
-                href={`${SITE_URL}channel/${ch}`}
-                class={`channel-sidebar-item ${currentChannel === ch ? 'active' : ''}`}
-                title={channelNameMap.get(ch) || ch}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                </svg>
-                <span>{channelNameMap.get(ch) || ch}</span>
-              </a>
-            ))}
-          </nav>
-
-          {/* 移动端显示导航和搜索 */}
-          <div class="channel-sidebar-section">
-            <h4 class="channel-sidebar-section-title">导航</h4>
-            <div class="sidebar-nav-list">
-              <a href={`${SITE_URL}channel/${channels[0] || ''}`} 
-                 class={`sidebar-nav-link ${pathname.startsWith('/channel/') ? 'current' : ''}`}>
-                Home
-              </a>
-              {TAGS && (
-                <a href={`${SITE_URL}tags`} 
-                   class={`sidebar-nav-link ${pathname === '/tags' ? 'current' : ''}`}>
-                  Tags
-                </a>
-              )}
-              {LINKS && (
-                <a href={`${SITE_URL}links`} 
-                   class={`sidebar-nav-link ${pathname === '/links' ? 'current' : ''}`}>
-                  Links
-                </a>
-              )}
-              {navs.map((nav) => (
-                <a href={nav.href} 
-                   target="_blank" 
-                   rel="noopener" 
-                   class="sidebar-nav-link">
-                  {nav.title}
-                </a>
-              ))}
-            </div>
-          </div>
-
-          <div class="channel-sidebar-section">
-            <h4 class="channel-sidebar-section-title">搜索</h4>
-            <form class="sidebar-search-form" action={searchAction} method="get">
+          <div class="topbar-center">
+            <form class="topbar-search" action={searchAction} method="get">
               {GOOGLE_SEARCH_SITE ? <input type="hidden" name="as_sitesearch" value={GOOGLE_SEARCH_SITE} /> : null}
-              <input type="text" name="q" placeholder="搜索..." />
+              <input type="text" name="q" placeholder="Search..." />
+              <button type="submit" aria-label="Search">🔍</button>
             </form>
           </div>
-
-          <div class="sidebar-copyright">
-            Powered by
-            <a href="https://github.com/banlanzs/MultiChannelBroadCast" target="_blank" rel="noopener">
-              Multi-Channel Fork
-            </a>
-            <br />
-            <a href="https://github.com/ccbikai/BroadcastChannel" target="_blank" rel="noopener">
-              based on BroadcastChannel
-            </a>
-          </div>
-        </aside>
+        </div>
       )}
+
       <div id="container">
-        <div id="main-container">
+        <div id="main-container" class={pathname === '/' ? 'home-main' : ''}>
           <slot />
         </div>
-        <div id="aside-container">
-          <slot name="aside">
+        {pathname !== '/' && (
+          <div id="aside-container">
+            <slot name="aside">
             <div class="nav">
               <div class="nav-item">
-                <a href={`${SITE_URL}channel/${channels[0] || ''}`} title={channel?.title} class={`nav-link ${pathname.startsWith('/channel/') ? 'current' : ''}`}>
+                <a href={SITE_URL} title={channel?.title} class={`nav-link ${pathname === '/' ? 'current' : ''}`}>
                   Home
                 </a>
               </div>
@@ -263,37 +211,86 @@ const navs = (getEnv(import.meta.env, Astro, 'NAVS') || '')
               {GOOGLE_SEARCH_SITE ? <input type="hidden" name="as_sitesearch" value={GOOGLE_SEARCH_SITE} /> : null}
               <input type="text" name="q" placeholder="Search" />
             </form>
-            <div class="copyright-wrap">
-              Powered by
-              <a
-                href="https://github.com/banlanzs/MultiChannelBroadCast"
-                title="Multi-Channel Fork"
-                target="_blank"
-                rel="noopener"
-              >
-              Multi-Channel Fork
-              </a>
-              <br />
-              <a
-                href="https://github.com/ccbikai/BroadcastChannel"
-                title="BroadcastChannel"
-                target="_blank"
-                rel="noopener"
-              >
-                based on BroadcastChannel
-            </div>
+            {/* 侧栏底部版权在页脚统一显示 */}
           </slot>
-        </div>
+          </div>
+        )}
       </div>
     </div>
+    
+    {/* Mobile menu (用于汉堡菜单收纳 NAVS/TAGS/LINKS 等) */}
+    <aside class="mobile-menu" aria-hidden="true">
+      <div class="mobile-menu-inner">
+        <div class="mobile-menu-section">
+          {TAGS ? (
+            <a href={`${SITE_URL}tags`} class="mobile-menu-link">Tags</a>
+          ) : null}
+          {LINKS ? (
+            <a href={`${SITE_URL}links`} class="mobile-menu-link">Links</a>
+          ) : null}
+          {navs.map((nav) => (
+            <a href={nav.href} target="_blank" rel="noopener" class="mobile-menu-link">{nav.title}</a>
+          ))}
+        </div>
+      </div>
+    </aside>
     <a href="#wrapper" id="back-to-top" aria-label="Back to top">
       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"></path></svg>
     </a>
     <Fragment set:html={FOOTER_INJECT} />
+    <!-- 全局页脚: 将 Powered by 与版权年份放在页面底部 -->
+    <footer class="site-footer">
+      <div class="site-footer-inner">
+        <div>Powered by <a href="https://github.com/banlanzs/MultiChannelBroadCast" target="_blank" rel="noopener">Multi-Channel Fork</a></div>
+        <div>based on <a href="https://github.com/ccbikai/BroadcastChannel" target="_blank" rel="noopener">BroadcastChannel</a></div>
+        <div>&copy; {new Date().getFullYear()}</div>
+      </div>
+    </footer>
   </body>
 </html>
 
 <style>
+  /* Topbar: Home 按钮和搜索框 - 默认仅用于移动端，桌面端隐藏以避免重复 */
+  .topbar {
+    display: none; /* 桌面默认隐藏 */
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 20px;
+    background: transparent;
+  }
+
+  .topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .topbar-home {
+    text-decoration: none;
+    color: var(--text-color, #333);
+    padding: 6px 10px;
+    border-radius: 6px;
+    transition: background 0.15s;
+  }
+
+  .topbar-home:hover { background: var(--hover-background, #f5f5f5) }
+
+  .topbar-search {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .topbar-search input[type="text"] {
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    outline: none;
+  }
+
+  .topbar-search button { background: transparent; border: none; cursor: pointer }
+
   .channel-sidebar {
     flex: 0 0 33.333%;
     width: 33.333%;
@@ -523,7 +520,68 @@ const navs = (getEnv(import.meta.env, Astro, 'NAVS') || '')
     display: block;
   }
 
+  /* mobile menu aside */
+  .mobile-menu {
+    position: fixed;
+    right: -100%;
+    top: 0;
+    bottom: 0;
+    width: 320px;
+    background: var(--background-color, #fff);
+    z-index: 1100;
+    transition: right 0.25s ease;
+    box-shadow: -6px 0 24px rgba(0,0,0,0.08);
+    overflow-y: auto;
+    padding: 20px;
+  }
+
+  .mobile-menu.active {
+    right: 0;
+  }
+
+  .mobile-menu-link {
+    display: block;
+    padding: 10px 8px;
+    margin-bottom: 8px;
+    color: #333;
+    text-decoration: none;
+    border-radius: 6px;
+  }
+
+  .mobile-menu-link:hover { background: var(--hover-background, #f5f5f5) }
+
+  /* 页面底部全局页脚 */
+  .site-footer {
+    width: 100%;
+    background: transparent;
+    padding: 20px 0;
+    margin-top: 30px;
+  }
+
+  .site-footer-inner {
+    max-width: 980px;
+    margin: 0 auto;
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    align-items: center;
+    color: var(--secondary-color, #666);
+    font-size: 13px;
+  }
+
+  .site-footer-inner a { color: inherit; text-decoration: underline }
+
+  /* 桌面端首页使主内容居中显示 */
+  .home-main {
+    max-width: 980px;
+    margin: 0 auto;
+  }
+
   @media (max-width: 1024px) {
+    /* 移动端显示 topbar */
+    .topbar {
+      display: flex;
+    }
     .mobile-menu-toggle {
       display: flex;
     }
@@ -540,6 +598,9 @@ const navs = (getEnv(import.meta.env, Astro, 'NAVS') || '')
     .channel-sidebar.active {
       left: 0;
     }
+    
+    /* 移动端首页不需要侧边栏, 保持主内容边距 */
+    .home-main { padding: 10px 20px; }
 
     .channel-sidebar-header,
     .channel-sidebar-nav {
@@ -580,27 +641,27 @@ const navs = (getEnv(import.meta.env, Astro, 'NAVS') || '')
   // 移动端菜单切换
   document.addEventListener('DOMContentLoaded', () => {
     const toggle = document.querySelector('.mobile-menu-toggle')
-    const sidebar = document.querySelector('.channel-sidebar')
+    const menu = document.querySelector('.mobile-menu')
     const overlay = document.querySelector('.mobile-overlay')
 
-    if (toggle && sidebar && overlay) {
+    if (toggle && menu && overlay) {
       toggle.addEventListener('click', () => {
         toggle.classList.toggle('active')
-        sidebar.classList.toggle('active')
+        menu.classList.toggle('active')
         overlay.classList.toggle('active')
       })
 
       overlay.addEventListener('click', () => {
         toggle.classList.remove('active')
-        sidebar.classList.remove('active')
+        menu.classList.remove('active')
         overlay.classList.remove('active')
       })
 
       // 点击链接后关闭菜单
-      sidebar.querySelectorAll('a').forEach(link => {
+      menu.querySelectorAll('a').forEach(link => {
         link.addEventListener('click', () => {
           toggle.classList.remove('active')
-          sidebar.classList.remove('active')
+          menu.classList.remove('active')
           overlay.classList.remove('active')
         })
       })
