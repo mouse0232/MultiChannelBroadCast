@@ -20,6 +20,17 @@ const afterCursor = displayPosts[0]?.id
     <Header channel={channel} />
   </slot>
 
+  {isItem && (
+    <div class="back-container">
+      {
+        (() => {
+          const backJs = `try{ const key='channel-scroll-${channel.username}'; const postKey='channel-scroll-post-${channel.username}'; const listKey='channel-list-url-${channel.username}'; const pos=sessionStorage.getItem(key); const postId=sessionStorage.getItem(postKey); const listUrl=sessionStorage.getItem(listKey); if(listUrl){ const base='${SITE_URL.replace(/\/$/, '')}'; if(listUrl.startsWith('/')){ location.href = base + listUrl + (postId ? ('#post-'+postId) : ''); } else { location.href = listUrl + (postId ? ('#post-'+postId) : ''); } } else { try{ var ref = document.referrer || ''; if(ref){ var a = document.createElement('a'); a.href = ref; var sameOrigin = a.hostname === location.hostname; if(sameOrigin && ref.indexOf('/channel/${channel.username}') !== -1){ location.href = ref + (postId ? ('#post-'+postId) : ''); throw 'navigated'; } } }catch(e){} if(pos){ location.href='${SITE_URL}channel/${channel.username}' + (postId ? ('#post-'+postId) : ''); } else { history.back(); } } }catch(e){ history.back(); }`;
+          return (<button class="back-button" onclick={backJs}>← 返回</button>)
+        })()
+      }
+    </div>
+  )}
+
   {!isItem && (
     <div class="pages-container pages-top">
       {
@@ -60,6 +71,12 @@ const afterCursor = displayPosts[0]?.id
   <div class="items">
     {displayPosts.map((post) => <Item post={post} isItem={isItem} />)}
   </div>
+
+  {!isItem && (
+    <script>
+      {`document.addEventListener('DOMContentLoaded', function(){ try{ const key='channel-scroll-${channel.username}'; const postKey='channel-scroll-post-${channel.username}'; const listKey='channel-list-url-${channel.username}'; const pos = sessionStorage.getItem(key); const postId = sessionStorage.getItem(postKey); if(pos || (location.hash && location.hash.startsWith('#post-'))){ setTimeout(function(){ if(location.hash && location.hash.startsWith('#post-')){ const el = document.querySelector(location.hash); if(el) el.scrollIntoView({behavior:'auto', block:'center'}); } else if(pos){ window.scrollTo(0, parseInt(pos)); } try{ sessionStorage.removeItem(key); sessionStorage.removeItem(postKey); sessionStorage.removeItem(listKey);}catch(e){} }, 120); } }catch(e){} });`}
+    </script>
+  )}
   
   {!isItem && displayPosts.length === 0 && (
     <div class="no-posts">
@@ -128,5 +145,16 @@ const afterCursor = displayPosts[0]?.id
     margin-bottom: 20px;
     padding-bottom: 15px;
     border-bottom: 1px solid var(--border-color, #e0e0e0);
+  }
+  .back-container {
+    padding: 10px 20px;
+  }
+
+  .back-button {
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background: white;
+    cursor: pointer;
   }
 </style>
