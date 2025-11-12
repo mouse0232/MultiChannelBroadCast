@@ -35,7 +35,7 @@ const channelInfos = await Promise.all(channels.map(async (ch) => {
 }))
 
 const siteHeader = {
-  title: SITE_NAME || '频道列表',
+  title: SITE_NAME || 'Multi-Channel Broadcast',
   avatar: SITE_AVATAR || null
 }
 
@@ -45,7 +45,7 @@ const siteHeader = {
   <Header channel={siteHeader} />
 
   <main class="home-channels">
-    <h2 class="home-title">频道列表</h2>
+    <h2 class="home-title">{siteHeader.title}</h2>
     <div class="channel-grid">
       {channelInfos.map((info) => (
         <a class="channel-card" href={`${SITE_URL}channel/${info.username}`} title={info.title}>
