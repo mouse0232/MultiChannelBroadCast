@@ -101,6 +101,7 @@ const navs = (getEnv(import.meta.env, Astro, 'NAVS') || '')
       href: link[1],
     }
   })
+
 ---
 
 <!doctype html>
@@ -258,7 +259,21 @@ const navs = (getEnv(import.meta.env, Astro, 'NAVS') || '')
     <a href="#wrapper" id="back-to-top" aria-label="Back to top">
       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"></path></svg>
     </a>
-    <Fragment set:html={FOOTER_INJECT} />
+    {
+      // 防护：避免因为环境变量中误写入仅包含分隔线（如 "---"）而将其原样注入到页面
+      (() => {
+        try {
+          const raw = FOOTER_INJECT || ''
+          const trimmed = String(raw).trim()
+          if (!trimmed) return null
+          // 如果仅包含一串短横线或 HTML 注释占位, 则跳过注入
+          if (/^[-]{2,}$/.test(trimmed) || /^<!--.*-->$/.test(trimmed)) return null
+          return (<Fragment set:html={FOOTER_INJECT} />)
+        } catch (e) {
+          return null
+        }
+      })()
+    }
     {/* 仅在首页显示全局页脚 */}
     {pathname === '/' && (
       <footer class="site-footer">
