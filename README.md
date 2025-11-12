@@ -1,83 +1,84 @@
+English|[简体中文](./README.zh-cn.md)
 # Multi-Channel Broadcast
 
-**将多个 Telegram 频道聚合为一个微博客** - 基于 [BroadcastChannel](https://github.com/ccbikai/BroadcastChannel) 项目重构
+**Aggregate multiple Telegram channels into a single microblog**- inspired by [BroadcastChannel](https://github.com/ccbikai/BroadcastChannel).
 
 
-## 🆚 与 BroadcastChannel 的区别
+## 🆚 Difference from BroadcastChannel
 
-| 特性 | BroadcastChannel | Multi-Channel Broadcast |
+| Feature | BroadcastChannel | Multi-Channel Broadcast |
 |------|------------------|------------------------|
-| 频道数量 | 单频道 | **多频道聚合** |
-| 内容来源 | 单一频道 | **多个频道混合** |
-| 去重处理 | 不需要 | **智能去重** |
-| 频道标注 | 无 | **显示来源频道** |
-| 速率控制 | 基础重试 | **强化速率限制** |
-| 用户代理 | 固定 | **轮换UA池** |
-| 评论功能 | 支持 | **支持(多频道)** |
+| Number of Channels | Single Channel | **Multi-channel Aggregation** |
+| Content Source | Single Channel | **Mixed from Multiple Channels** |
+| Deduplication | Not Required | **Smart Deduplication** |
+| Channel Attribution | None | **Displays Source Channel** |
+| Rate Control | Basic Retry | **Enhanced Rate Limiting** |
+| User Agent | Fixed | **Rotating UA Pool** |
+| Comment Function | Supported | **Supported (Multi-channel)** |
 
 
 ---
 
-## 技术栈
+## Tech Stack
 
-- **框架**: [Astro](https://astro.build/) v4.15+
-- **内容源**: [Telegram Channels](https://telegram.org/tour/channels)
-- **模板**: [Sepia](https://github.com/Planetable/SiteTemplateSepia)
-- **缓存**: LRU Cache
-- **代码高亮**: Prism.js
-- **语言检测**: Flourite
+- **Framework**: [Astro](https://astro.build/) v4.15+
+- **Content Source**: [Telegram Channels](https://telegram.org/tour/channels)
+- **Template**: [Sepia](https://github.com/Planetable/SiteTemplateSepia)
+- **Caching**: LRU Cache
+- **Code Highlighting**: Prism.js
+- **Language Detection**: Flourite
 
 
-### 本地开发
+### Local Development
 
 ```bash
-# 克隆项目
+# Clone the project
 git clone https://github.com/banlanzs/MultiChannelBroadCast.git
 cd MultiChannelBroadcast
 
-# 安装依赖
+# Install dependencies
 pnpm install
 
-# 配置环境变量
+# Configure environment variables
 cp .env.example .env
-# 编辑 .env 文件,设置 CHANNELS
+# Edit the .env file and set CHANNELS
 
-# 启动开发服务器
+# Start the development server
 pnpm dev
 ```
 
-访问 `http://localhost:4321` 查看效果
+Visit `http://localhost:4321` to see the result
 
-### Docker 部署
+### Docker Deployment
 
-使用 Docker 和 Docker Compose 部署:
+Deploy using Docker and Docker Compose:
 
 ```bash
-# 克隆项目
+# Clone the project
 git clone https://github.com/banlanzs/MultiChannelBroadCast.git
 cd MultiChannelBroadcast
 
-# 配置环境变量
+# Configure environment variables
 cp .env.example .env
-# 编辑 .env 文件,设置 CHANNELS 等配置
+# Edit the .env file, set CHANNELS and other configurations
 
-# 使用 Docker Compose 构建并启动 (国内用户默认使用 Dockerfile.cn)
+# Use Docker Compose to build and start (Dockerfile.cn is used by default for users in China)
 docker-compose up -d
 
-# 查看日志
+# View logs
 docker-compose logs -f
 
-# 停止服务
+# Stop the service
 docker-compose down
 ```
 
-或者使用 Docker 命令:
+Or use Docker commands:
 
 ```bash
-# 构建镜像
+# Build the image
 docker build -t multi-channel-broadcast .
 
-# 运行容器
+# Run the container
 docker run -d \
   --name multi-channel-broadcast \
   -p 4321:4321 \
@@ -87,128 +88,128 @@ docker run -d \
   -e TIMEZONE="Asia/Shanghai" \
   multi-channel-broadcast
 
-# 查看日志
+# View logs
 docker logs -f multi-channel-broadcast
 
-# 停止容器
+# Stop the container
 docker stop multi-channel-broadcast
 docker rm multi-channel-broadcast
 ```
 
-访问 `http://localhost:4321` 查看效果
+Visit `http://localhost:4321` to see the result
 
-**注意事项**:
-- 确保 Docker 和 Docker Compose 已安装
-- 建议使用 `.env` 文件管理环境变量
-- 生产环境建议配置反向代理(如 Nginx)
+**Notes**:
+- Ensure Docker and Docker Compose are installed
+- It is recommended to use a `.env` file to manage environment variables
+- For production, it is recommended to configure a reverse proxy (e.g., Nginx)
 
 ---
 
-## 配置说明
+## Configuration
 
-创建 `.env` 文件并配置以下环境变量:
+Create a `.env` file and configure the following environment variables:
 
-### 核心配置
+### Core Configuration
 
 ```env
-## 多频道配置 - 使用逗号分隔多个频道 (必需)
+## Multi-channel configuration - use commas to separate multiple channels (required)
 CHANNELS=channel1,channel2,channel3
 
-## 或者使用单个频道 (向下兼容)
+## Or use a single channel (backward compatibility)
 CHANNEL=your_channel_name
 
-## 站点名称
+## Site name
 SITE_NAME=My Multi-Channel Blog
 
-## 语言和时区
+## Language and timezone
 LOCALE=zh-cn
 TIMEZONE=Asia/Shanghai
 ```
 
-### 社交媒体配置
+### Social Media Configuration
 
 ```env
-## 社交媒体用户名
+## Social media usernames
 TELEGRAM=your_telegram
 TWITTER=your_twitter
 GITHUB=your_github
 
-## 需要完整URL的社交媒体
+## Social media that requires full URLs
 MASTODON=https://mastodon.social/@username
 BLUESKY=https://bsky.app/profile/username
 DISCORD=https://discord.gg/invite
 PODCAST=https://your-podcast.com
 ```
 
-### 高级配置
+### Advanced Configuration
 
 ```env
-## Telegram主机 (一般不需要修改)
+## Telegram host (generally no need to change)
 TELEGRAM_HOST=t.me
 
-## 静态资源代理 (可选)
+## Static resource proxy (optional)
 STATIC_PROXY=/static/
 
-## 启用 Telegram 评论功能
-## 设置为 true 后,在帖子详情页会显示 Telegram 评论区
-## 注意: 需要频道开启了讨论组功能
+## Enable Telegram comments
+## Set to true to display the Telegram comment section on the post detail page
+## Note: The channel must have the discussion group feature enabled
 COMMENTS=true
 
-## 代码注入 (支持HTML)
+## Code injection (supports HTML)
 HEADER_INJECT=<!-- Google Analytics -->
-FOOTER_INJECT=<!-- 页脚统计代码 -->
+FOOTER_INJECT=<!-- Footer tracking code -->
 
-## Sentry错误追踪 (可选)
+## Sentry error tracking (optional)
 SENTRY_DSN=your_sentry_dsn
 SENTRY_PROJECT=your_project
 SENTRY_AUTH_TOKEN=your_auth_token
 ```
 
 
-## 自定义样式
+## Custom Styling
 
-样式文件位于 `src/assets/` 目录:
+Style files are in the `src/assets/` directory:
 
-- `normalize.css` - CSS重置
-- `style.css` - 主样式
-- `item.css` - 文章项样式
-- `global.css` - 全局样式
+- `normalize.css` - CSS reset
+- `style.css` - Main styles
+- `item.css` - Article item styles
+- `global.css` - Global styles
 
-可以直接修改这些文件来自定义网站外观。
-
----
-
-
-建议:
-- 不要设置过多频道(建议≤5个)
-- 适当增加缓存时间
-- 使用代理(如需要)
-
-### 多频道内容如何排序?
-
-所有频道的内容会按照 **发布时间倒序** 排列,最新的内容显示在最前面。同时会进行去重处理,避免重复显示。
-
-### 如何区分不同频道的内容?
-
-每条内容下方会显示 "来自频道: @channel_name",点击可以跳转到该频道。
-
-### 如何启用评论功能?
-
-1. 在 `.env` 文件中添加 `COMMENTS=true`
-2. 确保你的 Telegram 频道已开启讨论组功能
-3. 点击帖子时间戳进入详情页,会在下方显示评论区
-
-**注意事项**:
-- 评论功能使用 Telegram 官方 widget,数据存储在 Telegram
-- 只有开启了讨论组的频道消息才能显示评论
-- 评论区会异步加载,可能需要几秒钟
-- 每个帖子最多显示 50 条评论
+You can directly modify these files to customize the website's appearance.
 
 ---
 
-## Cloudflare Pages 部署
-1.git链接仓库
-2.构建命令
+
+**Suggestions**:
+- Don't set too many channels (recommend ≤5)
+- Appropriately increase cache time
+- Use a proxy (if needed)
+
+### How are multi-channel contents sorted?
+
+All channel contents are sorted in **reverse chronological order** by publication time, with the newest content appearing first. Deduplication is also performed to avoid duplicate displays.
+
+### How to distinguish content from different channels?
+
+A "From channel: @channel_name" will be displayed below each piece of content, which can be clicked to jump to that channel.
+
+### How to enable the comment function?
+
+1. Add `COMMENTS=true` to the `.env` file
+2. Ensure your Telegram channel has the discussion group feature enabled
+3. Click the post timestamp to enter the detail page, and the comment section will appear below
+
+**Notes**:
+- The comment function uses the official Telegram widget, and data is stored on Telegram
+- Only messages from channels with discussion groups enabled can display comments
+- The comment section loads asynchronously and may take a few seconds
+- A maximum of 50 comments are displayed per post
+
+---
+
+## Cloudflare Pages Deployment
+1. Link the repository
+2. Build command
 ```
 pnpm install && pnpm build
 dist
@@ -216,25 +217,29 @@ dist
 
 ## TO DO
 
-### 部署相关
-- [ ] 完善 Vercel 部署支持
-- [ ] 优化 Cloudflare Pages 构建流程
-- [ ] 添加 Netlify 部署文档
+### Deployment Related
+- [ ] Improve Vercel deployment support
+- [ ] Optimize Cloudflare Pages build process
+- [ ] Add Netlify deployment documentation
 
-### 功能增强
-- [ ] 添加频道过滤功能
-- [ ] 支持自定义排序规则
-- [ ] 添加频道分组功能
-- [ ] 支持更多内容平台
-
----
-
-## 🤝 贡献
-
-欢迎提交 Issue 和 Pull Request!
+### Feature Enhancements
+- [ ] Add channel filtering functionality
+- [ ] Support custom sorting rules
+- [ ] Add channel grouping functionality
+- [ ] Support more content platforms
 
 ---
 
-## 📄 许可证
+## 🤝 Contributing
+
+Issues and Pull Requests are welcome!
+
+---
+
+## 📄 License
 
 MIT
+
+## Thanks
+
+[BroadcastChannel](https://github.com/ccbikai/BroadcastChannel)
