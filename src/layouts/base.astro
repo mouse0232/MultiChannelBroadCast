@@ -615,6 +615,8 @@ const navs = (getEnv(import.meta.env, Astro, 'NAVS') || '')
     /* 移动端显示 topbar */
     .topbar {
       display: flex;
+      /* 给 topbar 左侧留出空间, 避免与固定在左上角的汉堡按钮重叠 */
+      padding-left: 60px;
     }
     .mobile-menu-toggle {
       display: flex;
@@ -662,6 +664,11 @@ const navs = (getEnv(import.meta.env, Astro, 'NAVS') || '')
     #main-container {
       padding-left: 15px;
       padding-right: 15px;
+    }
+
+    /* 在更小的屏幕上稍微减小左侧内边距以匹配较小的汉堡按钮 */
+    .topbar {
+      padding-left: 52px;
     }
 
     /* 移动端隐藏右侧边栏 */
