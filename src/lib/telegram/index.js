@@ -223,6 +223,11 @@ export async function getSingleChannelInfo(Astro, channel, { before = '', after 
                      channel
       channelAvatar = $channel('.tgme_page_photo_image img')?.attr('src')
       
+      // 通过静态代理加载头像
+      if (channelAvatar) {
+        channelAvatar = staticProxy + channelAvatar
+      }
+      
       console.info('Channel info extracted:', { channel, channelTitle, hasAvatar: !!channelAvatar })
     } catch (error) {
       console.warn('Failed to fetch channel info, using username:', error.message)
@@ -269,6 +274,10 @@ export async function getSingleChannelInfo(Astro, channel, { before = '', after 
   
   if (!channelAvatar) {
     channelAvatar = $('.tgme_page_photo_image img')?.attr('src')
+    // 通过静态代理加载头像
+    if (channelAvatar) {
+      channelAvatar = staticProxy + channelAvatar
+    }
   }
 
   const posts = $('.tgme_channel_history .tgme_widget_message_wrap')?.map((index, item) => {
