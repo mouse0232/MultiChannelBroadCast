@@ -56,6 +56,9 @@ const canonical = SITE_URL.startsWith('http') ? new URL(SITE_URL).origin + reqPa
 const { origin, pathname } = new URL(canonical)
 const twitter = getEnv(import.meta.env, Astro, 'TWITTER')
 
+// 获取站点头像用于 favicon
+const siteAvatar = getEnv(import.meta.env, Astro, 'SITE_AVATAR')
+
 const seoParams = {
   title: seo?.title,
   description: seo?.text ?? channel?.description,
@@ -78,7 +81,7 @@ const seoParams = {
     link: [
       {
         rel: 'icon',
-        href: channel?.avatar || '/favicon.svg',
+        href: siteAvatar || channel?.avatar || '/favicon.svg',
       },
     ],
   },
