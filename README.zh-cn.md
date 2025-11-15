@@ -243,3 +243,7 @@ MIT
 ## Thanks
 
 [BroadcastChannel](https://github.com/ccbikai/BroadcastChannel)
+
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=banlanzs/MultiChannelBroadCast&type=date&legend=top-left)](https://www.star-history.com/#banlanzs/MultiChannelBroadCast&type=date&legend=top-left)
