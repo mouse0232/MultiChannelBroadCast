@@ -259,9 +259,9 @@ const navs = (getEnv(import.meta.env, Astro, 'NAVS') || '')
         </div>
       </div>
     </aside>
-    <a href="#wrapper" id="back-to-top" aria-label="Back to top">
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"></path></svg>
-    </a>
+    <button id="back-to-top" aria-label="Back to top" type="button">
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"></path></svg>
+    </button>
     {
       // 防护：避免因为环境变量中误写入仅包含分隔线（如 "---"）而将其原样注入到页面
       (() => {
@@ -340,180 +340,6 @@ const navs = (getEnv(import.meta.env, Astro, 'NAVS') || '')
   }
 
   .topbar-search button { background: transparent; border: none; cursor: pointer; flex: 0 0 auto; }
-
-  .channel-sidebar {
-    flex: 0 0 33.333%;
-    width: 33.333%;
-    background: var(--background-color, #fff);
-    border-right: 1px solid var(--border-color, #e0e0e0);
-    overflow-y: auto;
-    height: 100vh;
-    position: sticky;
-    top: 0;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .channel-sidebar-header {
-    padding: 20px 16px 12px;
-    border-bottom: 1px solid var(--border-color, #e0e0e0);
-  }
-
-  .channel-sidebar-header h3 {
-    margin: 0;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--secondary-color, #666);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-
-  .channel-sidebar-nav {
-    padding: 8px;
-  }
-
-  /* 右侧导航区域 */
-  .channel-sidebar-section {
-    padding: 16px;
-    border-top: 1px solid var(--border-color, #e0e0e0);
-  }
-
-  .channel-sidebar-section-title {
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--secondary-color, #666);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin: 0 0 12px 0;
-  }
-
-  .sidebar-nav-list {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .sidebar-nav-link {
-    display: block;
-    padding: 8px 10px;
-    border-radius: 6px;
-    text-decoration: none;
-    color: var(--text-color, #333);
-    background: transparent;
-    transition: all 0.2s;
-    font-size: 13px;
-  }
-
-  .sidebar-nav-link:hover {
-    background: var(--hover-background, #f5f5f5);
-    text-decoration: none;
-  }
-
-  .sidebar-nav-link.current {
-    background: var(--highlight-color, #ff6b6b);
-    color: white;
-    font-weight: 500;
-  }
-
-  .sidebar-search-form {
-    margin-top: 8px;
-  }
-
-  .sidebar-search-form input[type="text"] {
-    width: 100%;
-    padding: 8px 12px;
-    border: 1px solid var(--border-color, #e0e0e0);
-    border-radius: 6px;
-    font-size: 13px;
-    box-sizing: border-box;
-    outline: none;
-    transition: border-color 0.2s;
-  }
-
-  .sidebar-search-form input[type="text"]:focus {
-    border-color: var(--highlight-color, #ff6b6b);
-  }
-
-  .sidebar-copyright {
-    padding: 16px;
-    border-top: 1px solid var(--border-color, #e0e0e0);
-    font-size: 11px;
-    color: var(--secondary-color, #999);
-    line-height: 1.6;
-  }
-
-  .sidebar-copyright a {
-    color: var(--secondary-color, #999);
-    text-decoration: none;
-  }
-
-  .sidebar-copyright a:hover {
-    color: var(--highlight-color, #ff6b6b);
-    text-decoration: underline;
-  }
-
-  /* 在桌面端隐藏侧边栏中的导航和搜索 */
-  @media (min-width: 1025px) {
-    /* 在桌面端隐藏侧边栏中的可折叠区块，但保留版权信息显示在侧栏 */
-    .channel-sidebar-section {
-      display: none;
-    }
-  }
-
-  .channel-sidebar-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 10px;
-    margin-bottom: 3px;
-    border-radius: 6px;
-    text-decoration: none;
-    color: var(--text-color, #333);
-    background: transparent;
-    transition: all 0.2s;
-    font-size: 13px;
-    line-height: 1.4;
-    white-space: nowrap;
-  }
-
-  .channel-sidebar-item:hover {
-    background: var(--hover-background, #f5f5f5);
-  }
-
-  .channel-sidebar-item.active {
-    background: var(--highlight-color, #ff6b6b);
-    color: white;
-    font-weight: 500;
-  }
-
-  .channel-sidebar-item svg {
-    flex-shrink: 0;
-    width: 14px;
-    height: 14px;
-  }
-
-  .channel-sidebar-item span {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .channel-sidebar::-webkit-scrollbar {
-    width: 6px;
-  }
-
-  .channel-sidebar::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  .channel-sidebar::-webkit-scrollbar-thumb {
-    background: var(--border-color, #e0e0e0);
-    border-radius: 3px;
-  }
-
-  .channel-sidebar::-webkit-scrollbar-thumb:hover {
-    background: var(--secondary-color, #999);
-  }
 
   /* 移动端汉堡菜单 */
   .mobile-menu-toggle {
@@ -668,27 +494,9 @@ const navs = (getEnv(import.meta.env, Astro, 'NAVS') || '')
     .mobile-menu-toggle {
       display: flex;
     }
-
-    .channel-sidebar {
-      position: fixed;
-      left: -100%;
-      top: 0;
-      z-index: 1000;
-      transition: left 0.3s ease;
-      box-shadow: 2px 0 8px rgba(0,0,0,0.1);
-    }
-
-    .channel-sidebar.active {
-      left: 0;
-    }
     
     /* 移动端首页不需要侧边栏, 保持主内容边距 */
     .home-main { padding: 10px 20px; }
-
-    .channel-sidebar-header,
-    .channel-sidebar-nav {
-      max-width: 100%;
-    }
 
     #main-container {
       padding-left: 20px;
@@ -726,42 +534,54 @@ const navs = (getEnv(import.meta.env, Astro, 'NAVS') || '')
 </style>
 
 <script>
-  // 移动端菜单切换
-  document.addEventListener('DOMContentLoaded', () => {
-    const toggle = document.querySelector('.mobile-menu-toggle')
-    const menu = document.querySelector('.mobile-menu')
-    const overlay = document.querySelector('.mobile-overlay')
-
-    if (toggle && menu && overlay) {
-      toggle.addEventListener('click', () => {
-        toggle.classList.toggle('active')
-        menu.classList.toggle('active')
-        overlay.classList.toggle('active')
-      })
-
-      overlay.addEventListener('click', () => {
-        toggle.classList.remove('active')
-        menu.classList.remove('active')
-        overlay.classList.remove('active')
-      })
-
-      // 点击链接后关闭菜单
-      menu.querySelectorAll('a').forEach(link => {
-        link.addEventListener('click', () => {
-          toggle.classList.remove('active')
-          menu.classList.remove('active')
-          overlay.classList.remove('active')
-        })
-      })
-      // 关闭按钮
-      const closeBtn = document.querySelector('.mobile-menu-close')
-      if (closeBtn) {
-        closeBtn.addEventListener('click', () => {
-          toggle.classList.remove('active')
-          menu.classList.remove('active')
-          overlay.classList.remove('active')
-        })
-      }
-    }
+  // 返回顶部按钮功能
+  document.addEventListener('DOMContentLoaded', () => {
+    const backToTopBtn = document.getElementById('back-to-top');
+    if (backToTopBtn) {
+      backToTopBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        window.scrollTo({
+          top: 0,
+          behavior: 'smooth'
+        });
+      });
+    }
+
+    // 移动端菜单切换
+    const toggle = document.querySelector('.mobile-menu-toggle')
+    const menu = document.querySelector('.mobile-menu')
+    const overlay = document.querySelector('.mobile-overlay')
+
+    if (toggle && menu && overlay) {
+      toggle.addEventListener('click', () => {
+        toggle.classList.toggle('active')
+        menu.classList.toggle('active')
+        overlay.classList.toggle('active')
+      })
+
+      overlay.addEventListener('click', () => {
+        toggle.classList.remove('active')
+        menu.classList.remove('active')
+        overlay.classList.remove('active')
+      })
+
+      // 点击链接后关闭菜单
+      menu.querySelectorAll('a').forEach(link => {
+        link.addEventListener('click', () => {
+          toggle.classList.remove('active')
+          menu.classList.remove('active')
+          overlay.classList.remove('active')
+        })
+      })
+      // 关闭按钮
+      const closeBtn = document.querySelector('.mobile-menu-close')
+      if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+          toggle.classList.remove('active')
+          menu.classList.remove('active')
+          overlay.classList.remove('active')
+        })
+      }
+    }
   })
 </script>
