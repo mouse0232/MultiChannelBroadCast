@@ -123,19 +123,17 @@ a.item-link:hover {
   display: flex;
   flex: 1;
   width: 100%;
-  max-width: none;
-  margin: 0;
+  max-width: 1080px;
+  margin: 0 auto;
+  gap: 20px;
 }
 
 #main-container {
-  /* 增加主区域宽度 (相对于右侧 sidebar 保持不变)，向左扩展约 1/6 */
-  flex: 1.5;
+  flex: 1;
   padding-top: 20px;
   padding-right: 30px;
   padding-bottom: 20px;
   padding-left: 30px;
-  margin-right: 20px;
-  border-right: 1px solid var(--border-color);
   overflow-x: hidden;
   max-width: 100%;
   box-sizing: border-box;
@@ -381,8 +379,8 @@ audio::-webkit-media-controls-panel {
 }
 
 #aside-container {
-  flex: 0 0 33.333%;
-  width: 33.333%;
+  flex: 0 0 280px;
+  width: 280px;
   padding-bottom: 20px;
   padding-left: 20px;
 }
