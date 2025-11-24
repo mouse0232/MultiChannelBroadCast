@@ -20,7 +20,6 @@
 }
 
 html {
-  overflow-x: hidden;
   scrollbar-gutter: stable;
 }
 
@@ -42,17 +41,15 @@ body {
     Segoe UI Emoji,
     Segoe UI Symbol,
     Noto Color Emoji;
-  overflow-x: hidden;
   margin: 0;
   padding: 0;
 }
 
 #wrapper {
-  margin-left: 20px;
-  margin-right: 20px;
+  padding-left: 20px;
+  padding-right: 20px;
   margin-top: 0px;
   margin-bottom: 0px;
-  overflow-x: hidden;
   max-width: 100%;
   box-sizing: border-box;
 }
@@ -384,6 +381,10 @@ audio::-webkit-media-controls-panel {
   width: 280px;
   padding-bottom: 20px;
   padding-left: 20px;
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  height: fit-content;
 }
 
 #aside-container .nav {
