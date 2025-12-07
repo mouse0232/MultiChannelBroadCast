@@ -117,11 +117,12 @@ a.item-link:hover {
   min-height: 100vh;
 }
 
+/* 缩小显示宽度 */
 #container {
   display: flex;
   flex: 1;
   width: 100%;
-  max-width: 1080px;
+  max-width: 918px;
   margin: 0 auto;
   gap: 20px;
 }
@@ -842,10 +843,11 @@ li:has(input[type='checkbox']:checked:disabled)::before {
 
   #main-container {
     flex: 1;
-    width: 100%;
-    max-width: 100%;
+    width: 85%;
+    max-width: 85%;
     padding-left: 30px;
     padding-right: 30px;
+    margin: 0 auto;
   }
 
   #aside-container {
