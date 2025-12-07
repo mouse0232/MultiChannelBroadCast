@@ -1,0 +1,60 @@
+---
+import Layout from '../layouts/base.astro'
+import Header from '../components/header.astro'
+import { getEnv } from '../lib/env'
+
+const { SITE_NAME, SITE_AVATAR, SITE_URL } = Astro.locals
+
+const channel = {
+  title: SITE_NAME || 'About',
+  avatar: SITE_AVATAR || null,
+  href: `${SITE_URL}about`,
+  seo: {
+    title: 'About',
+    text: 'About page placeholder',
+  },
+}
+
+// Placeholder text; replace with your real About content.
+const placeholder = getEnv(import.meta.env, Astro, 'ABOUT_PLACEHOLDER') || 'to be fill'
+---
+
+<Layout channel={channel} currentChannel={null}>
+  <Header channel={channel} />
+
+  <main class="about-page">
+    <h2 class="about-title">About</h2>
+    <p class="about-lead">{placeholder}</p>
+    <div class="about-placeholder">
+      <p>Replace this section with your actual About content.</p>
+    </div>
+  </main>
+</Layout>
+
+<style>
+  .about-page {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+
+  .about-title {
+    margin: 0 0 12px;
+    font-size: 20px;
+    color: var(--text-color, #333);
+  }
+
+  .about-lead {
+    margin: 0 0 16px;
+    color: var(--secondary-color, #666);
+    font-size: 14px;
+  }
+
+  .about-placeholder {
+    padding: 18px;
+    border: 1px dashed var(--border-color, #e0e0e0);
+    border-radius: 10px;
+    background: var(--card-bg, #fff);
+    color: var(--secondary-color, #666);
+  }
+</style>
