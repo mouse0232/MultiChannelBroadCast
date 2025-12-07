@@ -25,9 +25,6 @@ const placeholder = getEnv(import.meta.env, Astro, 'ABOUT_PLACEHOLDER') || 'to b
   <main class="about-page">
     <h2 class="about-title">About</h2>
     <p class="about-lead">{placeholder}</p>
-    <div class="about-placeholder">
-      <p>Replace this section with your actual About content.</p>
-    </div>
   </main>
 </Layout>
 
@@ -48,13 +45,5 @@ const placeholder = getEnv(import.meta.env, Astro, 'ABOUT_PLACEHOLDER') || 'to b
     margin: 0 0 16px;
     color: var(--secondary-color, #666);
     font-size: 14px;
-  }
-
-  .about-placeholder {
-    padding: 18px;
-    border: 1px dashed var(--border-color, #e0e0e0);
-    border-radius: 10px;
-    background: var(--card-bg, #fff);
-    color: var(--secondary-color, #666);
   }
 </style>
