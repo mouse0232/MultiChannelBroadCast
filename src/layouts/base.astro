@@ -494,6 +494,10 @@ const navs = (getEnv(import.meta.env, Astro, 'NAVS') || '')
     .mobile-menu-toggle {
       display: flex;
     }
+    /* Hide sidebar on mobile; rely on hamburger menu */
+    #aside-container {
+      display: none !important;
+    }
     
     /* 移动端首页不需要侧边栏, 保持主内容边距 */
     .home-main { padding: 10px 20px; }
