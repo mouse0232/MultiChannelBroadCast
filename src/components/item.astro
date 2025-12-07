@@ -1,155 +1,193 @@
----
-import dayjs from '../lib/dayjs'
-import { getEnv } from '../lib/env'
-
-const { post, isItem = false } = Astro.props
-const { SITE_URL } = Astro.locals
-
-const locale = getEnv(import.meta.env, Astro, 'LOCALE') || 'en'
-const timezone = getEnv(import.meta.env, Astro, 'TIMEZONE') || 'UTC'
-
-dayjs.locale(locale)
-dayjs.tz.setDefault(timezone)
-
-const datetime = dayjs(post.datetime)
-const url = `${SITE_URL}posts/${post.id}`
-
-// 读取评论配置 - 支持多种格式
-const commentsEnabled = getEnv(import.meta.env, Astro, 'COMMENTS')
-const showComments = commentsEnabled === 'true' || commentsEnabled === true
-
-// 调试信息(仅开发环境)
-if (import.meta.env.DEV && isItem) {
-  console.log('Comments config:', { commentsEnabled, showComments, isItem, hasChannel: !!post.channel })
-}
----
-
-<div class="item" id={`post-${post.id}`}>
-  <div class="time-box">
-    <div class="dot"></div>
-    <div class="time">
-      {
-        // 在点击跳转到单帖时, 保存当前频道的滚动位置以便回退时恢复
-      }
-      {
-        (() => {
-          const onclickSave = post.channel ? `try{ sessionStorage.setItem('channel-scroll-${post.channel}', String(window.scrollY)); sessionStorage.setItem('channel-scroll-post-${post.channel}', '${post.id}'); sessionStorage.setItem('channel-list-url-${post.channel}', location.pathname + location.search); }catch(e){} ` : null
-          return (
-            <a href={url} class="item-link" onclick={onclickSave}>
-              <time datetime={post.datetime} title={post.datetime}>
-                {isItem ? datetime.format('LLLL') : datetime.fromNow()}
-              </time>
-            </a>
-          )
-        })()
-      }
-    </div>
-  </div>
-
-  {post.content && (
-    <div class="text-box content" set:html={post.content} />
-  )}
-
-  {post.tags && post.tags.length > 0 && (
-    <div class="tag-box">
-      {post.tags.map((tag) => (
-        <a href={`${SITE_URL}search/${encodeURIComponent(`#${tag}`)}`} class="tag">
-          #{tag}
-        </a>
-      ))}
-    </div>
-  )}
-
-  {/* 显示频道来源 - 多频道特有 */}
-  {post.channel && (
-    <div class="channel-source">
-      <small>
-        来自频道: <a href={`https://t.me/${post.channel}`} target="_blank" rel="noopener">@{post.channel}</a>
-      </small>
-    </div>
-  )}
-
-  {/* Telegram 评论区 */}
-  {showComments && isItem && post.channel && (
-    <div class="comments">
-      <div id="telegram-comments-placeholder" style="display: none; padding: 20px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; margin-bottom: 20px;">
-        <p style="margin: 0; color: #856404;">
-          ⚠️ <strong>评论区加载失败</strong><br/>
-          可能原因:
-          <ul style="margin: 10px 0; padding-left: 20px;">
-            <li>浏览器广告拦截器阻止了 Telegram widget</li>
-            <li>网络连接问题</li>
-          </ul>
-          <strong>解决方法:</strong>
-          <ol style="margin: 10px 0; padding-left: 20px;">
-            <li>临时禁用广告拦截器(如 AdBlock、uBlock Origin)</li>
-            <li>或将本站添加到广告拦截器的白名单</li>
-            <li>或直接访问 <a href={`https://t.me/${post.channel}/${post.id}`} target="_blank" rel="noopener" style="color: #007bff;">Telegram 查看评论</a></li>
-          </ol>
-        </p>
-      </div>
-      <div id="telegram-comments-container"></div>
-      <script is:inline define:vars={{ channel: post.channel, id: post.id }}>
-        (function() {
-          const container = document.getElementById('telegram-comments-container');
-          const placeholder = document.getElementById('telegram-comments-placeholder');
-          
-          // 创建 script 元素
-          const script = document.createElement('script');
-          script.async = true;
-          script.src = 'https://telegram.org/js/telegram-widget.js';
-          script.setAttribute('data-telegram-discussion', `${channel}/${id}`);
-          script.setAttribute('data-comments-limit', '50');
-          script.setAttribute('data-colorful', '1');
-          script.setAttribute('data-color', '454545');
-          
-          // 监听加载错误
-          script.onerror = function() {
-            if (placeholder) {
-              placeholder.style.display = 'block';
-            }
-          };
-          
-          // 检测 widget 是否成功加载
-          script.onload = function() {
-            // 5秒后检查是否有 iframe 生成
-            setTimeout(function() {
-              const iframe = container.querySelector('iframe');
-              if (!iframe && placeholder) {
-                placeholder.style.display = 'block';
-              }
-            }, 5000);
-          };
-          
-          container.appendChild(script);
-        })();
-      </script>
-    </div>
-  )}
-</div>
-
-<style>
-  .channel-source {
-    margin-top: 10px;
-    padding: 8px 12px;
-    background-color: var(--background-color, #f5f5f5);
-    border-radius: 4px;
-    font-size: 13px;
-    color: var(--secondary-color, #666);
-  }
-
-  .channel-source a {
-    color: var(--highlight-color, #ff6b6b);
-    text-decoration: none;
-  }
-
-  .channel-source a:hover {
-    text-decoration: underline;
-  }
-
-  .comments {
-    margin-top: 20px;
-    padding-top: 20px;
-    border-top: 1px solid var(--border-color, #e0e0e0);
-  }
-</style>
+---
+import dayjs from '../lib/dayjs'
+import { getEnv } from '../lib/env'
+
+const { post, isItem = false } = Astro.props
+const { SITE_URL } = Astro.locals
+
+const locale = getEnv(import.meta.env, Astro, 'LOCALE') || 'en'
+const timezone = getEnv(import.meta.env, Astro, 'TIMEZONE') || 'UTC'
+
+dayjs.locale(locale)
+dayjs.tz.setDefault(timezone)
+
+const datetime = dayjs(post.datetime)
+const url = `${SITE_URL}posts/${post.id}`
+
+// 读取评论配置 - 支持多种格式
+const commentsEnabled = getEnv(import.meta.env, Astro, 'COMMENTS')
+const showComments = commentsEnabled === 'true' || commentsEnabled === true
+
+// 调试信息(仅开发环境)
+if (import.meta.env.DEV && isItem) {
+  console.log('Comments config:', { commentsEnabled, showComments, isItem, hasChannel: !!post.channel })
+}
+---
+
+<div class="item" id={`post-${post.id}`}>
+  <div class="time-box">
+    <div class="dot"></div>
+    <div class="time">
+      {
+        // 在点击跳转到单帖时, 保存当前频道的滚动位置以便回退时恢复
+      }
+      {
+        (() => {
+          const onclickSave = post.channel ? `try{ sessionStorage.setItem('channel-scroll-${post.channel}', String(window.scrollY)); sessionStorage.setItem('channel-scroll-post-${post.channel}', '${post.id}'); sessionStorage.setItem('channel-list-url-${post.channel}', location.pathname + location.search); }catch(e){} ` : null
+          return (
+            <a href={url} class="item-link" onclick={onclickSave}>
+              <time datetime={post.datetime} title={post.datetime}>
+                {isItem ? datetime.format('LLLL') : datetime.fromNow()}
+              </time>
+            </a>
+          )
+        })()
+      }
+    </div>
+  </div>
+
+  {post.content && (
+    <div class="text-box content" set:html={post.content} />
+  )}
+
+  {post.tags && post.tags.length > 0 && (
+    <div class="tag-box">
+      {post.tags.map((tag) => (
+        <a href={`${SITE_URL}search/${encodeURIComponent(`#${tag}`)}`} class="tag">
+          #{tag}
+        </a>
+      ))}
+    </div>
+  )}
+
+  {/* 显示频道来源 - 多频道特有 */}
+  {post.channel && (
+    <div class="channel-source">
+      <small>
+        来自频道: <a href={`https://t.me/${post.channel}`} target="_blank" rel="noopener">@{post.channel}</a>
+      </small>
+    </div>
+  )}
+
+  {/* Telegram 评论区 */}
+  {showComments && isItem && post.channel && (
+    <div class="comments">
+      <div id="telegram-comments-loading" class="comments-loading" aria-live="polite">
+        <div class="spinner" aria-hidden="true"></div>
+        <span>Loading comments...</span>
+      </div>
+      <div id="telegram-comments-placeholder" style="display: none; padding: 20px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; margin-bottom: 20px;">
+        <p style="margin: 0; color: #856404;">
+          ⚠️ <strong>评论区加载失败</strong><br/>
+          可能原因:
+          <ul style="margin: 10px 0; padding-left: 20px;">
+            <li>浏览器广告拦截器阻止了 Telegram widget</li>
+            <li>网络连接问题</li>
+          </ul>
+          <strong>解决方法:</strong>
+          <ol style="margin: 10px 0; padding-left: 20px;">
+            <li>临时禁用广告拦截器(如 AdBlock、uBlock Origin)</li>
+            <li>或将本站添加到广告拦截器的白名单</li>
+            <li>或直接访问 <a href={`https://t.me/${post.channel}/${post.id}`} target="_blank" rel="noopener" style="color: #007bff;">Telegram 查看评论</a></li>
+          </ol>
+        </p>
+      </div>
+      <div id="telegram-comments-container"></div>
+      <script is:inline define:vars={{ channel: post.channel, id: post.id }}>
+        (function() {
+          const container = document.getElementById('telegram-comments-container');
+          const placeholder = document.getElementById('telegram-comments-placeholder');
+          const loading = document.getElementById('telegram-comments-loading');
+          
+          const hideLoading = () => { if (loading) loading.style.display = 'none'; };
+          
+          // 创建 script 元素
+          const script = document.createElement('script');
+          script.async = true;
+          script.src = 'https://telegram.org/js/telegram-widget.js';
+          script.setAttribute('data-telegram-discussion', `${channel}/${id}`);
+          script.setAttribute('data-comments-limit', '50');
+          script.setAttribute('data-colorful', '1');
+          script.setAttribute('data-color', '454545');
+          
+          // 监听加载错误
+          script.onerror = function() {
+            hideLoading();
+            if (placeholder) {
+              placeholder.style.display = 'block';
+            }
+          };
+          
+          // 检测 widget 是否成功加载
+          script.onload = function() {
+            // 5秒后检查是否有 iframe 生成
+            setTimeout(function() {
+              const iframe = container.querySelector('iframe');
+              hideLoading();
+              if (!iframe && placeholder) {
+                placeholder.style.display = 'block';
+              }
+            }, 5000);
+          };
+
+          // 兜底：最长 8s 后隐藏 loading
+          setTimeout(hideLoading, 8000);
+          
+          container.appendChild(script);
+        })();
+      </script>
+    </div>
+  )}
+</div>
+
+<style>
+  .channel-source {
+    margin-top: 10px;
+    padding: 8px 12px;
+    background-color: var(--background-color, #f5f5f5);
+    border-radius: 4px;
+    font-size: 13px;
+    color: var(--secondary-color, #666);
+  }
+
+  .channel-source a {
+    color: var(--highlight-color, #ff6b6b);
+    text-decoration: none;
+  }
+
+  .channel-source a:hover {
+    text-decoration: underline;
+  }
+
+  .comments {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-color, #e0e0e0);
+  }
+  .comments-loading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    background: rgba(0, 0, 0, 0.04);
+    border: 1px solid var(--border-color, #e0e0e0);
+    border-radius: 8px;
+    color: var(--secondary-color, #666);
+    font-size: 14px;
+    margin-bottom: 16px;
+  }
+
+  .comments-loading .spinner {
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(0, 0, 0, 0.15);
+    border-top-color: var(--highlight-color, #ff6b6b);
+    border-radius: 50%;
+    animation: comments-spin 0.9s linear infinite;
+  }
+
+  @keyframes comments-spin {
+    to { transform: rotate(360deg); }
+  }
+</style>
+
