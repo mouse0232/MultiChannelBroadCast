@@ -42,7 +42,7 @@ const siteHeader = {
 ---
 
 <Layout channel={siteHeader} currentChannel={null}>
-  <Header channel={siteHeader} />
+  <Header channel={siteHeader} showGlobalRss={true} rssUrl={`${SITE_URL}rss.xml`} />
 
   <main class="home-channels">
     <h2 class="home-title">频道列表</h2>

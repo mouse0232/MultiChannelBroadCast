@@ -25,7 +25,10 @@ export async function onRequest(context, next) {
   context.locals.RSS_URL = `${context.locals.SITE_URL}rss.xml`
   context.locals.RSS_PREFIX = ''
 
-  if (context.url.pathname.startsWith('/search') && context.params.q?.startsWith('#')) {
+  if (context.params?.channel) {
+    context.locals.RSS_URL = `${context.locals.SITE_URL}channel/${context.params.channel}/rss.xml`
+    context.locals.RSS_PREFIX = `${context.params.channel} | `
+  } else if (context.url.pathname.startsWith('/search') && context.params.q?.startsWith('#')) {
     const tag = context.params.q.replace('#', '')
     context.locals.RSS_URL = `${context.locals.SITE_URL}rss.xml?tag=${tag}`
     context.locals.RSS_PREFIX = `${tag} | `
