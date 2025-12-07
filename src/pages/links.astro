@@ -1,0 +1,167 @@
+---
+import Layout from '../layouts/base.astro'
+import Header from '../components/header.astro'
+import { getEnv } from '../lib/env'
+
+const { SITE_NAME, SITE_AVATAR } = Astro.locals
+
+const linksEnv = getEnv(import.meta.env, Astro, 'LINKS') || ''
+const links = linksEnv
+  .split(';')
+  .map((entry) => entry.trim())
+  .filter(Boolean)
+  .map((entry) => {
+    const [title, url] = entry.split(',').map((part) => part?.trim())
+    if (!title || !url) return null
+    return { title, url }
+  })
+  .filter(Boolean)
+
+const channel = {
+  title: SITE_NAME || 'Links',
+  avatar: SITE_AVATAR || null,
+  // Disable header link on Links page to avoid breaking browser back stack
+  href: false,
+  seo: {
+    title: 'Links',
+    text: 'Curated links',
+  },
+}
+const backScript = `try {
+  if (document.referrer) { window.location = document.referrer; return; }
+  if (history.length > 1) { history.back(); return; }
+  window.location = '${Astro.locals.SITE_URL}';
+} catch (e) { window.location = '${Astro.locals.SITE_URL}'; }`
+---
+
+<Layout channel={channel} currentChannel={null}>
+  <Header channel={channel} />
+
+  <main class="links-page">
+    <div class="links-heading">
+      <div class="links-heading-top">
+        <h2 class="links-title">Links</h2>
+        <button class="links-back" type="button" onclick={backScript}>Back</button>
+      </div>
+      <p class="links-desc">Links configured through the LINKS environment variable.</p>
+    </div>
+
+    {links.length ? (
+      <div class="links-grid">
+        {links.map((link) => (
+          <a class="link-card" href={link.url} target="_blank" rel="noopener noreferrer">
+            <div class="link-title">{link.title}</div>
+            <div class="link-url">{link.url}</div>
+          </a>
+        ))}
+      </div>
+    ) : (
+      <div class="links-empty">
+        <p>No links configured yet.</p>
+      </div>
+    )}
+  </main>
+</Layout>
+
+<style>
+  .links-page {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+
+  .links-heading {
+    margin-bottom: 16px;
+  }
+
+  .links-heading-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .links-title {
+    margin: 0;
+    font-size: 20px;
+    color: var(--text-color, #333);
+  }
+
+  .links-back {
+    padding: 6px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color, #e0e0e0);
+    background: var(--card-bg, #fff);
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-color, #333);
+    transition: background 0.12s ease, border-color 0.12s ease;
+  }
+
+  .links-back:hover {
+    background: var(--hover-background, #f5f5f5);
+    border-color: var(--border-strong-color, #d0d0d0);
+  }
+
+  .links-desc {
+    margin: 6px 0 0;
+    color: var(--secondary-color, #666);
+    font-size: 14px;
+  }
+
+  .links-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 14px;
+  }
+
+  .link-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border-color, #e0e0e0);
+    background: var(--card-bg, #fff);
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+  }
+
+  .link-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.06);
+    border-color: var(--border-strong-color, #d0d0d0);
+  }
+
+  .link-title {
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--text-color, #222);
+  }
+
+  .link-url {
+    font-size: 13px;
+    color: var(--secondary-color, #777);
+    word-break: break-all;
+  }
+
+  .links-empty {
+    margin-top: 12px;
+    padding: 32px 16px;
+    text-align: center;
+    border: 1px dashed var(--border-color, #e0e0e0);
+    border-radius: 10px;
+    color: var(--secondary-color, #777);
+    background: var(--card-bg, #fff);
+  }
+
+  @media (max-width: 640px) {
+    .links-page {
+      padding: 16px;
+    }
+
+    .link-card {
+      padding: 12px;
+    }
+  }
+</style>

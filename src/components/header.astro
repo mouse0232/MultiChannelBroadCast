@@ -17,7 +17,8 @@ const siteAvatar = getEnv(import.meta.env, Astro, 'SITE_AVATAR')
 const avatarUrl = siteAvatar || channel?.avatar
 
 // 确定链接目标:如果有频道用户名,链接到频道页面;否则链接到首页
-const channelUrl = channel?.username ? `${SITE_URL}channel/${channel.username}` : SITE_URL
+// Allow overriding destination; if href is explicitly false, render as plain text
+const channelUrl = channel?.href === false ? null : (channel?.href || (channel?.username ? `${SITE_URL}channel/${channel.username}` : SITE_URL))
 ---
 
 <div id="header">
@@ -31,9 +32,15 @@ const channelUrl = channel?.username ? `${SITE_URL}channel/${channel.username}` 
     </a>
   )}
   <div class="header-title">
-    <a href={channelUrl} class="site-title" title={channel?.title}>
-      {channel?.title}
-    </a>
+    {channelUrl ? (
+      <a href={channelUrl} class="site-title" title={channel?.title}>
+        {channel?.title}
+      </a>
+    ) : (
+      <span class="site-title" title={channel?.title}>
+        {channel?.title}
+      </span>
+    )}
   </div>
   <div class="header-icons">
     {telegram && (
