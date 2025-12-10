@@ -24,30 +24,30 @@ function getVideoStickers($, item, { staticProxy, index }) {
     return `
     <div style="background-image: none; width: 256px;">
       <video src="${staticProxy + url}" width="100%" height="100%" alt="Video Sticker" preload muted autoplay loop playsinline disablepictureinpicture >
-        <img class="sticker" src="${staticProxy + imgurl}" alt="Video Sticker" loading="${index > 15 ? 'eager' : 'lazy'}" />
+        <img class="sticker" src="${staticProxy + imgurl}" alt="Video Sticker" loading="${index > 4 ? 'eager' : 'lazy'}" />
       </video>
     </div>
     `
   })?.get()?.join('')
 }
 
-function getImageStickers($, item, { staticProxy, index }) {
+function getImageStickers($, item, { imageProxy, index }) {
   return $(item).find('.tgme_widget_message_sticker')?.map((_index, image) => {
     const url = $(image)?.attr('data-webp')
-    return `<img class="sticker" src="${staticProxy + url}" style="width: 256px;" alt="Sticker" loading="${index > 15 ? 'eager' : 'lazy'}" />`
+    return `<img class="sticker" src="${imageProxy + url}" style="width: 256px;" alt="Sticker" loading="${index > 4 ? 'eager' : 'lazy'}" />`
   })?.get()?.join('')
 }
 
-function getImages($, item, { staticProxy, id, index, title }) {
+function getImages($, item, { imageProxy, id, index, title }) {
   const images = $(item).find('.tgme_widget_message_photo_wrap')?.map((_index, photo) => {
     const url = $(photo).attr('style').match(/url\(["'](.*?)["']/)?.[1]
     const popoverId = `modal-${id}-${_index}`
     return `
       <button class="image-preview-button image-preview-wrap" popovertarget="${popoverId}" popovertargetaction="show">
-        <img src="${staticProxy + url}" alt="${title}" loading="${index > 15 ? 'eager' : 'lazy'}" />
+        <img src="${imageProxy + url}" alt="${title}" loading="${index > 4 ? 'eager' : 'lazy'}" />
       </button>
       <button class="image-preview-button modal" id="${popoverId}" popovertarget="${popoverId}" popovertargetaction="hide" popover>
-        <img class="modal-img" src="${staticProxy + url}" alt="${title}" loading="lazy" />
+        <img class="modal-img" src="${imageProxy + url}" alt="${title}" loading="lazy" />
       </button>
     `
   })?.get()
@@ -58,13 +58,13 @@ function getVideo($, item, { staticProxy, index }) {
   const video = $(item).find('.tgme_widget_message_video_wrap video')
   video?.attr('src', staticProxy + video?.attr('src'))
     ?.attr('controls', true)
-    ?.attr('preload', index > 15 ? 'auto' : 'metadata')
+    ?.attr('preload', index > 4 ? 'auto' : 'metadata')
     ?.attr('playsinline', true).attr('webkit-playsinline', true)
 
   const roundVideo = $(item).find('.tgme_widget_message_roundvideo_wrap video')
   roundVideo?.attr('src', staticProxy + roundVideo?.attr('src'))
     ?.attr('controls', true)
-    ?.attr('preload', index > 15 ? 'auto' : 'metadata')
+    ?.attr('preload', index > 4 ? 'auto' : 'metadata')
     ?.attr('playsinline', true).attr('webkit-playsinline', true)
   return $.html(video) + $.html(roundVideo)
 }
@@ -76,7 +76,7 @@ function getAudio($, item, { staticProxy }) {
   return $.html(audio)
 }
 
-function getLinkPreview($, item, { staticProxy, index }) {
+function getLinkPreview($, item, { imageProxy, staticProxy, index }) {
   const link = $(item).find('.tgme_widget_message_link_preview')
   const title = $(item).find('.link_preview_title')?.text() || $(item).find('.link_preview_site_name')?.text()
   const description = $(item).find('.link_preview_description')?.text()
@@ -85,8 +85,8 @@ function getLinkPreview($, item, { staticProxy, index }) {
 
   const image = $(item).find('.link_preview_image')
   const src = image?.attr('style')?.match(/url\(["'](.*?)["']/i)?.[1]
-  const imageSrc = src ? staticProxy + src : ''
-  image?.replaceWith(`<img class="link_preview_image" alt="${title}" src="${imageSrc}" loading="${index > 15 ? 'eager' : 'lazy'}" />`)
+  const imageSrc = src ? imageProxy + src : ''
+  image?.replaceWith(`<img class="link_preview_image" alt="${title}" src="${imageSrc}" loading="${index > 4 ? 'eager' : 'lazy'}" />`)
   return $.html(link)
 }
 
@@ -130,7 +130,7 @@ function modifyHTMLContent($, content, { index } = {}) {
   return content
 }
 
-function getPost($, item, { channel, staticProxy, index = 0 }) {
+function getPost($, item, { channel, staticProxy, imageProxy, index = 0 }) {
   item = item ? $(item).find('.tgme_widget_message') : $('.tgme_widget_message')
   const content = $(item).find('.js-message_reply_text')?.length > 0
     ? modifyHTMLContent($, $(item).find('.tgme_widget_message_text.js-message_text'), { index })
@@ -152,17 +152,17 @@ function getPost($, item, { channel, staticProxy, index = 0 }) {
     text: content?.text(),
     content: [
       getReply($, item, { channel }),
-      getImages($, item, { staticProxy, id, index, title }),
+      getImages($, item, { imageProxy, id, index, title }),
       getVideo($, item, { staticProxy, id, index, title }),
       getAudio($, item, { staticProxy, id, index, title }),
       content?.html(),
-      getImageStickers($, item, { staticProxy, index }),
+      getImageStickers($, item, { imageProxy, index }),
       getVideoStickers($, item, { staticProxy, index }),
       $(item).find('.tgme_widget_message_poll')?.html(),
       $.html($(item).find('.tgme_widget_message_document_wrap')),
       $.html($(item).find('.tgme_widget_message_video_player.not_supported')),
       $.html($(item).find('.tgme_widget_message_location_wrap')),
-      getLinkPreview($, item, { staticProxy, index }),
+      getLinkPreview($, item, { imageProxy, staticProxy, index }),
     ].filter(Boolean).join('').replace(/(url\(["'])((https?:)?\/\/)/g, (match, p1, p2, _p3) => {
       if (p2 === '//') {
         p2 = 'https://'
@@ -190,8 +190,19 @@ export async function getSingleChannelInfo(Astro, channel, { before = '', after 
     return JSON.parse(JSON.stringify(cachedResult))
   }
 
+  /* Helper function to check if a URL is an image handled by wsrv */
+  const isImageRequest = (url) => {
+    return true; // We assume we use this proxy primarily for images in this context
+  }
+
+  // Use wsrv.nl for images to save Cloudflare function invocations
+  // Videos/Audio must still go through local proxy or be direct, as wsrv is image-only
+  const imageProxy = 'https://wsrv.nl/?url='
+
+  // Keep using local proxy for non-image assets (video, audio) if needed
+  // or fallback to '' if no local proxy defined (though local proxy is detected via env normally)
+  const localProxy = getEnv(import.meta.env, Astro, 'STATIC_PROXY') ?? ''
   const host = getEnv(import.meta.env, Astro, 'TELEGRAM_HOST') ?? 't.me'
-  const staticProxy = getEnv(import.meta.env, Astro, 'STATIC_PROXY') ?? ''
 
   const headers = Object.fromEntries(Astro.request.headers)
   Object.keys(headers).forEach((key) => {
@@ -203,31 +214,31 @@ export async function getSingleChannelInfo(Astro, channel, { before = '', after 
   // 如果是单个帖子,先获取频道首页来提取频道标题
   let channelTitle = channel
   let channelAvatar = null
-  
+
   if (id) {
     try {
       // 请求频道首页获取频道标题
       const channelPageUrl = `https://${host}/s/${channel}`
       console.info('Fetching channel info from:', channelPageUrl)
-      
+
       const channelHtml = await $fetch(channelPageUrl, {
         headers,
         retry: 2,
         retryDelay: 100,
       })
-      
+
       const $channel = cheerio.load(channelHtml, {}, false)
-      channelTitle = $channel('.tgme_page_title span')?.text()?.trim() || 
-                     $channel('.tgme_page_title')?.text()?.trim() ||
-                     $channel('.tgme_channel_info_header_title')?.text()?.trim() ||
-                     channel
+      channelTitle = $channel('.tgme_page_title span')?.text()?.trim() ||
+        $channel('.tgme_page_title')?.text()?.trim() ||
+        $channel('.tgme_channel_info_header_title')?.text()?.trim() ||
+        channel
       channelAvatar = $channel('.tgme_page_photo_image img')?.attr('src')
-      
+
       // 通过静态代理加载头像
       if (channelAvatar) {
-        channelAvatar = staticProxy + channelAvatar
+        channelAvatar = imageProxy + channelAvatar
       }
-      
+
       console.info('Channel info extracted:', { channel, channelTitle, hasAvatar: !!channelAvatar })
     } catch (error) {
       console.warn('Failed to fetch channel info, using username:', error.message)
@@ -252,8 +263,13 @@ export async function getSingleChannelInfo(Astro, channel, { before = '', after 
   const $ = cheerio.load(html, {}, false)
 
   if (id) {
-    const post = getPost($, null, { channel, staticProxy })
-    
+    // Pass specific proxies for different media types
+    const post = getPost($, null, {
+      channel,
+      staticProxy: localProxy, // Videos/Audio use local
+      imageProxy: imageProxy   // Images use wsrv
+    })
+
     // 返回包含频道信息的对象
     const result = {
       ...post,
@@ -263,25 +279,30 @@ export async function getSingleChannelInfo(Astro, channel, { before = '', after 
     cache.set(cacheKey, result)
     return result
   }
-  
+
   // 列表页获取频道信息
   if (!channelTitle || channelTitle === channel) {
-    channelTitle = $('.tgme_page_title span')?.text()?.trim() || 
-                   $('.tgme_page_title')?.text()?.trim() ||
-                   $('.tgme_channel_info_header_title')?.text()?.trim() ||
-                   channel
+    channelTitle = $('.tgme_page_title span')?.text()?.trim() ||
+      $('.tgme_page_title')?.text()?.trim() ||
+      $('.tgme_channel_info_header_title')?.text()?.trim() ||
+      channel
   }
-  
+
   if (!channelAvatar) {
     channelAvatar = $('.tgme_page_photo_image img')?.attr('src')
     // 通过静态代理加载头像
     if (channelAvatar) {
-      channelAvatar = staticProxy + channelAvatar
+      channelAvatar = imageProxy + channelAvatar
     }
   }
 
   const posts = $('.tgme_channel_history .tgme_widget_message_wrap')?.map((index, item) => {
-    return getPost($, item, { channel, staticProxy, index })
+    return getPost($, item, {
+      channel,
+      staticProxy: localProxy,
+      imageProxy: imageProxy,
+      index
+    })
   })?.get()?.reverse().filter(post => ['text'].includes(post.type) && post.id && post.content)
 
   const channelInfo = {
@@ -375,3 +396,4 @@ export async function getChannelInfo(Astro, { before = '', after = '', q = '' } 
   cache.set(cacheKey, aggregatedInfo)
   return aggregatedInfo
 }
+

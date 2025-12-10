@@ -44,6 +44,7 @@
     "astro": "^4.15.1",
     "astro-seo": "^0.8.4",
     "autoprefixer": "^10.4.20",
+    "cross-env": "^10.1.0",
     "cssnano": "^7.0.5",
     "postcss-nesting": "^13.0.0",
     "std-env": "^3.7.0"

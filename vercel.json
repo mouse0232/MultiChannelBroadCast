@@ -1,9 +1,0 @@
-{
-  "buildCommand": "pnpm build",
-  "crons": [
-    {
-      "path": "/api/update-cache",
-      "schedule": "*/30 * * * *"
-    }
-  ]
-}

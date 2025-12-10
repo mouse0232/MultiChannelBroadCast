@@ -3,25 +3,25 @@ export async function onRequest(context, next) {
   // 修复Cloudflare Pages默认域名和预览域名的处理问题
   const siteBase = import.meta.env.SITE || context.url.origin;
   const baseUrl = import.meta.env.BASE_URL || '/';
-  
+
   // 确保SITE_URL格式正确
   let siteUrl = siteBase;
   if (!siteUrl.endsWith('/')) {
     siteUrl += '/';
   }
-  
+
   // 添加baseUrl路径（如果存在且不为根路径）
   if (baseUrl !== '/' && !siteUrl.endsWith(baseUrl)) {
     siteUrl += baseUrl.substring(1);
   }
-  
+
   // 确保最终URL以斜杠结尾
   if (!siteUrl.endsWith('/')) {
     siteUrl += '/';
   }
-  
+
   context.locals.SITE_URL = siteUrl;
-  
+
   context.locals.RSS_URL = `${context.locals.SITE_URL}rss.xml`
   context.locals.RSS_PREFIX = ''
 
@@ -44,7 +44,7 @@ export async function onRequest(context, next) {
 
     if (!response.headers.has('Cache-Control')) {
       // 增强缓存策略: public 15分钟浏览器缓存, 15分钟 CDN 缓存
-      response.headers.set('Cache-Control', 'public, max-age=900, s-maxage=900, stale-while-revalidate=300')
+      response.headers.set('Cache-Control', 'public, max-age=300, s-maxage=3600, stale-while-revalidate=600')
     }
   }
   return response
