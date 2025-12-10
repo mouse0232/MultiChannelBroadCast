@@ -43,8 +43,16 @@ export async function onRequest(context, next) {
     }
 
     if (!response.headers.has('Cache-Control')) {
-      // 增强缓存策略: public 15分钟浏览器缓存, 15分钟 CDN 缓存
-      response.headers.set('Cache-Control', 'public, max-age=300, s-maxage=3600, stale-while-revalidate=600')
+      const contentType = response.headers.get('Content-type');
+      if (contentType && (
+        contentType.includes('text/html') ||
+        contentType.includes('application/xml') ||
+        contentType.includes('application/rss+xml') ||
+        contentType.includes('application/json')
+      )) {
+        // 增强缓存策略: public 5分钟浏览器缓存, 1小时 CDN 缓存, 允许后台更新
+        response.headers.set('Cache-Control', 'public, max-age=300, s-maxage=3600, stale-while-revalidate=600')
+      }
     }
   }
   return response
