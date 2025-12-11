@@ -5,11 +5,38 @@ import flourite from 'flourite'
 import prism from '../prism'
 import { getEnv } from '../env'
 
-// 图片代理帮助函数
+// 图片代理帮助函数 - 多代理负载均衡
 function getProxyUrl(url) {
   if (!url) return ''
-  // 统一使用 wsrv.nl 代理
-  return `https://wsrv.nl/?url=${encodeURIComponent(url)}`
+
+  // 随机选择代理服务 (0-3)
+  const proxyIndex = Math.floor(Math.random() * 4)
+
+  switch (proxyIndex) {
+    case 0:
+      // wsrv.nl (主代理,如果失败则使用 images.weserv.nl 备用)
+      try {
+        return `https://wsrv.nl/?url=${encodeURIComponent(url)}`
+      } catch {
+        return `https://images.weserv.nl/?url=${encodeURIComponent(url)}`
+      }
+
+    case 1:
+      // WordPress.com 图片代理
+      return `https://i0.wp.com/${url.replace(/^https?:\/\//, '')}`
+
+    case 2:
+      // cdnjson.com 图片代理
+      return `https://cdn.cdnjson.com/pic.html?url=${encodeURIComponent(url)}`
+
+    case 3:
+      // 百度图片代理
+      return `https://image.baidu.com/search/down?url=${encodeURIComponent(url)}`
+
+    default:
+      // 默认使用 wsrv.nl
+      return `https://wsrv.nl/?url=${encodeURIComponent(url)}`
+  }
 }
 
 // 使用 BroadcastChannel 的简单缓存配置
