@@ -5,19 +5,11 @@ import flourite from 'flourite'
 import prism from '../prism'
 import { getEnv } from '../env'
 
-// 代理负载均衡帮助函数
+// 图片代理帮助函数
 function getProxyUrl(url) {
   if (!url) return ''
-  // 50% 概率走 wsrv.nl，50% 概率走 statically.io
-  const useWsrv = Math.random() > 0.5
-
-  if (useWsrv) {
-    return `https://wsrv.nl/?url=${url}`
-  } else {
-    // Statically.io 需要去掉协议头 (https://)
-    const storedUrl = url.replace(/^https?:\/\//, '')
-    return `https://cdn.statically.io/img/${storedUrl}`
-  }
+  // 统一使用 wsrv.nl 代理
+  return `https://wsrv.nl/?url=${encodeURIComponent(url)}`
 }
 
 // 使用 BroadcastChannel 的简单缓存配置
@@ -113,6 +105,21 @@ function getReply($, item, { channel }) {
   if (href) {
     const url = new URL(href)
     reply?.attr('href', `${url.pathname}`.replace(new RegExp(`/${channel}/`, 'i'), '/posts/'))
+  }
+
+  // 处理回复消息的缩略图
+  const thumb = reply?.find('.tgme_widget_message_reply_thumb')
+  if (thumb && thumb.length > 0) {
+    const style = thumb.attr('style')
+    if (style) {
+      const urlMatch = style.match(/url\(['"]?(.*?)['"]?\)/)
+      if (urlMatch && urlMatch[1]) {
+        const originalUrl = urlMatch[1]
+        const proxiedUrl = getProxyUrl(originalUrl)
+        const newStyle = style.replace(urlMatch[0], `url('${proxiedUrl}')`)
+        thumb.attr('style', newStyle)
+      }
+    }
   }
 
   return $.html(reply)
