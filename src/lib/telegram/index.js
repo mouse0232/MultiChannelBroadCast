@@ -5,37 +5,23 @@ import flourite from 'flourite'
 import prism from '../prism'
 import { getEnv } from '../env'
 
-// 图片代理帮助函数 - 多代理负载均衡
+// 图片代理帮助函数 - 双代理负载均衡
 function getProxyUrl(url) {
   if (!url) return ''
 
-  // 随机选择代理服务 (0-3)
-  const proxyIndex = Math.floor(Math.random() * 4)
+  const encodedUrl = encodeURIComponent(url)
 
-  switch (proxyIndex) {
-    case 0:
-      // wsrv.nl (主代理,如果失败则使用 images.weserv.nl 备用)
-      try {
-        return `https://wsrv.nl/?url=${encodeURIComponent(url)}`
-      } catch {
-        return `https://images.weserv.nl/?url=${encodeURIComponent(url)}`
-      }
+  // 负载均衡: 50% wsrv.nl, 50% cdnjson.com
+  // wsrv.nl: 专业图片处理服务,全球 CDN
+  // cdnjson.com: 国内 CDN,对中国大陆访问友好
+  const useWsrv = Math.random() > 0.5
 
-    case 1:
-      // WordPress.com 图片代理
-      return `https://i0.wp.com/${url.replace(/^https?:\/\//, '')}`
-
-    case 2:
-      // cdnjson.com 图片代理
-      return `https://cdn.cdnjson.com/pic.html?url=${encodeURIComponent(url)}`
-
-    case 3:
-      // 百度图片代理
-      return `https://image.baidu.com/search/down?url=${encodeURIComponent(url)}`
-
-    default:
-      // 默认使用 wsrv.nl
-      return `https://wsrv.nl/?url=${encodeURIComponent(url)}`
+  if (useWsrv) {
+    // wsrv.nl (主代理,如果失败则使用 images.weserv.nl 备用)
+    return `https://wsrv.nl/?url=${encodedUrl}`
+  } else {
+    // cdnjson.com 图片代理
+    return `https://cdn.cdnjson.com/pic.html?url=${encodedUrl}`
   }
 }
 
