@@ -39,7 +39,7 @@ function getVideoStickers($, item, { staticProxy, index }) {
     return `
     <div style="background-image: none; width: 256px;">
       <video src="${staticProxy + url}" width="100%" height="100%" alt="Video Sticker" preload muted autoplay loop playsinline disablepictureinpicture >
-        <img class="sticker" src="${staticProxy + imgurl}" alt="Video Sticker" loading="${index > 4 ? 'eager' : 'lazy'}" />
+        <img class="sticker" src="${getProxyUrl(imgurl)}" alt="Video Sticker" loading="${index > 4 ? 'eager' : 'lazy'}" />
       </video>
     </div>
     `
@@ -178,15 +178,7 @@ function getPost($, item, { channel, staticProxy, index = 0 }) {
       $.html($(item).find('.tgme_widget_message_video_player.not_supported')),
       $.html($(item).find('.tgme_widget_message_location_wrap')),
       getLinkPreview($, item, { staticProxy, index }),
-    ].filter(Boolean).join('').replace(/(url\(["'])((https?:)?\/\/)/g, (match, p1, p2, _p3) => {
-      if (p2 === '//') {
-        p2 = 'https://'
-      }
-      if (p2?.startsWith('t.me')) {
-        return false
-      }
-      return `${p1}${staticProxy}${p2}`
-    }),
+    ].filter(Boolean).join(''),
   }
 }
 
