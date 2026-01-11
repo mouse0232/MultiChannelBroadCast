@@ -1,17 +1,30 @@
 ---
 import List from '../../components/list.astro'
-import { getChannelInfo } from '../../lib/telegram'
+import { getChannelInfo, getSingleChannelInfo } from '../../lib/telegram'
 
 // 支持两种搜索方式: /search/关键词 或 /search/result?q=关键词
 const q = Astro.url.searchParams.get('q') || Astro.params.q
+const scopeParam = Astro.url.searchParams.get('scope') || 'all'
+const requestedChannel = Astro.url.searchParams.get('channel') || ''
 
-const channel = await getChannelInfo(Astro, { q })
+const scope = scopeParam === 'channel' && requestedChannel ? 'channel' : 'all'
 
+let channel = null
+let currentChannel = null
+
+if (scope === 'channel') {
+  channel = await getSingleChannelInfo(Astro, requestedChannel, { q })
+  currentChannel = requestedChannel
+} else {
+  channel = await getChannelInfo(Astro, { q })
+}
+
+const seoTitle = scope === 'channel' && channel?.title ? `${q} - ${channel.title}` : q
 channel.seo = {
-  title: q,
+  title: seoTitle,
   noindex: true,
   nofollow: true,
 }
 ---
 
-<List channel={channel} before={false} after={false} />
+<List channel={channel} currentChannel={currentChannel} before={false} after={false} />

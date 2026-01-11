@@ -320,13 +320,24 @@ export async function getSingleChannelInfo(Astro, channel, { before = '', after 
     }
   }
 
-  const posts = $('.tgme_channel_history .tgme_widget_message_wrap')?.map((index, item) => {
+  let posts = $('.tgme_channel_history .tgme_widget_message_wrap')?.map((index, item) => {
     return getPost($, item, {
       channel,
       staticProxy: localProxy,
       index
     })
   })?.get()?.reverse().filter(post => ['text'].includes(post.type) && post.id && post.content)
+
+  // 去重: Telegram 搜索页偶尔会重复渲染同一条消息
+  if (posts?.length) {
+    const seen = new Set()
+    posts = posts.filter((post) => {
+      const key = `${post.channel}-${post.id}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+  }
 
   const channelInfo = {
     posts,
@@ -352,7 +363,7 @@ export async function getChannelInfo(Astro, { before = '', after = '', q = '' } 
     throw new Error('No CHANNELS or CHANNEL environment variable set')
   }
 
-  const channels = channelsStr.split(',').map(c => c.trim()).filter(Boolean)
+  const channels = Array.from(new Set(channelsStr.split(',').map(c => c.trim()).filter(Boolean)))
 
   // 如果只有一个频道,直接返回
   if (channels.length === 1) {

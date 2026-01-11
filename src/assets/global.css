@@ -50,17 +50,19 @@ html {
 }
 
 .search-icon:checked + .search-form {
-  display: block !important;
+  display: flex !important;
 }
 
 .search-form {
   display: none;
+  flex-direction: column;
+  gap: 8px;
   background: var(--code-background-color);
   color: var(--secondary-color);
   padding: 8px;
   border-radius: var(--box-border-radius);
 
-  > input {
+  input[type="text"] {
     border: 1px solid var(--background-color);
     border-radius: var(--box-border-radius);
     background: var(--code-background-color);
@@ -90,7 +92,7 @@ html {
   }
 
   .search-form {
-    display: block;
+    display: flex;
   }
 
   .search-icon {

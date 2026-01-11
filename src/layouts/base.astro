@@ -105,6 +105,11 @@ const navs = (getEnv(import.meta.env, Astro, 'NAVS') || '')
     }
   })
 
+const effectiveChannel = currentChannel || channel?.username || ''
+const hasChannelScope = Boolean(effectiveChannel)
+const defaultSearchScope = hasChannelScope ? 'channel' : 'all'
+const showSearchScope = !GOOGLE_SEARCH_SITE && hasChannelScope
+
 ---
 
 <!doctype html>
@@ -154,8 +159,27 @@ const navs = (getEnv(import.meta.env, Astro, 'NAVS') || '')
           <div class="topbar-center">
             <form class="topbar-search" action={searchAction} method="get">
               {GOOGLE_SEARCH_SITE ? <input type="hidden" name="as_sitesearch" value={GOOGLE_SEARCH_SITE} /> : null}
-              <input type="text" name="q" placeholder="Search..." />
-              <button type="submit" aria-label="Search">🔍</button>
+              {!GOOGLE_SEARCH_SITE && hasChannelScope ? <input type="hidden" name="channel" value={effectiveChannel} /> : null}
+              {
+                showSearchScope ? (
+                  <div class="search-scope">
+                    <label>
+                      <input type="radio" name="scope" value="channel" checked={defaultSearchScope === 'channel'} />
+                      本频道
+                    </label>
+                    <label>
+                      <input type="radio" name="scope" value="all" checked={defaultSearchScope === 'all'} />
+                      全频道
+                    </label>
+                  </div>
+                ) : (!GOOGLE_SEARCH_SITE ? (
+                  <input type="hidden" name="scope" value={defaultSearchScope} />
+                ) : null)
+              }
+              <div class="search-row">
+                <input type="text" name="q" placeholder="Search..." />
+                <button type="submit" aria-label="Search">🔍</button>
+              </div>
             </form>
           </div>
         </div>
@@ -213,7 +237,27 @@ const navs = (getEnv(import.meta.env, Astro, 'NAVS') || '')
             <input class="search-icon" name="icon" type="checkbox" placeholder="Search" />
             <form class="search-form" action={searchAction} method="get">
               {GOOGLE_SEARCH_SITE ? <input type="hidden" name="as_sitesearch" value={GOOGLE_SEARCH_SITE} /> : null}
-              <input type="text" name="q" placeholder="Search" />
+              {!GOOGLE_SEARCH_SITE && hasChannelScope ? <input type="hidden" name="channel" value={effectiveChannel} /> : null}
+              {
+                showSearchScope ? (
+                  <div class="search-scope">
+                    <label>
+                      <input type="radio" name="scope" value="channel" checked={defaultSearchScope === 'channel'} />
+                      本频道
+                    </label>
+                    <label>
+                      <input type="radio" name="scope" value="all" checked={defaultSearchScope === 'all'} />
+                      全频道
+                    </label>
+                  </div>
+                ) : (!GOOGLE_SEARCH_SITE ? (
+                  <input type="hidden" name="scope" value={defaultSearchScope} />
+                ) : null)
+              }
+              <div class="search-row">
+                <input type="text" name="q" placeholder="Search" />
+                <button type="submit" aria-label="Search">🔍</button>
+              </div>
             </form>
             {/* 频道页面保留侧栏内的 Powered by 信息 (放在搜索下方) */}
             {(pathname.startsWith('/channel') || channel?.username) && (
@@ -325,21 +369,53 @@ const navs = (getEnv(import.meta.env, Astro, 'NAVS') || '')
 
   .topbar-search {
     display: flex;
-    gap: 6px;
-    align-items: center;
+    flex-direction: column;
+    gap: 8px;
     width: 100%;
   }
 
-  .topbar-search input[type="text"] {
+  .search-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .topbar-search input[type="text"],
+  .search-form input[type="text"] {
     padding: 6px 10px;
     border-radius: 6px;
     border: 1px solid var(--border-color);
     outline: none;
     flex: 1 1 auto;
     min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
   }
 
-  .topbar-search button { background: transparent; border: none; cursor: pointer; flex: 0 0 auto; }
+  .topbar-search button,
+  .search-form button {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    cursor: pointer;
+    padding: 6px 10px;
+    flex: 0 0 auto;
+  }
+
+  .search-scope {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    font-size: 12px;
+    color: var(--secondary-color, #666);
+  }
+
+  .search-scope label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+  }
 
   /* 移动端汉堡菜单 */
   .mobile-menu-toggle {
