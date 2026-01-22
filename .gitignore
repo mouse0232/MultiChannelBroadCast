@@ -42,9 +42,8 @@ Thumbs.db
 .ace-tool/
 .claude/
 
-#
-package.json
-pnpm-lock.yaml
-tsconfig.json
+# Backup files
 vercel.json.bak
+
+# Lock files (keep pnpm-lock.yaml, ignore npm's package-lock.json)
 package-lock.json

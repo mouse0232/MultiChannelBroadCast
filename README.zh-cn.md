@@ -215,10 +215,65 @@ pnpm install && pnpm build
 dist
 ```
 
+## Vercel 部署
+
+### 一键部署
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/banlanzs/MultiChannelBroadCast)
+
+### 手动部署
+
+1. Fork 本仓库到你的 GitHub 账号
+2. 在 [Vercel Dashboard](https://vercel.com/new) 导入项目
+3. 配置环境变量（必需）：
+   - `CHANNELS`：频道列表（逗号分隔）
+   - `SITE_NAME`：站点名称
+   - 其他可选变量参考 `.env.example`
+4. 点击 "Deploy" 开始部署
+
+### 构建配置
+
+Vercel 会自动检测 Astro 项目，无需手动配置。如果需要自定义：
+
+- **Framework Preset**: Astro
+- **Build Command**: `pnpm build`
+- **Output Directory**: `dist`
+- **Install Command**: `pnpm install`
+- **Node.js Version**: 20.x
+
+### 环境变量配置
+
+在 Vercel Dashboard → Settings → Environment Variables 中添加：
+
+| 变量名 | 说明 | 必需 |
+|--------|------|------|
+| `CHANNELS` | 频道列表（逗号分隔） | ✅ |
+| `SITE_NAME` | 站点名称 | ✅ |
+| `LOCALE` | 语言代码（默认 zh-cn） | ❌ |
+| `TIMEZONE` | 时区（默认 Asia/Shanghai） | ❌ |
+| `COMMENTS` | 启用评论功能（true/false） | ❌ |
+
+完整环境变量列表参考 `.env.example`。
+
+### 性能说明
+
+本项目使用 ISR（Incremental Static Regeneration）缓存策略：
+- 页面在边缘节点缓存 30 分钟
+- 缓存过期后自动重新生成
+- 首次访问可能需要 1-3 秒加载时间
+- 后续访问响应时间 <100ms
+
+### 注意事项
+
+⚠️ **重要**：
+- Vercel 部署使用 serverless 架构，内存缓存不共享
+- 后台缓存更新机制在 Vercel 上不可用
+- 高流量场景建议使用 Docker 部署或配置 Vercel KV (Redis)
+
 ## TO DO
 
 ### 部署相关
-- [ ] 完善 Vercel 部署支持
+- [x] 完善 Vercel 部署支持
 - [ ] 优化 Cloudflare Pages 构建流程
 - [ ] 添加 Netlify 部署文档
 

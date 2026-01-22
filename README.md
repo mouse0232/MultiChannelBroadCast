@@ -215,10 +215,65 @@ pnpm install && pnpm build
 dist
 ```
 
+## Vercel Deployment
+
+### One-Click Deploy
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/banlanzs/MultiChannelBroadCast)
+
+### Manual Deployment
+
+1. Fork this repository to your GitHub account
+2. Import the project in [Vercel Dashboard](https://vercel.com/new)
+3. Configure environment variables (required):
+   - `CHANNELS`: Channel list (comma-separated)
+   - `SITE_NAME`: Site name
+   - See `.env.example` for other optional variables
+4. Click "Deploy" to start deployment
+
+### Build Configuration
+
+Vercel will automatically detect the Astro project, no manual configuration needed. If you need to customize:
+
+- **Framework Preset**: Astro
+- **Build Command**: `pnpm build`
+- **Output Directory**: `dist`
+- **Install Command**: `pnpm install`
+- **Node.js Version**: 20.x
+
+### Environment Variables
+
+Add in Vercel Dashboard → Settings → Environment Variables:
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `CHANNELS` | Channel list (comma-separated) | ✅ |
+| `SITE_NAME` | Site name | ✅ |
+| `LOCALE` | Language code (default: zh-cn) | ❌ |
+| `TIMEZONE` | Timezone (default: Asia/Shanghai) | ❌ |
+| `COMMENTS` | Enable comments (true/false) | ❌ |
+
+See `.env.example` for the complete list of environment variables.
+
+### Performance Notes
+
+This project uses ISR (Incremental Static Regeneration) caching strategy:
+- Pages are cached at edge nodes for 30 minutes
+- Automatically regenerated after cache expiration
+- First visit may take 1-3 seconds to load
+- Subsequent visits respond in <100ms
+
+### Important Notes
+
+⚠️ **Important**:
+- Vercel deployment uses serverless architecture, memory cache is not shared
+- Background cache update mechanism is not available on Vercel
+- For high-traffic scenarios, consider using Docker deployment or configuring Vercel KV (Redis)
+
 ## TO DO
 
 ### Deployment Related
-- [ ] Improve Vercel deployment support
+- [x] Improve Vercel deployment support
 - [ ] Optimize Cloudflare Pages build process
 - [ ] Add Netlify deployment documentation
 

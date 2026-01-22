@@ -9,7 +9,9 @@ import sentry from '@sentry/astro'
 
 const providers = {
   vercel: vercel({
-    isr: false,
+    isr: {
+      expiration: 60 * 30,
+    },
     edgeMiddleware: false,
     functionPerRoute: false,
     imageService: true,
