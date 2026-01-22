@@ -39,3 +39,12 @@ Thumbs.db
 
 # Misc
 .turbo
+.ace-tool/
+.claude/
+
+#
+package.json
+pnpm-lock.yaml
+tsconfig.json
+vercel.json.bak
+package-lock.json

@@ -5,24 +5,83 @@ import flourite from 'flourite'
 import prism from '../prism'
 import { getEnv } from '../env'
 
-// 图片代理帮助函数 - 双代理负载均衡
+// 图片代理服务配置
+const IMAGE_PROXIES = [
+  {
+    name: 'cdnjson',
+    enabled: true,
+    build: (encoded) => `https://cdn.cdnjson.com/pic.html?url=${encoded}`
+  },
+  {
+    name: 'sogoucdn',
+    enabled: false, // 禁用: 对 Telegram 图床不兼容
+    build: (encoded, raw) => {
+      const hash = hashStringToIndex(raw, 9) + 1
+      const shard = String(hash).padStart(2, '0')
+      const httpsUrl = raw.replace(/^http:\/\//i, 'https://')
+      return `https://img0${shard}.sogoucdn.com/v2/thumb/retype_exclude_gif/ext/auto/q/95/?appid=122&url=${encodeURIComponent(httpsUrl)}`
+    }
+  },
+  {
+    name: 'noobzone',
+    enabled: false, // 禁用: 防盗链严格，ReferrerPolicy 在部分环境可能失效导致 403
+    build: (encoded) => `https://img.noobzone.ru/getimg.php?url=${encoded}`
+  },
+  {
+    name: 'weserv',
+    enabled: true,
+    build: (encoded) => `https://images.weserv.nl/?url=${encoded}`
+  },
+  {
+    name: 'wsrv',
+    enabled: true,
+    build: (encoded) => `https://wsrv.nl/?url=${encoded}`
+  }
+]
+
+const FALLBACK_PROXY_NAME = 'wsrv'
+
+// 哈希函数 - 确保同一 URL 映射到同一代理
+function hashStringToIndex(str, modulo) {
+  let hash = 0
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash * 31 + str.charCodeAt(i)) >>> 0
+  }
+  return hash % modulo
+}
+
+// 图片代理帮助函数 - 多代理哈希分片负载均衡
 function getProxyUrl(url) {
   if (!url) return ''
 
-  const encodedUrl = encodeURIComponent(url)
+  const encoded = encodeURIComponent(url)
 
-  // 负载均衡: 50% wsrv.nl, 50% cdnjson.com
-  // wsrv.nl: 专业图片处理服务,全球 CDN
-  // cdnjson.com: 国内 CDN,对中国大陆访问友好
-  const useWsrv = Math.random() > 0.5
+  // 过滤启用的代理,排除 wsrv 作为主选项
+  const primaryProxies = IMAGE_PROXIES.filter(p => p.enabled && p.name !== FALLBACK_PROXY_NAME)
 
-  if (useWsrv) {
-    // wsrv.nl (主代理,如果失败则使用 images.weserv.nl 备用)
-    return `https://wsrv.nl/?url=${encodedUrl}`
-  } else {
-    // cdnjson.com 图片代理
-    return `https://cdn.cdnjson.com/pic.html?url=${encodedUrl}`
+  if (primaryProxies.length === 0) {
+    // 降级到 wsrv.nl
+    const fallback = IMAGE_PROXIES.find(p => p.name === FALLBACK_PROXY_NAME)
+    return fallback.build(encoded, url)
   }
+
+  const primaryIndex = hashStringToIndex(url, primaryProxies.length)
+  const primary = primaryProxies[primaryIndex]
+
+  try {
+    return primary.build(encoded, url)
+  } catch (error) {
+    console.error('Proxy URL build failed:', error)
+    const fallback = IMAGE_PROXIES.find(p => p.name === FALLBACK_PROXY_NAME)
+    return fallback.build(encoded, url)
+  }
+}
+
+// 故障转移 URL 生成函数
+function getFallbackUrl(url) {
+  if (!url) return ''
+  const fallback = IMAGE_PROXIES.find(p => p.name === FALLBACK_PROXY_NAME)
+  return fallback.build(encodeURIComponent(url), url)
 }
 
 // 使用 BroadcastChannel 的简单缓存配置
@@ -41,10 +100,11 @@ function getVideoStickers($, item, { staticProxy, index }) {
   return $(item).find('.js-videosticker_video')?.map((_index, video) => {
     const url = $(video)?.attr('src')
     const imgurl = $(video).find('img')?.attr('src')
+    const fallbackUrl = getFallbackUrl(imgurl)
     return `
     <div style="background-image: none; width: 256px;">
       <video src="${staticProxy + url}" width="100%" height="100%" alt="Video Sticker" preload muted autoplay loop playsinline disablepictureinpicture >
-        <img class="sticker" src="${getProxyUrl(imgurl)}" alt="Video Sticker" loading="${index > 4 ? 'eager' : 'lazy'}" />
+        <img class="sticker" src="${getProxyUrl(imgurl)}" alt="Video Sticker" loading="${index > 4 ? 'eager' : 'lazy'}" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src='${fallbackUrl}'" />
       </video>
     </div>
     `
@@ -54,7 +114,8 @@ function getVideoStickers($, item, { staticProxy, index }) {
 function getImageStickers($, item, { index }) {
   return $(item).find('.tgme_widget_message_sticker')?.map((_index, image) => {
     const url = $(image)?.attr('data-webp')
-    return `<img class="sticker" src="${getProxyUrl(url)}" style="width: 256px;" alt="Sticker" loading="${index > 4 ? 'eager' : 'lazy'}" />`
+    const fallbackUrl = getFallbackUrl(url)
+    return `<img class="sticker" src="${getProxyUrl(url)}" style="width: 256px;" alt="Sticker" loading="${index > 4 ? 'eager' : 'lazy'}" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src='${fallbackUrl}'" />`
   })?.get()?.join('')
 }
 
@@ -62,12 +123,13 @@ function getImages($, item, { id, index, title }) {
   const images = $(item).find('.tgme_widget_message_photo_wrap')?.map((_index, photo) => {
     const url = $(photo).attr('style').match(/url\(["'](.*?)["']/)?.[1]
     const popoverId = `modal-${id}-${_index}`
+    const fallbackUrl = getFallbackUrl(url)
     return `
       <button class="image-preview-button image-preview-wrap" popovertarget="${popoverId}" popovertargetaction="show">
-        <img src="${getProxyUrl(url)}" alt="${title}" loading="${index > 4 ? 'eager' : 'lazy'}" />
+        <img src="${getProxyUrl(url)}" alt="${title}" loading="${index > 4 ? 'eager' : 'lazy'}" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src='${fallbackUrl}'" />
       </button>
       <button class="image-preview-button modal" id="${popoverId}" popovertarget="${popoverId}" popovertargetaction="hide" popover>
-        <img class="modal-img" src="${getProxyUrl(url)}" alt="${title}" loading="lazy" />
+        <img class="modal-img" src="${getProxyUrl(url)}" alt="${title}" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src='${fallbackUrl}'" />
       </button>
     `
   })?.get()
@@ -106,7 +168,9 @@ function getLinkPreview($, item, { staticProxy, index }) {
   const image = $(item).find('.link_preview_image')
   const src = image?.attr('style')?.match(/url\(["'](.*?)["']/i)?.[1]
   const imageSrc = src ? getProxyUrl(src) : ''
-  image?.replaceWith(`<img class="link_preview_image" alt="${title}" src="${imageSrc}" loading="${index > 4 ? 'eager' : 'lazy'}" />`)
+  const fallbackUrl = src ? getFallbackUrl(src) : ''
+
+  image?.replaceWith(`<img class="link_preview_image" alt="${title}" src="${imageSrc}" loading="${index > 4 ? 'eager' : 'lazy'}" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src='${fallbackUrl}'" />`)
   return $.html(link)
 }
 
@@ -128,7 +192,8 @@ function getReply($, item, { channel }) {
       const urlMatch = style.match(/url\(['"]?(.*?)['"]?\)/)
       if (urlMatch && urlMatch[1]) {
         const originalUrl = urlMatch[1]
-        const proxiedUrl = getProxyUrl(originalUrl)
+        // CSS 背景图直接使用 wsrv.nl (无法使用 onerror)
+        const proxiedUrl = getFallbackUrl(originalUrl)
         const newStyle = style.replace(urlMatch[0], `url('${proxiedUrl}')`)
         thumb.attr('style', newStyle)
       }
@@ -239,6 +304,7 @@ export async function getSingleChannelInfo(Astro, channel, { before = '', after 
   // 如果是单个帖子,先获取频道首页来提取频道标题
   let channelTitle = channel
   let channelAvatar = null
+  let channelAvatarOriginal = null
 
   if (id) {
     try {
@@ -257,11 +323,11 @@ export async function getSingleChannelInfo(Astro, channel, { before = '', after 
         $channel('.tgme_page_title')?.text()?.trim() ||
         $channel('.tgme_channel_info_header_title')?.text()?.trim() ||
         channel
-      channelAvatar = $channel('.tgme_page_photo_image img')?.attr('src')
+      channelAvatarOriginal = $channel('.tgme_page_photo_image img')?.attr('src')
 
       // 通过静态代理加载头像
-      if (channelAvatar) {
-        channelAvatar = getProxyUrl(channelAvatar)
+      if (channelAvatarOriginal) {
+        channelAvatar = getProxyUrl(channelAvatarOriginal)
       }
 
       console.info('Channel info extracted:', { channel, channelTitle, hasAvatar: !!channelAvatar })
@@ -299,6 +365,7 @@ export async function getSingleChannelInfo(Astro, channel, { before = '', after 
       ...post,
       channelTitle, // 从频道首页获取的昵称
       channelAvatar,
+      channelAvatarFallback: channelAvatarOriginal ? getFallbackUrl(channelAvatarOriginal) : null,
     }
     cache.set(cacheKey, result)
     return result
@@ -313,10 +380,10 @@ export async function getSingleChannelInfo(Astro, channel, { before = '', after 
   }
 
   if (!channelAvatar) {
-    channelAvatar = $('.tgme_page_photo_image img')?.attr('src')
+    channelAvatarOriginal = $('.tgme_page_photo_image img')?.attr('src')
     // 通过静态代理加载头像
-    if (channelAvatar) {
-      channelAvatar = getProxyUrl(channelAvatar)
+    if (channelAvatarOriginal) {
+      channelAvatar = getProxyUrl(channelAvatarOriginal)
     }
   }
 
@@ -345,6 +412,7 @@ export async function getSingleChannelInfo(Astro, channel, { before = '', after 
     description: $('.tgme_channel_info_description')?.text(),
     descriptionHTML: modifyHTMLContent($, $('.tgme_channel_info_description'))?.html(),
     avatar: channelAvatar,
+    avatarFallback: channelAvatarOriginal ? getFallbackUrl(channelAvatarOriginal) : null,
     username: channel,
   }
 
