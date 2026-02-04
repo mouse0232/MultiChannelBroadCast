@@ -47,3 +47,6 @@ vercel.json.bak
 
 # Lock files (keep pnpm-lock.yaml, ignore npm's package-lock.json)
 package-lock.json
+
+#
+*.png
