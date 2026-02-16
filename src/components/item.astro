@@ -74,7 +74,7 @@ if (import.meta.env.DEV && isItem) {
     <button
       class="action-btn copy-btn"
       data-post-id={post.id}
-      title="复制消息内容（Markdown格式）"
+      title="复制消息内容"
       aria-label="复制消息内容"
     >
       <svg class="action-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -83,6 +83,17 @@ if (import.meta.env.DEV && isItem) {
       </svg>
       <span class="action-text">复制</span>
     </button>
+
+    <select
+      class="format-selector"
+      id={`format-${post.id}`}
+      title="选择复制格式"
+      aria-label="选择复制格式"
+    >
+      <option value="markdown">Markdown</option>
+      <option value="html">HTML</option>
+      <option value="text">纯文本</option>
+    </select>
 
     <button
       class="action-btn share-btn"
@@ -179,9 +190,24 @@ if (import.meta.env.DEV && isItem) {
   postUrl: url
 }}>
 (function() {
-  // HTML到Markdown转换器
+  // 转换缓存（避免重复转换相同内容）
+  const conversionCache = new Map();
+  const CACHE_MAX_SIZE = 50; // 最多缓存50个转换结果
+  const PERFORMANCE_THRESHOLD = 100; // 性能警告阈值（毫秒）
+
+  // HTML到Markdown转换器（带缓存和性能监控）
   function htmlToMarkdown(html) {
     if (!html) return '';
+
+    // 检查缓存
+    const cacheKey = html.substring(0, 100); // 使用前100字符作为缓存键
+    if (conversionCache.has(cacheKey)) {
+      return conversionCache.get(cacheKey);
+    }
+
+    // 性能监控开始
+    const startTime = performance.now();
+
     const temp = document.createElement('div');
     temp.innerHTML = html;
 
@@ -350,6 +376,18 @@ if (import.meta.env.DEV && isItem) {
           return '*' + processInlineNodes(node) + '*';
         }
 
+        // 删除线
+        case 'del':
+        case 's':
+        case 'strike': {
+          return '~~' + processInlineNodes(node) + '~~';
+        }
+
+        // 下划线 (使用HTML，Markdown不原生支持)
+        case 'u': {
+          return '<u>' + processInlineNodes(node) + '</u>';
+        }
+
         // 链接
         case 'a': {
           const href = node.getAttribute('href') || '';
@@ -387,7 +425,9 @@ if (import.meta.env.DEV && isItem) {
           const items = Array.from(node.children).filter(li => li.tagName.toLowerCase() === 'li');
           let result = '';
           items.forEach(li => {
-            result += '- ' + processInlineNodes(li).trim() + '\n';
+            // 处理嵌套列表
+            const content = processListItem(li, 0, false);
+            result += content;
           });
           return result + '\n';
         }
@@ -397,7 +437,9 @@ if (import.meta.env.DEV && isItem) {
           const items = Array.from(node.children).filter(li => li.tagName.toLowerCase() === 'li');
           let result = '';
           items.forEach((li, index) => {
-            result += (index + 1) + '. ' + processInlineNodes(li).trim() + '\n';
+            // 处理嵌套列表
+            const content = processListItem(li, 0, true, index + 1);
+            result += content;
           });
           return result + '\n';
         }
@@ -425,19 +467,17 @@ if (import.meta.env.DEV && isItem) {
           return '\n';
         }
 
-        // 表格 - 保留HTML（Discourse支持）
-        case 'table':
+        // 表格 - 转换为Markdown表格语法
+        case 'table': {
+          return convertTableToMarkdown(node);
+        }
         case 'thead':
         case 'tbody':
         case 'tr':
         case 'td':
         case 'th': {
-          // 简单处理：提取表格HTML，清理多余空白
-          const html = node.outerHTML
-            .replace(/\s+</g, '<')
-            .replace(/>\s+/g, '>')
-            .replace(/\n\s*/g, '');
-          return html + '\n\n';
+          // 这些标签由 convertTableToMarkdown 处理
+          return '';
         }
 
         // div/span等容器 - 递归处理子节点
@@ -451,6 +491,119 @@ if (import.meta.env.DEV && isItem) {
           return processInlineNodes(node);
         }
       }
+    }
+
+    // 处理内联节点
+    function processInlineNodes(node) {
+      let result = '';
+      for (const child of node.childNodes) {
+        result += nodeToMarkdown(child);
+      }
+      return result;
+    }
+
+    // 处理列表项（支持嵌套）
+    function processListItem(li, depth, isOrdered, number = 1) {
+      const indent = '  '.repeat(depth);
+      const prefix = isOrdered ? `${number}. ` : '- ';
+      let result = indent + prefix;
+
+      // 处理列表项内容
+      let hasNestedList = false;
+      let content = '';
+
+      for (const child of li.childNodes) {
+        if (child.nodeType === Node.ELEMENT_NODE) {
+          const tag = child.tagName.toLowerCase();
+          if (tag === 'ul' || tag === 'ol') {
+            hasNestedList = true;
+            // 处理嵌套列表
+            const items = Array.from(child.children).filter(item => item.tagName.toLowerCase() === 'li');
+            items.forEach((item, index) => {
+              result += '\n' + processListItem(item, depth + 1, tag === 'ol', index + 1);
+            });
+          } else {
+            content += nodeToMarkdown(child);
+          }
+        } else {
+          content += nodeToMarkdown(child);
+        }
+      }
+
+      result = indent + prefix + content.trim();
+      if (!hasNestedList) {
+        result += '\n';
+      }
+
+      return result;
+    }
+
+    // 转换表格为Markdown
+    function convertTableToMarkdown(table) {
+      const rows = [];
+      let hasHeader = false;
+
+      // 提取所有行
+      const thead = table.querySelector('thead');
+      const tbody = table.querySelector('tbody');
+
+      if (thead) {
+        hasHeader = true;
+        const headerRows = thead.querySelectorAll('tr');
+        headerRows.forEach(tr => {
+          const cells = Array.from(tr.querySelectorAll('th, td'));
+          rows.push(cells.map(cell => cell.textContent.trim()));
+        });
+      }
+
+      if (tbody) {
+        const bodyRows = tbody.querySelectorAll('tr');
+        bodyRows.forEach(tr => {
+          const cells = Array.from(tr.querySelectorAll('td, th'));
+          rows.push(cells.map(cell => cell.textContent.trim()));
+        });
+      } else {
+        // 没有tbody，直接从table获取tr
+        const allRows = table.querySelectorAll('tr');
+        allRows.forEach((tr, index) => {
+          if (thead && index === 0) return; // 跳过已处理的header
+          const cells = Array.from(tr.querySelectorAll('td, th'));
+          rows.push(cells.map(cell => cell.textContent.trim()));
+        });
+      }
+
+      if (rows.length === 0) return '';
+
+      // 计算每列的最大宽度
+      const colCount = Math.max(...rows.map(row => row.length));
+      const colWidths = Array(colCount).fill(3);
+      rows.forEach(row => {
+        row.forEach((cell, i) => {
+          colWidths[i] = Math.max(colWidths[i], cell.length);
+        });
+      });
+
+      // 生成Markdown表格
+      let markdown = '';
+
+      // 表头
+      if (hasHeader && rows.length > 0) {
+        const headerRow = rows[0];
+        markdown += '| ' + headerRow.map((cell, i) => cell.padEnd(colWidths[i])).join(' | ') + ' |\n';
+        markdown += '| ' + colWidths.map(w => '-'.repeat(w)).join(' | ') + ' |\n';
+
+        // 数据行
+        for (let i = 1; i < rows.length; i++) {
+          markdown += '| ' + rows[i].map((cell, j) => cell.padEnd(colWidths[j])).join(' | ') + ' |\n';
+        }
+      } else {
+        // 没有表头，所有行都是数据行
+        rows.forEach(row => {
+          markdown += '| ' + row.map((cell, i) => cell.padEnd(colWidths[i])).join(' | ') + ' |\n';
+        });
+      }
+
+      return markdown + '\n';
     }
 
     // 处理内联节点
@@ -476,6 +629,23 @@ if (import.meta.env.DEV && isItem) {
       .replace(/^\n+/, '')           // 移除开头的换行
       .replace(/\n+$/, '')           // 移除结尾的换行
       .trim();
+
+    // 性能监控结束
+    const endTime = performance.now();
+    const duration = endTime - startTime;
+
+    // 如果转换时间超过阈值，记录警告
+    if (duration > PERFORMANCE_THRESHOLD) {
+      console.warn(`htmlToMarkdown转换耗时 ${duration.toFixed(2)}ms (内容长度: ${html.length} 字符)`);
+    }
+
+    // 保存到缓存
+    if (conversionCache.size >= CACHE_MAX_SIZE) {
+      // 删除最旧的缓存项
+      const firstKey = conversionCache.keys().next().value;
+      conversionCache.delete(firstKey);
+    }
+    conversionCache.set(cacheKey, markdown);
 
     return markdown;
   }
@@ -518,6 +688,37 @@ if (import.meta.env.DEV && isItem) {
     }, 3000);
   }
 
+  // 获取用户偏好的复制格式
+  function getCopyFormat() {
+    const selector = document.getElementById(`format-${postId}`);
+    if (selector) {
+      return selector.value;
+    }
+    // 从localStorage获取默认格式
+    try {
+      return localStorage.getItem('copy-format-preference') || 'markdown';
+    } catch (e) {
+      return 'markdown';
+    }
+  }
+
+  // 保存用户偏好
+  function saveCopyFormat(format) {
+    try {
+      localStorage.setItem('copy-format-preference', format);
+    } catch (e) {
+      console.warn('无法保存格式偏好:', e);
+    }
+  }
+
+  // HTML转纯文本
+  function htmlToPlainText(html) {
+    if (!html) return '';
+    const temp = document.createElement('div');
+    temp.innerHTML = html;
+    return temp.textContent || temp.innerText || '';
+  }
+
   // 复制按钮处理
   async function handleCopy() {
     try {
@@ -527,15 +728,32 @@ if (import.meta.env.DEV && isItem) {
         return;
       }
 
-      const markdownContent = htmlToMarkdown(contentEl.innerHTML);
-      let copyText = markdownContent;
+      const format = getCopyFormat();
+      saveCopyFormat(format); // 保存用户偏好
+
+      let copyText = '';
+
+      switch (format) {
+        case 'markdown':
+          copyText = htmlToMarkdown(contentEl.innerHTML);
+          break;
+        case 'html':
+          copyText = contentEl.innerHTML;
+          break;
+        case 'text':
+          copyText = htmlToPlainText(contentEl.innerHTML);
+          break;
+        default:
+          copyText = htmlToMarkdown(contentEl.innerHTML);
+      }
 
       if (postChannel) {
         copyText += `\n\n来源: https://t.me/${postChannel}`;
       }
 
       const success = await copyToClipboard(copyText);
-      showFeedback(success ? '✓ 已复制到剪贴板' : '✗ 复制失败', !success);
+      const formatName = format === 'markdown' ? 'Markdown' : format === 'html' ? 'HTML' : '纯文本';
+      showFeedback(success ? `✓ 已复制(${formatName})` : '✗ 复制失败', !success);
     } catch (err) {
       console.error('复制错误:', err);
       showFeedback('✗ 复制失败', true);
@@ -575,6 +793,21 @@ if (import.meta.env.DEV && isItem) {
       handleShare(e);
     }
   });
+
+  // 初始化：恢复用户偏好的格式
+  (function initFormatSelector() {
+    try {
+      const savedFormat = localStorage.getItem('copy-format-preference');
+      if (savedFormat) {
+        const selector = document.getElementById(`format-${postId}`);
+        if (selector) {
+          selector.value = savedFormat;
+        }
+      }
+    } catch (e) {
+      // localStorage不可用，使用默认值
+    }
+  })();
 })();
 </script>
 
@@ -603,6 +836,26 @@ if (import.meta.env.DEV && isItem) {
     gap: 8px;
     align-items: center;
     padding: 8px 0;
+  }
+
+  .format-selector {
+    padding: 4px 8px;
+    border: 1px solid var(--border-color, rgba(0, 0, 0, 0.05));
+    border-radius: 4px;
+    background: transparent;
+    color: var(--secondary-color, #666);
+    font-size: 12px;
+    font-family: inherit;
+    cursor: pointer;
+    outline: none;
+  }
+
+  .format-selector:hover {
+    border-color: var(--highlight-color, #ff6b6b);
+  }
+
+  .format-selector:focus {
+    border-color: var(--highlight-color, #ff6b6b);
   }
 
   .action-btn {
