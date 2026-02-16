@@ -179,11 +179,13 @@ if (import.meta.env.DEV && isItem) {
   postUrl: url
 }}>
 (function() {
-  // HTML转换器 - 保持HTML格式，只清理不需要的内容
+  // HTML到Markdown转换器
   function htmlToMarkdown(html) {
     if (!html) return '';
     const temp = document.createElement('div');
     temp.innerHTML = html;
+
+    // ============ 阶段1: 清理不需要的内容 ============
 
     // 移除所有emoji元素（i.emoji 和包含emoji的b标签）
     temp.querySelectorAll('i.emoji').forEach(emoji => emoji.remove());
@@ -300,17 +302,182 @@ if (import.meta.env.DEV && isItem) {
       }
     });
 
-    // 获取清理后的HTML
-    let result = temp.innerHTML;
+    // ============ 阶段2: 转换为Markdown ============
 
-    // 清理HTML中的多余空白，但保持结构
-    result = result
-      .replace(/>\s+</g, '><') // 移除标签间的空白
-      .replace(/\s{2,}/g, ' ') // 将多个空格替换为单个空格
-      .replace(/\n\s*\n/g, '\n') // 清理多余的空行
+    // 递归转换节点为Markdown
+    function nodeToMarkdown(node, inList = false) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        return node.textContent;
+      }
+
+      if (node.nodeType !== Node.ELEMENT_NODE) {
+        return '';
+      }
+
+      const tag = node.tagName.toLowerCase();
+
+      // 处理各种元素类型
+      switch (tag) {
+        // 标题
+        case 'h1':
+        case 'h2':
+        case 'h3':
+        case 'h4':
+        case 'h5':
+        case 'h6': {
+          const level = parseInt(tag[1]);
+          const prefix = '#'.repeat(level) + ' ';
+          const content = processInlineNodes(node).trim();
+          return prefix + content + '\n\n';
+        }
+
+        // 段落
+        case 'p': {
+          const content = processInlineNodes(node).trim();
+          if (!content) return '';
+          return content + '\n\n';
+        }
+
+        // 粗体
+        case 'strong':
+        case 'b': {
+          return '**' + processInlineNodes(node) + '**';
+        }
+
+        // 斜体
+        case 'em':
+        case 'i': {
+          return '*' + processInlineNodes(node) + '*';
+        }
+
+        // 链接
+        case 'a': {
+          const href = node.getAttribute('href') || '';
+          const text = processInlineNodes(node).trim();
+          if (!href) return text;
+          return '[' + text + '](' + href + ')';
+        }
+
+        // 图片
+        case 'img': {
+          const src = node.getAttribute('src') || '';
+          const alt = node.getAttribute('alt') || '';
+          if (!src) return '';
+          return '![' + alt + '](' + src + ')';
+        }
+
+        // 代码
+        case 'code': {
+          // 检查是否在pre中（代码块）
+          if (node.parentNode && node.parentNode.tagName.toLowerCase() === 'pre') {
+            return node.textContent;
+          }
+          // 行内代码
+          return '`' + node.textContent + '`';
+        }
+
+        // 代码块
+        case 'pre': {
+          const code = node.textContent;
+          return '```\n' + code + '\n```\n\n';
+        }
+
+        // 无序列表
+        case 'ul': {
+          const items = Array.from(node.children).filter(li => li.tagName.toLowerCase() === 'li');
+          let result = '';
+          items.forEach(li => {
+            result += '- ' + processInlineNodes(li).trim() + '\n';
+          });
+          return result + '\n';
+        }
+
+        // 有序列表
+        case 'ol': {
+          const items = Array.from(node.children).filter(li => li.tagName.toLowerCase() === 'li');
+          let result = '';
+          items.forEach((li, index) => {
+            result += (index + 1) + '. ' + processInlineNodes(li).trim() + '\n';
+          });
+          return result + '\n';
+        }
+
+        // 列表项
+        case 'li': {
+          return processInlineNodes(node).trim();
+        }
+
+        // 引用
+        case 'blockquote': {
+          const content = processInlineNodes(node).trim();
+          // 按行处理，每行加引用前缀
+          const lines = content.split('\n');
+          return lines.map(line => '> ' + line).join('\n') + '\n\n';
+        }
+
+        // 分隔线
+        case 'hr': {
+          return '---\n\n';
+        }
+
+        // 换行
+        case 'br': {
+          return '\n';
+        }
+
+        // 表格 - 保留HTML（Discourse支持）
+        case 'table':
+        case 'thead':
+        case 'tbody':
+        case 'tr':
+        case 'td':
+        case 'th': {
+          // 简单处理：提取表格HTML，清理多余空白
+          const html = node.outerHTML
+            .replace(/\s+</g, '<')
+            .replace(/>\s+/g, '>')
+            .replace(/\n\s*/g, '');
+          return html + '\n\n';
+        }
+
+        // div/span等容器 - 递归处理子节点
+        case 'div':
+        case 'span': {
+          return processInlineNodes(node);
+        }
+
+        // 默认：处理子节点
+        default: {
+          return processInlineNodes(node);
+        }
+      }
+    }
+
+    // 处理内联节点
+    function processInlineNodes(node) {
+      let result = '';
+      for (const child of node.childNodes) {
+        result += nodeToMarkdown(child);
+      }
+      return result;
+    }
+
+    // 开始转换
+    let markdown = '';
+
+    // 处理所有顶层子节点
+    for (const child of temp.childNodes) {
+      markdown += nodeToMarkdown(child);
+    }
+
+    // 清理多余空行
+    markdown = markdown
+      .replace(/\n{3,}/g, '\n\n')  // 最多两个连续换行
+      .replace(/^\n+/, '')           // 移除开头的换行
+      .replace(/\n+$/, '')           // 移除结尾的换行
       .trim();
 
-    return result;
+    return markdown;
   }
 
   // 剪贴板复制（带降级方案）
@@ -405,7 +572,7 @@ if (import.meta.env.DEV && isItem) {
       handleCopy();
     } else if (shareBtn) {
       e.preventDefault();
-      handleShare();
+      handleShare(e);
     }
   });
 })();

@@ -73,19 +73,19 @@ const afterCursor = displayPosts[0]?.id
   </div>
 
   {!isItem && (
-    <script>
-      {`(function(){ try{ var key='channel-scroll-${channel.username}'; var postKey='channel-scroll-post-${channel.username}'; var listKey='channel-list-url-${channel.username}';
+    <script define:vars={{ channelUsername: channel.username }}>
+      (function(){ try{ var key='channel-scroll-' + channelUsername; var postKey='channel-scroll-post-' + channelUsername; var listKey='channel-list-url-' + channelUsername;
 
         // Delegated click handler: 捕获所有点击，若点击到跳转到 /posts/ 的链接，则保存当前列表 URL 与滚动位置
         document.addEventListener('click', function(e){ try{ var a = e.target.closest && e.target.closest('a'); if(!a) return; var href = a.getAttribute('href') || a.href || ''; try{ var u = new URL(href, location.origin); href = u.pathname + u.search + u.hash; }catch(err){} if(href.indexOf('/posts/') !== -1){ try{ sessionStorage.setItem(listKey, location.pathname + location.search); sessionStorage.setItem(key, String(window.scrollY)); var m = href.match(/\/posts\/(\d+)/); if(m) sessionStorage.setItem(postKey, m[1]); }catch(err){} } }catch(err){} }, true);
 
         // 恢复滚动位置或 hash 指向 (优化版: 避免与返回顶部按钮冲突)
-        document.addEventListener('DOMContentLoaded', function(){ try{ var pos = sessionStorage.getItem(key); var postId = sessionStorage.getItem(postKey); var listUrl = sessionStorage.getItem(listKey); if(pos || (location.hash && location.hash.indexOf('#post-')===0)){ setTimeout(function(){ if(location.hash && location.hash.indexOf('#post-')===0){ var el = document.querySelector(location.hash); if(el) { 
+        document.addEventListener('DOMContentLoaded', function(){ try{ var pos = sessionStorage.getItem(key); var postId = sessionStorage.getItem(postKey); var listUrl = sessionStorage.getItem(listKey); if(pos || (location.hash && location.hash.indexOf('#post-')===0)){ setTimeout(function(){ if(location.hash && location.hash.indexOf('#post-')===0){ var el = document.querySelector(location.hash); if(el) {
           // 使用瞬间滚动而非平滑滚动，避免与返回顶部按钮的平滑滚动冲突
-          el.scrollIntoView({behavior:'instant', block:'center'}); 
+          el.scrollIntoView({behavior:'instant', block:'center'});
         } } else if(pos){ window.scrollTo(0, parseInt(pos)); } try{ sessionStorage.removeItem(key); sessionStorage.removeItem(postKey); sessionStorage.removeItem(listKey);}catch(e){} }, 120); } }catch(e){} });
 
-      }catch(e){} })();`}
+      }catch(e){} })();
     </script>
   )}
   
