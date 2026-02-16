@@ -376,10 +376,19 @@ if (import.meta.env.DEV && isItem) {
   }
 
   // 分享按钮处理
-  async function handleShare() {
+  async function handleShare(e) {
     try {
-      const success = await copyToClipboard(postUrl);
-      showFeedback(success ? '✓ 分享链接已复制' : '✗ 复制链接失败', !success);
+      const telegramUrl = postChannel ? `https://t.me/${postChannel}/${postId}` : '';
+
+      if (telegramUrl && e.shiftKey) {
+        // Shift+点击 = Telegram 链接
+        const success = await copyToClipboard(telegramUrl);
+        showFeedback(success ? '✓ Telegram链接已复制' : '✗ 复制失败', !success);
+      } else {
+        // 普通点击 = 网站链接
+        const success = await copyToClipboard(postUrl);
+        showFeedback(success ? '✓ 网站链接已复制' : '✗ 复制失败', !success);
+      }
     } catch (err) {
       console.error('分享错误:', err);
       showFeedback('✗ 分享失败', true);
