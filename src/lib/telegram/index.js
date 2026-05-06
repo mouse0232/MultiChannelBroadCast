@@ -316,7 +316,11 @@ export async function getSingleChannelInfo(Astro, channel, { before = '', after 
   // Keep using local proxy for non-image assets (video, audio) if needed
   // or fallback to '' if no local proxy defined (though local proxy is detected via env normally)
   const localProxy = getEnv(import.meta.env, Astro, 'STATIC_PROXY') ?? ''
-  const host = getEnv(import.meta.env, Astro, 'TELEGRAM_HOST') ?? 't.me'
+  
+  // 反风控：Host 随机池 (支持配置多个 Host，随机选择以分散压力)
+  const hostStr = getEnv(import.meta.env, Astro, 'TELEGRAM_HOST') || 't.me'
+  const hosts = hostStr.split(',').map(h => h.trim()).filter(Boolean)
+  const host = hosts[Math.floor(Math.random() * hosts.length)]
 
   // 构建请求头
   const headers = Astro.request ? Object.fromEntries(Astro.request.headers) : {}
