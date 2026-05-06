@@ -4,6 +4,7 @@ import { LRUCache } from 'lru-cache'
 import flourite from 'flourite'
 import prism from '../prism'
 import { getEnv } from '../env'
+import { pushMessage } from './push-service.js'
 
 // 图片代理服务配置
 const IMAGE_PROXIES = [
@@ -406,6 +407,28 @@ export async function getSingleChannelInfo(Astro, channel, { before = '', after 
     })
   }
 
+  // 异步推送新消息
+  if (posts?.length > 0) {
+    const pushTask = (async () => {
+      // 按时间倒序,只推送最新的几条消息,避免一次性推送太多
+      const recentPosts = posts.slice(0, 3)
+      for (const post of recentPosts) {
+        try {
+          await pushMessage(post, Astro, import.meta.env)
+          // 每条消息间隔 1 秒,避免触发速率限制
+          await new Promise(resolve => setTimeout(resolve, 1000))
+        } catch (err) {
+          console.error('[Push] Unhandled error:', err)
+        }
+      }
+    })()
+
+    // Cloudflare Pages: 使用 waitUntil 确保响应返回后继续执行
+    if (Astro?.locals?.cfContext) {
+      Astro.locals.cfContext.waitUntil(pushTask)
+    }
+  }
+
   const channelInfo = {
     posts,
     title: channelTitle,
@@ -479,6 +502,28 @@ export async function getChannelInfo(Astro, { before = '', after = '', q = '' } 
     seen.add(key)
     return true
   })
+
+  // 异步推送新消息
+  if (allPosts.length > 0) {
+    const pushTask = (async () => {
+      // 按时间倒序,只推送最新的几条消息,避免一次性推送太多
+      const recentPosts = allPosts.slice(0, 3)
+      for (const post of recentPosts) {
+        try {
+          await pushMessage(post, Astro, import.meta.env)
+          // 每条消息间隔 1 秒,避免触发速率限制
+          await new Promise(resolve => setTimeout(resolve, 1000))
+        } catch (err) {
+          console.error('[Push] Unhandled error:', err)
+        }
+      }
+    })()
+
+    // Cloudflare Pages: 使用 waitUntil 确保响应返回后继续执行
+    if (Astro?.locals?.cfContext) {
+      Astro.locals.cfContext.waitUntil(pushTask)
+    }
+  }
 
   // 构建聚合结果
   const siteName = getEnv(import.meta.env, Astro, 'SITE_NAME') || 'Multi-Channel Broadcast'
