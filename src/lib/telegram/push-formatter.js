@@ -88,11 +88,11 @@ export function formatPushMessage(message, options = {}) {
 
   // 来源和时间
   const channelName = message.channelTitle || `@${message.channel}`
-  parts.push(`<i>来源: <a href="${channelUrl}">${escapeHtml(channelName)}</a></i>`)
+  parts.push(`<i>来源: <a href="${escapeHtml(channelUrl)}">${escapeHtml(channelName)}</a></i>`)
   parts.push(`<i>发布时间: ${publishTime}</i>`)
 
-  // 原文链接
-  parts.push(`<a href="${postUrl}">查看原文</a>`)
+  // 原文链接 - 使用纯 URL 文本，Telegram 会自动转为可点击链接
+  parts.push(`${escapeHtml(postUrl)}`)
 
   // 拼接消息
   let text = parts.join('\n\n')
@@ -105,8 +105,6 @@ export function formatPushMessage(message, options = {}) {
   return {
     text,
     parse_mode: 'HTML',
-    link_preview_options: {
-      is_disabled: true,
-    },
+    imageUrl: message.imageUrl || null,
   }
 }

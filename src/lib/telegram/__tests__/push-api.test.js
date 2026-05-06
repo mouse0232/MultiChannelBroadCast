@@ -17,7 +17,7 @@ describe('Push API Module', () => {
     vi.restoreAllMocks()
   })
 
-  it('should return success on successful response', async () => {
+  it('should return success on successful text response', async () => {
     $fetch.mockResolvedValue({ ok: true })
 
     const result = await sendTelegramMessage(
@@ -37,6 +37,35 @@ describe('Push API Module', () => {
         body: expect.objectContaining({
           chat_id: '@test-channel',
           text: 'Test message',
+          parse_mode: 'HTML',
+          disable_web_page_preview: true
+        })
+      })
+    )
+  })
+
+  it('should use sendPhoto when imageUrl is provided', async () => {
+    $fetch.mockResolvedValue({ ok: true })
+
+    const result = await sendTelegramMessage(
+      'test-token',
+      '@test-channel',
+      {
+        text: 'Test message',
+        parse_mode: 'HTML',
+        imageUrl: 'https://example.com/image.jpg'
+      }
+    )
+
+    expect(result.success).toBe(true)
+    expect($fetch).toHaveBeenCalledWith(
+      'https://api.telegram.org/bottest-token/sendPhoto',
+      expect.objectContaining({
+        method: 'POST',
+        body: expect.objectContaining({
+          chat_id: '@test-channel',
+          photo: 'https://example.com/image.jpg',
+          caption: 'Test message',
           parse_mode: 'HTML'
         })
       })
