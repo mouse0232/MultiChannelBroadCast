@@ -140,13 +140,13 @@ async function processSingleChannel(task, env) {
 // 辅助函数 (抓取与解析)
 // ==========================================
 
-// 图片代理：将 Telegram CDN 链接替换为 wsrv.nl 代理链接
+// 图片代理：将 Telegram CDN 图片链接替换为 wsrv.nl 代理链接
+// 注意：只处理 <img> 标签，不处理 <video> 和 <audio>，因为 wsrv.nl 不支持流媒体
 function processImageUrls(html) {
     if (!html) return html;
-    // 匹配 src="https://cdnX.telegram-cdn.org/..."
-    // 使用正则替换以避免重新解析 HTML 结构
+    // 匹配 <img ... src="https://cdnX.telegram-cdn.org/..." ...>
     return html.replace(
-        /(src=")(https?:\/\/cdn\d+\.telegram-cdn\.org\/file\/[^"]+)(")/gi,
+        /(<img[^>]*src=")(https?:\/\/cdn\d+\.telegram-cdn\.org\/file\/[^"]+)(")/gi,
         (match, prefix, url, suffix) => {
             return `${prefix}https://wsrv.nl/?url=${encodeURIComponent(url)}${suffix}`;
         }
