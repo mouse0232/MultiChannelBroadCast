@@ -22,7 +22,7 @@ function randomDelay(min = 1000, max = 3000) {
 // ==========================================
 // 1. Cron 触发器 (生产者)
 // ==========================================
-export async function scheduled(event, env, ctx) {
+async function scheduled(event, env, ctx) {
   console.log('⏰ Cron triggered: Dispatching tasks')
 
   const channelsStr = env.CHANNELS || ''
@@ -56,7 +56,7 @@ export async function scheduled(event, env, ctx) {
 // ==========================================
 // 2. Queue 消费者 (核心处理)
 // ==========================================
-export async function queue(batch, env, ctx) {
+async function queue(batch, env, ctx) {
   console.log(`📦 Queue batch processing: ${batch.messages.length} messages`)
 
   for (const message of batch.messages) {
@@ -366,5 +366,7 @@ export default {
     } catch (e) {
       return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: corsHeaders })
     }
-  }
+  },
+  scheduled,
+  queue
 }
