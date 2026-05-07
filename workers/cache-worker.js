@@ -139,6 +139,20 @@ async function processSingleChannel(task, env) {
 // ==========================================
 // 辅助函数 (抓取与解析)
 // ==========================================
+
+// 图片代理：将 Telegram CDN 链接替换为 wsrv.nl 代理链接
+function processImageUrls(html) {
+    if (!html) return html;
+    // 匹配 src="https://cdnX.telegram-cdn.org/..."
+    // 使用正则替换以避免重新解析 HTML 结构
+    return html.replace(
+        /(src=")(https?:\/\/cdn\d+\.telegram-cdn\.org\/file\/[^"]+)(")/gi,
+        (match, prefix, url, suffix) => {
+            return `${prefix}https://wsrv.nl/?url=${encodeURIComponent(url)}${suffix}`;
+        }
+    );
+}
+
 async function fetchAndParse(channel, env, lastMsgId) {
   // Host 轮询逻辑
   const hosts = (env.TELEGRAM_HOST || 't.me').split(',').map(h => h.trim())
@@ -169,7 +183,12 @@ function parsePosts(html, channel, lastMsgId) {
   const title = $('.tgme_page_title span').text().trim() || 
                 $('.tgme_channel_info_header_title').text().trim() || 
                 channel; // Fallback to username
-  const avatar = $('.tgme_page_photo_image img').attr('src');
+  let avatar = $('.tgme_page_photo_image img').attr('src');
+  
+  // 代理头像
+  if (avatar && !avatar.startsWith('https://wsrv.nl')) {
+    avatar = `https://wsrv.nl/?url=${encodeURIComponent(avatar)}`;
+  }
   
   // 找到所有消息
   const items = $('.tgme_widget_message_wrap').toArray()
@@ -199,7 +218,7 @@ function parsePosts(html, channel, lastMsgId) {
     let contentHtml = ''
     
     if (contentEl.length > 0) {
-       contentHtml = contentEl.html()
+       contentHtml = processImageUrls(contentEl.html())
        const text = contentEl.text().trim()
        // 提取标题：尝试匹配到句号、换行或链接之前的内容
        const match = text.match(/^.*?(?=[。\n]|http\S)/g)
@@ -210,11 +229,11 @@ function parsePosts(html, channel, lastMsgId) {
          title = text.replace(/\n/g, ' ').substring(0, 60)
        }
        if (!title) title = 'New Post' // 最后的兜底
-    } else {
-       // 处理纯媒体消息，获取描述
-       contentHtml = $item.html() // 或者提取 caption
-       title = 'New Media Post'
-    }
+     } else {
+        // 处理纯媒体消息，获取描述
+        contentHtml = processImageUrls($item.html()) // 替换图片链接
+        title = 'New Media Post'
+     }
 
     const datetimeEl = $item.find('.tgme_widget_message_date time')
     const datetime = datetimeEl.attr('datetime')
