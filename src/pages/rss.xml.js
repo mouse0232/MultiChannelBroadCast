@@ -29,23 +29,24 @@ export async function GET(context) {
         title = text.substring(0, 60) || 'New Post';
       }
       
-      return ({
+      return {
         title: title,
         pubDate: new Date(post.published_at || post.datetime),
-      link: `${SITE_URL}posts/${post.id.split('/').pop()}`,
-      content: sanitizeHtml(post.content || '', {
-        allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img', 'video', 'audio']),
-        allowedAttributes: {
-          ...sanitizeHtml.defaults.allowedAttributes,
-          img: ['src', 'alt', 'loading', 'class', 'style'],
-          video: ['src', 'controls', 'preload', 'playsinline', 'webkit-playsinline', 'width', 'height'],
-          audio: ['src', 'controls'],
-          a: ['href', 'title', 'target', 'rel'],
-        },
-      }),
-      categories: post.tags || [],
-      customData: post.channel ? `<channel>${post.channel}</channel>` : '',
-    })),
+        link: `${SITE_URL}posts/${post.id.split('/').pop()}`,
+        content: sanitizeHtml(post.content || '', {
+          allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img', 'video', 'audio']),
+          allowedAttributes: {
+            ...sanitizeHtml.defaults.allowedAttributes,
+            img: ['src', 'alt', 'loading', 'class', 'style'],
+            video: ['src', 'controls', 'preload', 'playsinline', 'webkit-playsinline', 'width', 'height'],
+            audio: ['src', 'controls'],
+            a: ['href', 'title', 'target', 'rel'],
+          },
+        }),
+        categories: post.tags || [],
+        customData: post.channel ? `<channel>${post.channel}</channel>` : '',
+      };
+    }),
     customData: `<language>${locale}</language>`,
     stylesheet: '/rss.xsl',
   })
