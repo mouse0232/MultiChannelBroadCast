@@ -12,7 +12,9 @@ dayjs.locale(locale)
 dayjs.tz.setDefault(timezone)
 
 const datetime = dayjs(post.datetime)
-const url = `${SITE_URL}posts/${post.id}`
+// 兼容新旧 ID 格式 (channel/id -> id)
+const postId = post.id.includes('/') ? post.id.split('/').pop() : post.id
+const url = `${SITE_URL}posts/${postId}`
 
 // 读取评论配置 - 支持多种格式
 const commentsEnabled = getEnv(import.meta.env, Astro, 'COMMENTS')
