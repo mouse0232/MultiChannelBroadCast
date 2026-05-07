@@ -76,8 +76,11 @@ async function processSingleChannel(task, env) {
 
   // 1. 获取上次抓取进度
   const meta = await env.DB.prepare("SELECT last_msg_id FROM channel_meta WHERE channel = ?").bind(channel).first()
-  const lastMsgId = meta?.last_msg_id
+  const lastMsgId = meta?.last_msgId
   
+  // 标记是否为首次运行 (如果数据库里没有该频道的记录，则是首次)
+  const isFirstRun = !meta
+
   // 2. 执行抓取 (带防风控)
   const posts = await fetchAndParse(channel, env, lastMsgId)
   
@@ -111,7 +114,12 @@ async function processSingleChannel(task, env) {
   await env.DB.batch(statements)
 
   // 4. 触发推送
-  await triggerPush(posts, env)
+  // 重要：如果是首次运行 (初始化数据)，只存入数据库，不进行推送，防止消息轰炸
+  if (isFirstRun) {
+    console.log(`ℹ️ First run for ${channel}, skipping push notifications.`)
+  } else {
+    await triggerPush(posts, env)
+  }
   
   console.log(`✅ Finished channel: ${channel}`)
 }
