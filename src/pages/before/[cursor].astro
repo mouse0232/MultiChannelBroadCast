@@ -1,10 +1,34 @@
 ---
 import List from '../../components/list.astro'
-import { getChannelInfo } from '../../lib/telegram'
+import { getPosts } from '../../lib/d1-client'
+import { getEnv } from '../../lib/env'
 
 const { cursor } = Astro.params
 
-const channel = await getChannelInfo(Astro, { before: cursor })
+const channelsStr = getEnv(import.meta.env, Astro, 'CHANNELS')
+const siteName = getEnv(import.meta.env, Astro, 'SITE_NAME') || 'Multi-Channel Broadcast'
+
+// 获取所有频道的帖子 (cursor 是 before 参数)
+let posts = []
+try {
+  posts = await getPosts(Astro, { channel: 'all', limit: 20, before: cursor })
+} catch (e) {
+  console.error('Failed to fetch posts:', e)
+}
+
+const channelData = {
+  title: siteName,
+  description: '',
+  username: '',
+  posts: posts.map(p => ({
+    ...p,
+    datetime: p.published_at || p.datetime,
+    id: p.id,
+    channel: p.channel,
+    title: p.title,
+    content: p.content
+  }))
+}
 ---
 
 <List channel={channel} />

@@ -1,19 +1,39 @@
 ---
 import List from '../../../../components/list.astro'
-import { getSingleChannelInfo } from '../../../../lib/telegram'
+import { getPosts } from '../../../../lib/d1-client'
 import { getEnv } from '../../../../lib/env'
 
 const { channel: channelName, cursor } = Astro.params
 
 // 验证频道
 const channelsStr = getEnv(import.meta.env, Astro, 'CHANNELS') || getEnv(import.meta.env, Astro, 'CHANNEL')
-const channels = channelsStr.split(',').map(c => c.trim()).filter(Boolean)
+const channels = channelsStr ? channelsStr.split(',').map(c => c.trim()).filter(Boolean) : []
 
-if (!channels.includes(channelName)) {
-  return Astro.redirect('/404')
+if (channels.length > 0 && !channels.includes(channelName)) {
+  // return Astro.redirect('/404')
 }
 
-const channel = await getSingleChannelInfo(Astro, channelName, { before: cursor })
+// 获取帖子
+let posts = []
+try {
+  posts = await getPosts(Astro, { channel: channelName, limit: 20, before: cursor })
+} catch (e) {
+  console.error(`Failed to fetch posts for ${channelName}:`, e)
+}
+
+const channelData = {
+  username: channelName,
+  title: channelName,
+  description: '',
+  posts: posts.map(p => ({
+    ...p,
+    datetime: p.published_at || p.datetime,
+    id: p.id,
+    channel: p.channel,
+    title: p.title,
+    content: p.content
+  }))
+}
 ---
 
-<List channel={channel} currentChannel={channelName} />
+<List channel={channelData} currentChannel={channelName} />

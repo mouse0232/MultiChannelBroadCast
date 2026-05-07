@@ -1,25 +1,31 @@
 import rss from '@astrojs/rss'
 import sanitizeHtml from 'sanitize-html'
-import { getSingleChannelInfo } from '../../../lib/telegram'
+import { getPosts } from '../../../lib/d1-client'
 import { getEnv } from '../../../lib/env'
 
 export async function GET(context) {
   const { channel: channelName } = context.params
-  const channel = await getSingleChannelInfo(context, channelName)
-  const { SITE_URL } = context.locals
+  
+  let posts = []
+  try {
+    posts = await getPosts(context, { channel: channelName, limit: 50 })
+  } catch (e) {
+    console.error('Channel RSS: Failed to fetch posts:', e)
+  }
 
+  const { SITE_URL } = context.locals
   const site = getEnv(import.meta.env, context, 'SITE') || SITE_URL
   const locale = getEnv(import.meta.env, context, 'LOCALE') || 'zh-cn'
 
   return rss({
-    title: channel.title,
-    description: channel.description,
+    title: `${channelName} Telegram Feed`,
+    description: `RSS feed for Telegram channel ${channelName}`,
     site,
-    items: channel.posts.map((post) => ({
-      title: post.title,
-      pubDate: new Date(post.datetime),
-      link: `${SITE_URL}posts/${post.id}`,
-      content: sanitizeHtml(post.content, {
+    items: posts.map((post) => ({
+      title: post.title || 'New Post',
+      pubDate: new Date(post.published_at || post.datetime),
+      link: `${SITE_URL}posts/${post.id.split('/').pop()}`,
+      content: sanitizeHtml(post.content || '', {
         allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img', 'video', 'audio']),
         allowedAttributes: {
           ...sanitizeHtml.defaults.allowedAttributes,
@@ -29,7 +35,7 @@ export async function GET(context) {
           a: ['href', 'title', 'target', 'rel'],
         },
       }),
-      categories: post.tags,
+      categories: post.tags || [],
       customData: `<channel>${post.channel}</channel>`,
     })),
     customData: `<language>${locale}</language>`,

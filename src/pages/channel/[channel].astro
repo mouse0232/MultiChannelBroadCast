@@ -1,20 +1,49 @@
 ---
 import List from '../../components/list.astro'
-import { getSingleChannelInfo } from '../../lib/telegram'
+import { getPosts } from '../../lib/d1-client'
 import { getEnv } from '../../lib/env'
 
 const { channel: channelName } = Astro.params
 
-// 验证频道是否在配置中
+// 验证频道是否在配置中 (允许所有频道，或者检查配置)
 const channelsStr = getEnv(import.meta.env, Astro, 'CHANNELS') || getEnv(import.meta.env, Astro, 'CHANNEL')
-const channels = channelsStr.split(',').map(c => c.trim()).filter(Boolean)
+const channels = channelsStr ? channelsStr.split(',').map(c => c.trim()).filter(Boolean) : []
 
-if (!channels.includes(channelName)) {
-  return Astro.redirect('/404')
+// 如果配置了频道列表，则验证；否则允许所有
+if (channels.length > 0 && !channels.includes(channelName)) {
+  // 可以选择重定向或继续
+  // return Astro.redirect('/404') 
 }
 
-// 获取单个频道的数据
-const channel = await getSingleChannelInfo(Astro, channelName)
+// 从 D1 获取帖子
+// 注意：这里的 channel 参数会传递给 Worker API
+let posts = []
+try {
+  posts = await getPosts(Astro, { channel: channelName, limit: 20 })
+} catch (e) {
+  console.error(`Failed to fetch posts for ${channelName}:`, e)
+}
+
+// 构造 channel 对象供 List 组件使用
+const channelData = {
+  username: channelName,
+  title: channelName,
+  description: '',
+  descriptionHTML: '',
+  avatar: null,
+  avatarFallback: null,
+  posts: posts.map(p => ({
+    ...p,
+    // 保持原有 post 结构兼容性
+    id: p.id,
+    channel: p.channel,
+    title: p.title,
+    content: p.content,
+    datetime: p.published_at || p.datetime,
+    tags: p.tags || [],
+    type: 'text'
+  }))
+}
 ---
 
-<List channel={channel} currentChannel={channelName} after={false} />
+<List channel={channelData} currentChannel={channelName} after={false} />

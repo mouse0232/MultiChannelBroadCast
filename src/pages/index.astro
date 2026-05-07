@@ -2,37 +2,49 @@
 import Layout from '../layouts/base.astro'
 import Header from '../components/header.astro'
 import { getEnv } from '../lib/env'
-import { getSingleChannelInfo } from '../lib/telegram'
+import { getChannels } from '../lib/d1-client'
 
-// 读取频道配置
+// 读取频道配置 (用于 fallback 或排序)
 const channelsStr = getEnv(import.meta.env, Astro, 'CHANNELS') || getEnv(import.meta.env, Astro, 'CHANNEL')
-const channels = channelsStr ? channelsStr.split(',').map(c => c.trim()).filter(Boolean) : []
-
-// 没有配置频道,返回404
-if (channels.length === 0) {
-  return Astro.redirect('/404')
-}
+const configuredChannels = channelsStr ? channelsStr.split(',').map(c => c.trim()).filter(Boolean) : []
 
 const { SITE_URL, SITE_NAME, SITE_AVATAR } = Astro.locals
 
-// 并发获取每个频道的基本信息(昵称/头像)以便展示卡片
-const channelInfos = await Promise.all(channels.map(async (ch) => {
-  try {
-    const info = await getSingleChannelInfo(Astro, ch, {})
-    return {
-      username: ch,
-      title: info.title || ch,
-      avatar: info.avatar || ''
-    }
-  } catch (e) {
-    // 获取失败时使用备用数据
-    return {
+// 从 Worker API 获取频道信息 (替代旧的实时抓取)
+// 注意：这依赖于环境变量 WORKER_URL 或默认的 Worker 地址
+let channelInfos = []
+try {
+  const channelsFromDb = await getChannels(Astro)
+  
+  // 格式化数据供前端展示
+  channelInfos = channelsFromDb.map(ch => ({
+    username: ch.channel,
+    title: ch.channel, // 目前 D1 只存了 channel 名字，如果需要昵称需后续扩展
+    avatar: ''
+  }))
+
+  // 如果有配置的频道列表但 D1 中还没有数据 (首次运行)，使用配置列表作为 fallback
+  if (channelInfos.length === 0 && configuredChannels.length > 0) {
+    channelInfos = configuredChannels.map(ch => ({
       username: ch,
       title: ch,
       avatar: ''
-    }
+    }))
   }
-}))
+} catch (e) {
+  console.error('Failed to fetch channels from D1:', e)
+  // Fallback to env config
+  if (configuredChannels.length > 0) {
+    channelInfos = configuredChannels.map(ch => ({ username: ch, title: ch, avatar: '' }))
+  }
+}
+
+// 如果还是空的，可能未配置
+if (channelInfos.length === 0) {
+  // 这里不直接 redirect 404，因为可能 Worker 还没部署好，给用户一个空状态提示更好
+  // 但为了保持原有逻辑：
+  // return Astro.redirect('/404') 
+}
 
 const siteHeader = {
   title: SITE_NAME || 'Multi-Channel Broadcast',

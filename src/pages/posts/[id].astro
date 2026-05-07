@@ -1,13 +1,38 @@
 ---
 import List from '../../components/list.astro'
-import { getSingleChannelInfo } from '../../lib/telegram'
 import { getEnv } from '../../lib/env'
+import { getWorkerBaseUrl } from '../../lib/d1-client'
 
 const { id } = Astro.params
 
-// 获取单个帖子需要指定频道
-const channelsStr = getEnv(import.meta.env, Astro, 'CHANNELS') || getEnv(import.meta.env, Astro, 'CHANNEL')
-const channels = channelsStr.split(',').map(c => c.trim())
+// 从 D1 获取帖子
+// id 可能是纯数字，也可能是 channel/123 格式
+let post = null
+let channelUsername = ''
+let channelTitle = ''
+
+try {
+  const baseUrl = getWorkerBaseUrl(Astro)
+  // 提取数字部分用于查询
+  const numericId = id.includes('/') ? id.split('/').pop() : id
+  
+  const res = await fetch(`${baseUrl}/api/post/${numericId}`)
+  if (res.ok) {
+    const data = await res.json()
+    post = data.post
+    if (post) {
+      channelUsername = post.channel
+      channelTitle = post.channel
+      // 保持 post.channel 字段供 List 组件使用
+    }
+  }
+} catch (e) {
+  console.error('Failed to fetch post:', e)
+}
+
+if (!post) {
+  return Astro.redirect('/404')
+}
 
 // 读取频道名称映射
 const channelNameMap = new Map()
@@ -21,47 +46,17 @@ if (channelNamesEnv) {
   })
 }
 
-// 尝试从所有频道中获取该帖子
-let post = null
-let channelUsername = null
-let channelTitle = null
-
-for (const channel of channels) {
-  try {
-    const result = await getSingleChannelInfo(Astro, channel, { id })
-    if (result && result.id) {
-      post = result
-      // 将频道名称添加到 post 对象中,用于评论功能
-      post.channel = channel
-      channelUsername = channel
-      // 从 Telegram 页面获取的频道昵称
-      channelTitle = result.channelTitle
-      break
-    }
-  } catch (e) {
-    // 继续尝试下一个频道
-    continue
-  }
-}
-
-if (!post) {
-  return Astro.redirect('/404')
-}
-
-// 获取频道显示名称(优先级: 手动映射 > Telegram昵称 > 用户名)
 const channelDisplayName = channelNameMap.get(channelUsername) || channelTitle || channelUsername
 
-// 构造频道信息用于显示
 const channel = {
   posts: [post],
   title: channelDisplayName,
   username: channelUsername,
-  avatar: post.channelAvatar,
-}
-
-channel.seo = {
-  title: post.title,
-  text: post.text,
+  avatar: null, // D1 currently doesn't store avatar
+  seo: {
+    title: post.title,
+    text: post.text || post.content?.replace(/<[^>]*>/g, '').substring(0, 100),
+  }
 }
 ---
 

@@ -1,6 +1,7 @@
 ---
 import List from '../../components/list.astro'
-import { getChannelInfo, getSingleChannelInfo } from '../../lib/telegram'
+import { getEnv } from '../../lib/env'
+import { getWorkerBaseUrl } from '../../lib/d1-client'
 
 // 支持两种搜索方式: /search/关键词 或 /search/result?q=关键词
 const q = Astro.url.searchParams.get('q') || Astro.params.q
@@ -8,23 +9,41 @@ const scopeParam = Astro.url.searchParams.get('scope') || 'all'
 const requestedChannel = Astro.url.searchParams.get('channel') || ''
 
 const scope = scopeParam === 'channel' && requestedChannel ? 'channel' : 'all'
+const channelName = scope === 'channel' ? requestedChannel : 'all'
 
-let channel = null
-let currentChannel = null
-
-if (scope === 'channel') {
-  channel = await getSingleChannelInfo(Astro, requestedChannel, { q })
-  currentChannel = requestedChannel
-} else {
-  channel = await getChannelInfo(Astro, { q })
+let posts = []
+try {
+  const baseUrl = getWorkerBaseUrl(Astro)
+  const res = await fetch(`${baseUrl}/api/posts/search?q=${encodeURIComponent(q)}&channel=${channelName}`)
+  if (res.ok) {
+    const data = await res.json()
+    posts = data.posts
+  }
+} catch (e) {
+  console.error('Search failed:', e)
 }
 
-const seoTitle = scope === 'channel' && channel?.title ? `${q} - ${channel.title}` : q
-channel.seo = {
-  title: seoTitle,
+const siteName = getEnv(import.meta.env, Astro, 'SITE_NAME') || 'Multi-Channel Broadcast'
+
+const channelData = {
+  username: scope === 'channel' ? requestedChannel : '',
+  title: q,
+  description: `Search results for "${q}"`,
+  posts: posts.map(p => ({
+    ...p,
+    datetime: p.published_at || p.datetime,
+    id: p.id,
+    channel: p.channel,
+    title: p.title,
+    content: p.content
+  }))
+}
+
+channelData.seo = {
+  title: `${q} - Search`,
   noindex: true,
   nofollow: true,
 }
 ---
 
-<List channel={channel} currentChannel={currentChannel} before={false} after={false} />
+<List channel={channelData} currentChannel={scope === 'channel' ? requestedChannel : null} before={false} after={false} />
