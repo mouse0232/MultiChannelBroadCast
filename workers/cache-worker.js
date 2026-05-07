@@ -200,7 +200,16 @@ function parsePosts(html, channel, lastMsgId) {
     
     if (contentEl.length > 0) {
        contentHtml = contentEl.html()
-       title = contentEl.text().match(/^.*?(?=[。\n]|http\S)/g)?.[0] || ''
+       const text = contentEl.text().trim()
+       // 提取标题：尝试匹配到句号、换行或链接之前的内容
+       const match = text.match(/^.*?(?=[。\n]|http\S)/g)
+       if (match && match[0] && match[0].trim()) {
+         title = match[0].trim()
+       } else {
+         // 降级方案：如果匹配失败（例如纯链接或特殊字符开头），使用前 60 个字符
+         title = text.replace(/\n/g, ' ').substring(0, 60)
+       }
+       if (!title) title = 'New Post' // 最后的兜底
     } else {
        // 处理纯媒体消息，获取描述
        contentHtml = $item.html() // 或者提取 caption

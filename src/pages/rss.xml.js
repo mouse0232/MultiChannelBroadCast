@@ -21,9 +21,17 @@ export async function GET(context) {
     title: `${RSS_PREFIX}${siteName}`,
     description: `Aggregated RSS feed from multiple Telegram channels`,
     site,
-    items: posts.map((post) => ({
-      title: post.title || 'New Post',
-      pubDate: new Date(post.published_at || post.datetime),
+    items: posts.map((post) => {
+      // 修复标题为空的问题：如果数据库里没有标题，尝试从内容中提取纯文本
+      let title = post.title;
+      if (!title && post.content) {
+        const text = post.content.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+        title = text.substring(0, 60) || 'New Post';
+      }
+      
+      return ({
+        title: title,
+        pubDate: new Date(post.published_at || post.datetime),
       link: `${SITE_URL}posts/${post.id.split('/').pop()}`,
       content: sanitizeHtml(post.content || '', {
         allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img', 'video', 'audio']),
