@@ -315,6 +315,52 @@ export default {
     }
 
     try {
+      // API: 初始化并测试推送 (供首次部署后手动触发)
+      // GET /api/init
+      if (url.pathname === '/api/init') {
+        const channelsStr = env.CHANNELS || ''
+        const channels = channelsStr.split(',').map(c => c.trim()).filter(Boolean)
+        let successCount = 0
+        let errors = []
+
+        // 1. 发送测试消息
+        try {
+          if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_PUSH_CHANNEL_ID) {
+            await $fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+              method: 'POST',
+              body: {
+                chat_id: env.TELEGRAM_PUSH_CHANNEL_ID,
+                text: `✅ <b>系统通知</b>\n\nMulti-Channel Broadcast 初始化成功！\n当前已配置 ${channels.length} 个频道，后续将按设定频率推送。`,
+                parse_mode: 'HTML'
+              }
+            })
+          }
+        } catch (e) {
+          errors.push(`Telegram Message Error: ${e.message}`)
+        }
+
+        // 2. 遍历抓取所有频道
+        for (const ch of channels) {
+          try {
+            // 强制重新抓取并更新元数据
+            await processSingleChannel({ channel: ch }, env)
+            successCount++
+            // 稍微停顿，防止被 Telegram 风控
+            await randomDelay(500, 1500)
+          } catch (e) {
+            errors.push(`Channel ${ch} Error: ${e.message}`)
+          }
+        }
+
+        return new Response(JSON.stringify({
+          status: 'ok',
+          message: 'Init complete. Refresh your website.',
+          totalChannels: channels.length,
+          successCount,
+          errors: errors.length > 0 ? errors : undefined
+        }), { headers: corsHeaders, status: 200 })
+      }
+
       // ==========================================
       // 视频/音频代理逻辑 (支持 Range/Seek)
       // URL 格式: /static/cdnX.telegram-cdn.org/file/...
