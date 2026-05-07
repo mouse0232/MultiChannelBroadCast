@@ -82,9 +82,18 @@ async function processSingleChannel(task, env) {
   const isFirstRun = !meta || !lastMsgId
 
   // 2. 执行抓取 (带防风控)
-  const posts = await fetchAndParse(channel, env, lastMsgId)
+  const result = await fetchAndParse(channel, env, lastMsgId)
+  const posts = result.posts
+  const channelInfo = result.info
   
-  if (posts.length === 0) {
+  if (posts.length === 0 && !isFirstRun) {
+    // Even if no new posts, update channel info if available (e.g. changed avatar)
+    if (channelInfo.title && isFirstRun) {
+       // If first run but no posts, still save info
+       await env.DB.prepare(
+          "INSERT OR REPLACE INTO channel_meta (channel, last_msg_id, title, avatar) VALUES (?, ?, ?, ?)"
+       ).bind(channel, lastMsgId || '0', channelInfo.title, channelInfo.avatar).run()
+    }
     console.log(`ℹ️ No new posts for ${channel}`)
     return
   }
@@ -100,15 +109,18 @@ async function processSingleChannel(task, env) {
     `).bind(post.id, post.channel, post.title, post.content, post.datetime)
   })
 
-  // 更新 channel_meta
-  // Telegram ID 通常是 channel/12345 格式，我们取 12345
+  // Update channel_meta (includes channel info now)
+  // Telegram ID is usually channel/12345 format, we take 12345
   const rawIds = posts.map(p => p.id.split('/').pop() || p.id)
-  const maxRawId = rawIds.reduce((a, b) => parseInt(a) > parseInt(b) ? a : b, '0')
+  const maxRawId = rawIds.length > 0 ? rawIds.reduce((a, b) => parseInt(a) > parseInt(b) ? a : b, '0') : (lastMsgId || '0')
   
+  // If no posts, maxRawId might be 0, keep old lastMsgId if exists
+  const finalMsgId = rawIds.length > 0 ? maxRawId : lastMsgId;
+
   statements.push(
     env.DB.prepare(
-      "INSERT OR REPLACE INTO channel_meta (channel, last_msg_id) VALUES (?, ?)"
-    ).bind(channel, maxRawId)
+      "INSERT OR REPLACE INTO channel_meta (channel, last_msg_id, title, avatar) VALUES (?, ?, ?, ?)"
+    ).bind(channel, finalMsgId, channelInfo.title, channelInfo.avatar)
   )
 
   await env.DB.batch(statements)
@@ -152,6 +164,12 @@ async function fetchAndParse(channel, env, lastMsgId) {
 function parsePosts(html, channel, lastMsgId) {
   const $ = cheerio.load(html)
   const posts = []
+  
+  // Extract Channel Info from the page header
+  const title = $('.tgme_page_title span').text().trim() || 
+                $('.tgme_channel_info_header_title').text().trim() || 
+                channel; // Fallback to username
+  const avatar = $('.tgme_page_photo_image img').attr('src');
   
   // 找到所有消息
   const items = $('.tgme_widget_message_wrap').toArray()
@@ -205,7 +223,7 @@ function parsePosts(html, channel, lastMsgId) {
   // 但是为了正确更新 lastMsgId，我们需要知道最大的 ID。
   // 由于页面是倒序，第一个符合条件的就是最大的。
   
-  return posts
+  return { posts, info: { title, avatar } }
 }
 
 // ==========================================
@@ -354,7 +372,7 @@ export default {
       // API: 获取频道信息 (从 channel_meta 提取)
       // GET /api/channels
       if (url.pathname.startsWith('/api/channels')) {
-        const { results } = await env.DB.prepare("SELECT channel, last_msg_id FROM channel_meta").all()
+        const { results } = await env.DB.prepare("SELECT channel, last_msg_id, title, avatar FROM channel_meta").all()
         
         // 补充 env.CHANNELS 中配置但未抓取过的频道
         const configuredChannels = (env.CHANNELS || '').split(',').map(c => c.trim()).filter(Boolean)
@@ -363,7 +381,7 @@ export default {
         const allChannels = [...results]
         configuredChannels.forEach(ch => {
           if (!existingChannels.has(ch)) {
-            allChannels.push({ channel: ch, last_msg_id: null })
+            allChannels.push({ channel: ch, last_msg_id: null, title: ch, avatar: null })
           }
         })
 
