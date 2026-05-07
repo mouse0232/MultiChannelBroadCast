@@ -19,8 +19,8 @@ try {
   // 格式化数据供前端展示
   channelInfos = channelsFromDb.map(ch => ({
     username: ch.channel,
-    title: ch.channel, // 目前 D1 只存了 channel 名字，如果需要昵称需后续扩展
-    avatar: ''
+    title: ch.title || ch.channel, // 优先显示数据库中的昵称
+    avatar: ch.avatar || ''       // 优先显示数据库中的头像
   }))
 
   // 如果有配置的频道列表但 D1 中还没有数据 (首次运行)，使用配置列表作为 fallback
