@@ -86,16 +86,9 @@ async function processSingleChannel(task, env) {
   const posts = result.posts
   const channelInfo = result.info
   
-  if (posts.length === 0 && !isFirstRun) {
-    // Even if no new posts, update channel info if available (e.g. changed avatar)
-    if (channelInfo.title && isFirstRun) {
-       // If first run but no posts, still save info
-       await env.DB.prepare(
-          "INSERT OR REPLACE INTO channel_meta (channel, last_msg_id, title, avatar) VALUES (?, ?, ?, ?)"
-       ).bind(channel, lastMsgId || '0', channelInfo.title, channelInfo.avatar).run()
-    }
+  if (posts.length === 0) {
     console.log(`ℹ️ No new posts for ${channel}`)
-    return
+    // 注意：即使没有新帖子，我们也不能直接 return，因为还需要更新 channel_meta 中的 title 和 avatar
   }
 
   console.log(`📦 Parsed ${posts.length} new posts for ${channel}`)
