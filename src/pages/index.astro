@@ -8,7 +8,9 @@ import { getChannels } from '../lib/d1-client'
 const channelsStr = getEnv(import.meta.env, Astro, 'CHANNELS') || getEnv(import.meta.env, Astro, 'CHANNEL')
 const configuredChannels = channelsStr ? channelsStr.split(',').map(c => c.trim()).filter(Boolean) : []
 
-const { SITE_URL, SITE_NAME, SITE_AVATAR } = Astro.locals
+const { SITE_URL } = Astro.locals
+const siteName = getEnv(import.meta.env, Astro, 'SITE_NAME') || 'Multi-Channel Broadcast'
+const siteAvatar = getEnv(import.meta.env, Astro, 'SITE_AVATAR')
 
 // 从 Worker API 获取频道信息 (替代旧的实时抓取)
 // 注意：这依赖于环境变量 WORKER_URL 或默认的 Worker 地址
