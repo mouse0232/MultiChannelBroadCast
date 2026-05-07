@@ -140,17 +140,30 @@ async function processSingleChannel(task, env) {
 // 辅助函数 (抓取与解析)
 // ==========================================
 
-// 图片代理：将 Telegram CDN 图片链接替换为 wsrv.nl 代理链接
-// 注意：只处理 <img> 标签，不处理 <video> 和 <audio>，因为 wsrv.nl 不支持流媒体
-function processImageUrls(html) {
+// 处理媒体链接：
+// 1. 图片 (<img>) -> 替换为 wsrv.nl 代理 (支持国内访问)
+// 2. 视频/音频 (<video>, <audio>) -> 替换为本地 /static/ 代理 (支持 Range/拖动进度条)
+function processMediaUrls(html) {
     if (!html) return html;
-    // 匹配 <img ... src="https://cdnX.telegram-cdn.org/..." ...>
-    return html.replace(
+
+    // 1. 处理图片 (wsrv.nl)
+    html = html.replace(
         /(<img[^>]*src=")(https?:\/\/cdn\d+\.telegram-cdn\.org\/file\/[^"]+)(")/gi,
         (match, prefix, url, suffix) => {
             return `${prefix}https://wsrv.nl/?url=${encodeURIComponent(url)}${suffix}`;
         }
     );
+
+    // 2. 处理视频和音频 (Local Worker Proxy)
+    // 格式转换: https://cdn4.telegram-cdn.org/file/xyz.mp4 -> /static/cdn4.telegram-cdn.org/file/xyz.mp4
+    html = html.replace(
+        /(<(?:video|audio|source)[^>]*src=")(https?:\/\/(cdn\d+\.telegram-cdn\.org)(\/file\/[^"]+))(")/gi,
+        (match, prefix, fullUrl, host, path, suffix) => {
+            return `${prefix}/static/${host}${path}${suffix}`;
+        }
+    );
+
+    return html;
 }
 
 async function fetchAndParse(channel, env, lastMsgId) {
@@ -217,8 +230,8 @@ function parsePosts(html, channel, lastMsgId) {
     let title = ''
     let contentHtml = ''
     
-    if (contentEl.length > 0) {
-       contentHtml = processImageUrls(contentEl.html())
+     if (contentEl.length > 0) {
+        contentHtml = processMediaUrls(contentEl.html())
        const text = contentEl.text().trim()
        // 提取标题：尝试匹配到句号、换行或链接之前的内容
        const match = text.match(/^.*?(?=[。\n]|http\S)/g)
@@ -229,11 +242,11 @@ function parsePosts(html, channel, lastMsgId) {
          title = text.replace(/\n/g, ' ').substring(0, 60)
        }
        if (!title) title = 'New Post' // 最后的兜底
-     } else {
-        // 处理纯媒体消息，获取描述
-        contentHtml = processImageUrls($item.html()) // 替换图片链接
-        title = 'New Media Post'
-     }
+      } else {
+         // 处理纯媒体消息，获取描述
+         contentHtml = processMediaUrls($item.html()) // 替换所有媒体链接
+         title = 'New Media Post'
+      }
 
     const datetimeEl = $item.find('.tgme_widget_message_date time')
     const datetime = datetimeEl.attr('datetime')
@@ -309,6 +322,60 @@ export default {
     }
 
     try {
+      // ==========================================
+      // 视频/音频代理逻辑 (支持 Range/Seek)
+      // URL 格式: /static/cdnX.telegram-cdn.org/file/...
+      // ==========================================
+      if (url.pathname.startsWith('/static/')) {
+        // 提取目标路径 (去掉 /static/)
+        // 例如: cdn4.telegram-cdn.org/file/xyz.mp4
+        const targetPath = decodeURIComponent(url.pathname.substring('/static/'.length));
+        
+        const firstSlash = targetPath.indexOf('/');
+        if (firstSlash === -1) {
+          return new Response('Invalid Path', { status: 400 });
+        }
+
+        const targetHost = targetPath.substring(0, firstSlash);
+        const targetFile = targetPath.substring(firstSlash);
+        const targetUrl = `https://${targetHost}${targetFile}`;
+
+        // 准备请求头 (透传 Range)
+        const fetchHeaders = new Headers();
+        if (request.headers.has('range')) {
+          fetchHeaders.set('range', request.headers.get('range'));
+        }
+        // 转发 User-Agent 等头，模拟正常请求
+        if (request.headers.has('user-agent')) {
+          fetchHeaders.set('user-agent', request.headers.get('user-agent'));
+        }
+
+        const response = await fetch(targetUrl, { headers: fetchHeaders });
+
+        // 转发响应头
+        const responseHeaders = new Headers();
+        if (response.status === 206) {
+        responseHeaders.set('content-range', response.headers.get('content-range'));
+        responseHeaders.set('accept-ranges', 'bytes');
+        // 添加 CORS 支持 (允许跨域加载媒体)
+        responseHeaders.set('Access-Control-Allow-Origin', '*');
+      }
+        if (response.headers.has('content-type')) {
+          responseHeaders.set('content-type', response.headers.get('content-type'));
+        }
+        if (response.headers.has('content-length')) {
+          responseHeaders.set('content-length', response.headers.get('content-length'));
+        }
+        // 添加 CORS 支持
+        responseHeaders.set('Access-Control-Allow-Origin', '*');
+
+        return new Response(response.body, {
+          status: response.status,
+          statusText: response.statusText,
+          headers: responseHeaders
+        });
+      }
+
       // API: 获取单个帖子 (通过 ID 数字部分)
       // GET /api/post/12345 -> 查找 channel/12345
       if (url.pathname.match(/^\/api\/post\/\d+$/)) {
