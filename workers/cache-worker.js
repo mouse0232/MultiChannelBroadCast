@@ -428,7 +428,7 @@ async function summarizeWithAI(text, env) {
   if (!env.AI) return null
   try {
     const prompt = `请总结以下内容为一段不超过 150 字的摘要，提取关键信息，保持客观：\n${text}`
-    const response = await env.AI.run("@cf/qwen/qwen1.5-14b-chat-awq", {
+    const response = await env.AI.run("@cf/qwen/qwen1.5-7b-chat-awq", {
       messages: [{ role: "user", content: prompt }],
       max_tokens: 200
     })
