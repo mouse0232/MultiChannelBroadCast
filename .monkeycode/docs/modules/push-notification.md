@@ -1,171 +1,209 @@
-# 推送通知模块
+# 推送通知模块（Worker）
 
 ## 概述
 
-推送通知模块位于 `src/lib/telegram/push-*.js`,负责在网站获取新内容时,自动将消息推送到指定的 Telegram 频道。
+推送通知模块集成在 `workers/cache-worker.js` 中，负责在新帖子写入 D1 后自动推送到 Telegram 频道。
 
-## 模块结构
+## 推送流程
 
 ```
-push-config.js      # 配置管理
-push-dedup.js       # 消息去重
-push-formatter.js   # 消息格式化
-push-api.js         # Telegram API 调用
-push-service.js     # 服务编排
+新帖子写入 D1
+  ↓
+检查 TELEGRAM_PUSH_ENABLED
+  ↓
+遍历新帖子列表
+  ↓
+检查 push_logs（D1 去重）
+  ↓
+提取纯文本摘要（150 字符）
+  ↓
+提取首图 URL
+  ↓
+有图？ → sendPhoto（图文）
+  ↓
+无图？ → sendMessage（纯文本）
+  ↓
+记录 push_logs
+  ↓
+随机延迟 1-2 秒
 ```
 
-## 模块详情
+## 推送消息格式
 
-### 1. push-config.js - 配置管理
+### 图文消息（有图片时）
 
-**职责**: 读取和验证推送相关的环境变量配置
+```
+📢 [频道名] 标题
 
-**导出函数**:
-- `getPushConfig(importMetaEnv, Astro)`: 返回 PushConfig 对象
+内容摘要（前 150 字符）...
 
-**环境变量**:
-- `TELEGRAM_PUSH_ENABLED`: 是否启用推送
-- `TELEGRAM_BOT_TOKEN`: Bot Token
-- `TELEGRAM_PUSH_CHANNEL_ID`: 目标频道 ID
-
-**验证逻辑**:
-```javascript
-isValid = enabled && !!botToken && !!channelId
+阅读原文
 ```
 
-### 2. push-dedup.js - 消息去重
-
-**职责**: 使用 LRU Cache 管理已推送消息记录,避免重复推送
-
-**导出函数**:
-- `hasPushed(messageId)`: 检查消息是否已推送
-- `markAsPushed(messageId)`: 标记消息为已推送
-- `getPushedCount()`: 获取已推送消息数量
-- `clearPushedMessages()`: 清空记录(用于测试)
-
-**消息 ID 格式**: `{channelName}:{messageId}`
-
-**缓存配置**:
-```javascript
-const pushedMessages = new LRUCache({ max: 1000 })
-```
-
-### 3. push-formatter.js - 消息格式化
-
-**职责**: 将消息内容格式化为 Telegram HTML 格式
-
-**导出函数**:
-- `formatPushMessage(message, options)`: 返回格式化后的消息对象
-
-**消息模板**:
-```html
-<b>{title}</b>
-
-{summary}
-
-<i>来源: <a href="{channelUrl}">{channelName}</a></i>
-<i>发布时间: {publishTime}</i>
-
-<a href="{postUrl}">查看原文</a>
-```
-
-**特性**:
-- HTML 特殊字符转义(`escapeHtml`)
-- 自动生成摘要(前 200 字符)
-- 超长消息截断(4096 字符限制)
-- 时间格式化(使用 Day.js)
-
-### 4. push-api.js - Telegram API 调用
-
-**职责**: 调用 Telegram Bot API 发送消息
-
-**导出函数**:
-- `sendTelegramMessage(botToken, channelId, message)`: 返回 ApiResponse
-
-**API 端点**:
-```
-POST https://api.telegram.org/bot{token}/sendMessage
-```
-
-**错误处理**:
-- 401/403: Bot Token 无效或无权限
-- 429: 速率限制
-- 超时: 10 秒超时
-- 网络错误: 捕获并返回
-
-### 5. push-service.js - 服务编排
-
-**职责**: 协调各模块,完成推送流程
-
-**导出函数**:
-- `pushMessage(message, Astro, importMetaEnv)`: 推送单条消息
-
-**推送流程**:
-1. 检查推送配置
-2. 构建消息唯一 ID
-3. 检查是否已推送
-4. 格式化消息内容
-5. 调用 Telegram API 发送
-6. 标记为已推送
-7. 记录日志
-
-**异步设计**:
-- 完全异步,不阻塞主流程
-- 使用 `.catch()` 捕获异常
-- 推送失败不影响内容展示
-
-## 使用示例
-
-### 启用推送
-
-在 `.env` 中配置:
-
-```env
-TELEGRAM_PUSH_ENABLED=true
-TELEGRAM_BOT_TOKEN=your_bot_token
-TELEGRAM_PUSH_CHANNEL_ID=@your_channel
-```
-
-### 手动调用推送
+调用 `sendPhoto` API：
 
 ```javascript
-import { pushMessage } from './lib/telegram/push-service.js'
-
-// 在获取内容后
-const posts = await getChannelInfo(Astro)
-posts.forEach(post => {
-  pushMessage(post, Astro, import.meta.env)
+await $fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
+  method: 'POST',
+  body: {
+    chat_id: channelId,
+    photo: imageUrl,        // 帖子中的第一张图片
+    caption: text,          // HTML 格式文本
+    parse_mode: 'HTML'
+  },
+  timeout: 10000
 })
 ```
 
-## 测试
+### 纯文本消息（无图片时）
 
-测试文件位于 `src/lib/telegram/__tests__/`:
+调用 `sendMessage` API：
 
-- `push-config.test.js`: 5 个测试用例
-- `push-dedup.test.js`: 5 个测试用例
-- `push-formatter.test.js`: 10 个测试用例
-- `push-api.test.js`: 6 个测试用例
-
-运行测试:
-```bash
-pnpm test
+```javascript
+await $fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+  method: 'POST',
+  body: {
+    chat_id: channelId,
+    text: text,
+    parse_mode: 'HTML',
+    disable_web_page_preview: true
+  },
+  timeout: 10000
+})
 ```
+
+## 去重机制
+
+使用 D1 `push_logs` 表持久化记录已推送的帖子：
+
+```sql
+-- 检查是否已推送
+SELECT 1 FROM push_logs WHERE post_id = ?
+
+-- 记录已推送
+INSERT OR IGNORE INTO push_logs (post_id) VALUES (?)
+```
+
+优势：
+- 服务重启后去重记录不丢失
+- 持久化存储，无容量限制
+
+## 首次运行保护
+
+```javascript
+const isFirstRun = !meta || !lastMsgId
+
+if (isFirstRun) {
+  console.log(`First run for ${channel}, skipping push notifications.`)
+} else {
+  await triggerPush(posts, env)
+}
+```
+
+首次抓取（初始化数据）时不推送，防止消息轰炸。
+
+## 辅助函数
+
+### triggerPush()
+
+推送主函数，遍历帖子列表：
+
+1. 检查推送开关 `TELEGRAM_PUSH_ENABLED`
+2. 检查 Bot Token 和频道 ID 配置
+3. 遍历每个帖子
+4. 检查 push_logs 去重
+5. 提取摘要和首图
+6. 发送图文或纯文本消息
+7. 记录 push_logs
+8. 随机延迟 1-2 秒
+
+### stripHtml()
+
+去除 HTML 标签获取纯文本：
+
+```javascript
+function stripHtml(html) {
+  return html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\n\s*\n/g, '\n')
+    .trim()
+}
+```
+
+### extractFirstImage()
+
+提取第一张图片 URL：
+
+```javascript
+function extractFirstImage(html) {
+  const match = html.match(/<img[^>]+src=["']([^"']+)["']/i)
+  return match ? match[1] : null
+}
+```
+
+### escapeHtml()
+
+HTML 转义（Telegram parse_mode='HTML' 必需）：
+
+```javascript
+function escapeHtml(text) {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+```
+
+## 环境变量
+
+| 变量 | 必需 | 说明 |
+|------|------|------|
+| `TELEGRAM_PUSH_ENABLED` | 否 | 设为 `true` 启用推送 |
+| `TELEGRAM_BOT_TOKEN` | 是 | Telegram Bot Token |
+| `TELEGRAM_PUSH_CHANNEL_ID` | 是 | 目标频道 ID（如 `@channel` 或 `-100xxx`） |
+
+## 错误处理
+
+| 错误类型 | 处理方式 |
+|---------|---------|
+| 配置无效 | 跳过推送 |
+| Bot Token 无效（401） | 记录警告 |
+| 无权限（403） | 记录警告 |
+| 速率限制（429） | 记录警告 |
+| 超时 | 10 秒超时，跳过 |
+| 网络错误 | 记录警告 |
+
+所有推送错误使用 `console.warn()` 记录，不阻塞主流程。
+
+## 防风控
+
+- 每条推送间随机延迟 1-2 秒
+- 避免短时间内大量推送触发 Telegram 风控
 
 ## 日志格式
 
 ```
-[Push] Success: channel:123
-[Push] Skipped (already pushed): channel:123
-[Push] Failed: channel:123 - error message
-[Push] Invalid configuration, skipping push
-[Push] Error: channel:123 - Error stack
+📩 Pushed: channel/123
+Push failed for channel/123: error message
+First run for channel, skipping push notifications.
 ```
 
-## 注意事项
+## 初始化 API
 
-1. **推送是尽力而为**: 失败不会重试,不影响主流程
-2. **去重是内存级**: 服务重启后失效
-3. **Bot 权限**: 机器人需要是频道管理员或有发送消息权限
-4. **速率限制**: Telegram API 有速率限制,高流量场景需注意
-5. **消息长度**: 单条消息不超过 4096 字符
+访问 `/api/init` 可触发：
+1. 发送测试消息（确认推送配置有效）
+2. 全量抓取所有频道
+3. 返回成功/失败统计
+
+```json
+{
+  "status": "ok",
+  "message": "Init complete. Refresh your website.",
+  "totalChannels": 5,
+  "successCount": 5,
+  "errors": []
+}
+```

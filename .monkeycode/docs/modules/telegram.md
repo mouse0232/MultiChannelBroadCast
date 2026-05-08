@@ -1,140 +1,187 @@
-# Telegram 内容获取模块
+# Telegram 内容抓取模块（Worker）
 
 ## 概述
 
-`src/lib/telegram/index.js` 是项目的核心模块,负责从 Telegram 频道获取和解析内容。
+`workers/cache-worker.js` 中的抓取模块负责从 Telegram 频道获取和解析内容。
 
 ## 主要功能
 
-### 1. 内容获取
+### 1. 定时抓取
 
-- **单频道获取**: `getSingleChannelInfo()` 获取单个频道的内容
-- **多频道聚合**: `getChannelInfo()` 聚合多个频道的内容
-- **搜索支持**: 通过关键词搜索频道内消息
-- **分页支持**: 支持 before/after 游标分页
+通过 Cloudflare Cron 触发器，每 5 分钟执行一次：
 
-### 2. 内容解析
+1. 读取 `CHANNELS` 环境变量
+2. 将每个频道发送到 Queue 消息队列
+3. 清理一年前的旧数据
 
-使用 Cheerio 解析 Telegram 频道页面的 HTML,提取:
+### 2. Queue 消费
 
-- 消息文本
-- 标题(自动提取第一句)
-- 发布时间
-- 标签
-- 图片、视频、音频
-- 链接预览
-- 回复消息
-- 投票、文档、位置等
+Queue 消费者并行处理多个频道：
 
-### 3. 多媒体处理
+1. 读取 `channel_meta.last_msg_id`（上次抓取进度）
+2. 请求 Telegram 页面
+3. 解析 HTML 提取新消息
+4. 写入 D1 数据库
+5. 触发推送通知（非首次运行）
+6. 更新 `channel_meta` 进度
 
-#### 图片代理
+### 3. 内容解析
 
-支持多代理哈希分片负载均衡:
+使用 Cheerio 解析 Telegram 频道页面 (`t.me/s/{channel}`) 的 HTML，提取：
+
+| 元素 | 选择器 | 说明 |
+|------|--------|------|
+| 频道标题 | `.tgme_page_title span` | 频道显示名称 |
+| 频道头像 | `.tgme_page_photo_image img` | 头像 URL |
+| 消息容器 | `.tgme_widget_message_wrap` | 每条消息的包装 |
+| 消息 ID | `data-post` 属性 | 格式：`channel/12345` |
+| 消息文本 | `.tgme_widget_message_text` | 文本内容 |
+| 消息时间 | `.tgme_widget_message_date time` | 发布时间 |
+| 照片 | `.tgme_widget_message_photo_wrap` | 背景图 URL |
+| 视频 | `.tgme_widget_message_video_wrap` | 视频元素 |
+| 链接预览图 | `.tgme_widget_message_link_image` | 预览图片 |
+
+### 4. 多媒体处理
+
+#### 图片代理（wsrv.nl）
 
 ```javascript
-const IMAGE_PROXIES = [
-  { name: 'cdnjson', enabled: true },
-  { name: 'wesrv', enabled: true },
-  { name: 'wsrv', enabled: true }  // 降级选项
+// 照片背景图
+background-image:url('https://cdn5.telesco.pe/file/...')
+// 转换为
+<img src="https://wsrv.nl/?url=https%3A%2F%2Fcdn5.telesco.pe%2Ffile%2F..." />
+```
+
+- 所有图片使用 `https://wsrv.nl/?url={encoded_url}` 代理
+- 确保国内可访问
+- wsrv.nl 自带 CDN 缓存
+
+#### 视频/音频代理（Worker 本地）
+
+```javascript
+// 视频源
+<video src="https://cdn4.telegram-cdn.org/file/xyz.mp4">
+// 转换为
+<video src="/static/cdn4.telegram-cdn.org/file/xyz.mp4">
+```
+
+- URL 格式：`/static/{host}/{path}`
+- Worker 代理转发，支持 Range 请求
+- 可拖动进度条
+
+### 5. 防风控配置
+
+#### UA 池
+
+```javascript
+const USER_AGENTS = [
+  'Chrome 122 (Windows)',
+  'Chrome 121 (Mac)',
+  'Firefox 123 (Windows)',
+  'Safari 17.2 (Mac)',
 ]
 ```
 
-- 同一 URL 始终映射到同一代理(缓存友好)
-- 故障自动切换到 wsrv 降级代理
-- 图片加载失败时 onerror 回退
+每次请求随机选择 User-Agent。
 
-#### 视频和音频
-
-- 使用本地静态代理(`STATIC_PROXY`)
-- 添加 controls、preload、playsinline 属性
-
-### 4. 代码高亮
-
-使用 Flourite 检测代码语言,Prism.js 高亮:
+#### Host 池
 
 ```javascript
-const language = flourite(code, { shiki: true, noUnknown: true })?.language || 'text'
-const highlightedCode = prism.highlight(code, prism.languages[language], language)
+const hosts = (env.TELEGRAM_HOST || 't.me').split(',')
+const host = hosts[Math.floor(Math.random() * hosts.length)]
 ```
 
-### 5. 缓存策略
+支持配置多个 Telegram 主机轮询。
+
+#### 随机延迟
 
 ```javascript
-const cache = new LRUCache({
-  ttl: 1000 * 60 * 5,        // 5 分钟
-  maxSize: 50 * 1024 * 1024, // 50MB
-  sizeCalculation: (item) => JSON.stringify(item).length
-})
+await randomDelay(1000, 3000)  // 抓取间隔
+await randomDelay(1000, 2000)  // 推送间隔
 ```
 
-### 6. 推送集成
-
-在获取内容后自动触发推送:
+### 6. 增量抓取
 
 ```javascript
-if (posts?.length > 0) {
-  posts.forEach(post => {
-    pushMessage(post, Astro, import.meta.env).catch(err => {
-      console.error('[Push] Unhandled error:', err)
-    })
-  })
+// 获取上次抓取进度
+const meta = await env.DB.prepare(
+  "SELECT last_msg_id FROM channel_meta WHERE channel = ?"
+).bind(channel).first()
+
+// 跳过已抓取的旧消息
+if (lastMsgId && parseInt(rawId) <= parseInt(lastMsgId)) {
+  continue
 }
+
+// 更新进度
+INSERT OR REPLACE INTO channel_meta
+  (channel, last_msg_id, title, avatar)
+  VALUES (?, ?, ?, ?)
 ```
 
 ## 数据结构
 
-### Post 对象
+### 抓取结果
 
 ```javascript
 {
-  id: '123',                    // 消息 ID
-  title: '消息标题',             // 自动提取
-  channel: 'channel_name',      // 频道用户名
-  type: 'text',                 // 消息类型
-  datetime: '2026-05-06T10:00:00Z', // 发布时间
-  tags: ['tag1', 'tag2'],       // 标签列表
-  text: '纯文本内容',            // 纯文本
-  content: '<p>HTML 内容</p>'   // HTML 格式
+  posts: [
+    {
+      id: 'channel/12345',           // 完整 ID
+      channel: 'channel',            // 频道用户名
+      title: '帖子标题',              // 自动提取（最多 100 字符）
+      content: '<p>HTML 内容</p>',   // 含代理后媒体的 HTML
+      datetime: '2024-05-07T11:54:14+00:00'  // 发布时间
+    }
+  ],
+  info: {
+    title: 'Channel Name',           // 频道标题
+    avatar: 'https://wsrv.nl/?url=...'  // 代理后的头像
+  }
 }
 ```
 
 ## 辅助函数
 
-### getPost()
+### parsePosts()
 
-从 HTML 元素提取单条消息:
+从 HTML 解析帖子列表：
 
-- 提取消息内容
-- 处理回复消息
-- 提取图片、视频、音频
-- 处理链接预览
-- 提取标签
+1. 提取频道标题和头像
+2. 遍历 `.tgme_widget_message_wrap` 元素
+3. 过滤已抓取的旧消息（基于 lastMsgId）
+4. 提取文本内容
+5. 提取照片（background-image URL）
+6. 提取视频（video 标签或缩略图）
+7. 提取链接预览图片
+8. 合并文本和媒体到 contentHtml
+9. 提取发布时间
 
-### modifyHTMLContent()
+### processMediaUrls()
 
-修改 HTML 内容:
+替换 HTML 中的媒体链接：
 
-- 移除 emoji 样式
-- 处理链接 title
-- 添加 spoiler 按钮功能
-- 代码高亮
+1. `<img>` src → wsrv.nl 代理
+2. `<video/audio>` src → /static/ 代理
 
-### getProxyUrl()
+### fetchAndParse()
 
-获取图片代理 URL:
+带防风控的抓取：
 
-- 根据 URL 哈希分配代理
-- 故障时降级到 wsrv
+1. 随机选择 UA 和 Host
+2. 请求 `t.me/s/{channel}`
+3. 调用 `parsePosts()` 解析
 
 ## 错误处理
 
-- 网络请求重试 3 次,间隔 100ms
-- 解析错误记录日志,跳过问题消息
-- 代理构建失败时降级
+- 网络请求：重试 2 次，间隔 2 秒
+- UA 池：随机切换避免被封
+- Host 池：随机轮询
+- 解析错误：跳过问题消息
 
 ## 性能优化
 
-- 多频道使用 `Promise.all` 并发获取
-- LRU 缓存减少重复请求
-- 图片懒加载(前 5 条 eager,后续 lazy)
+- Queue 并发处理多个频道
+- 增量抓取（只获取新消息）
+- 批量写入 D1（`env.DB.batch()`）
+- 随机延迟避免触发 Telegram 风控

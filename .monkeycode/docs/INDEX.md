@@ -1,66 +1,51 @@
-# Multi-Channel Broadcast 项目文档索引
-
-## 项目概览
-
-**Multi-Channel Broadcast** 是一个基于 Astro 构建的多频道 Telegram 内容聚合器,将多个 Telegram 频道的内容聚合为一个微博风格的网站。
-
-## 核心功能
-
-- **多频道聚合**: 支持配置多个 Telegram 频道,混合展示内容
-- **智能去重**: 自动去除重复消息
-- **内容缓存**: 使用 LRU Cache 进行 5 分钟缓存
-- **图片代理**: 支持多种图片代理服务
-- **Telegram 推送**: 自动将新内容推送到指定 Telegram 频道
-- **响应式设计**: 基于 Sepia 模板的响应式布局
-- **多平台部署**: 支持 Vercel、Cloudflare Pages、Netlify、Node.js、Docker
-
-## 技术栈
-
-- **框架**: Astro v5.16+
-- **内容获取**: Cheerio (HTML 解析)
-- **缓存**: LRUCache
-- **HTTP 客户端**: ofetch
-- **代码高亮**: Prism.js
-- **语言检测**: Flourite
-- **时间处理**: Day.js
-- **测试**: Vitest
-
-## 文档结构
-
-- [ARCHITECTURE.md](./ARCHITECTURE.md) - 系统架构文档
-- [INTERFACES.md](./INTERFACES.md) - 接口和类型定义
-- [DEVELOPER_GUIDE.md](./DEVELOPER_GUIDE.md) - 开发者指南
-- [modules/telegram.md](./modules/telegram.md) - Telegram 模块文档
-- [modules/push-notification.md](./modules/push-notification.md) - 推送通知模块文档
+# 文档索引
 
 ## 快速开始
 
-```bash
-# 安装依赖
-pnpm install
+| 文档 | 说明 |
+|------|------|
+| [开发者指南](./DEVELOPER_GUIDE.md) | 环境设置、部署、常见问题 |
+| [系统架构](./ARCHITECTURE.md) | 架构概览、数据流、数据库设计 |
+| [接口定义](./INTERFACES.md) | API 接口、数据类型、环境变量 |
 
-# 配置环境变量
-cp .env.example .env
+## 前端模块
 
-# 启动开发服务器
-pnpm dev
-```
+| 模块 | 路径 | 说明 |
+|------|------|------|
+| 首页 | `src/pages/index.astro` | 聚合帖子列表 + 频道目录 |
+| 频道页 | `src/pages/channel/[channel].astro` | 单频道帖子列表 |
+| 帖子详情 | `src/pages/posts/[...id].astro` | 单条帖子展示 |
+| 分页（更早） | `src/pages/before/[cursor].astro` | 按 published_at 向前分页 |
+| 分页（更新） | `src/pages/after/[cursor].astro` | 按 published_at 向后分页 |
+| RSS | `src/pages/rss.xml.js` | RSS 订阅输出 |
+| 组件：列表 | `src/components/list.astro` | 帖子列表 + 分页控件 |
+| 组件：帖子 | `src/components/item.astro` | 单条帖子（含复制/分享） |
+| 组件：头部 | `src/components/header.astro` | 页面头部（标题/图标/RSS） |
+| 布局 | `src/layouts/base.astro` | 基础布局（SEO/侧栏/移动端） |
+| API 客户端 | `src/lib/d1-client.js` | 请求 Worker API 的客户端 |
 
-## 核心模块
+## 后端模块
 
-1. **Telegram 内容获取模块** (`src/lib/telegram/`)
-   - 获取和解析 Telegram 频道内容
-   - 处理图片、视频、音频等多媒体
-   - 支持多频道聚合
+| 模块 | 路径 | 说明 |
+|------|------|------|
+| Worker 入口 | `workers/cache-worker.js` | 抓取/队列/API/推送 |
 
-2. **推送通知模块** (`src/lib/telegram/push-*.js`)
-   - 配置管理
-   - 消息去重
-   - 消息格式化
-   - Telegram Bot API 调用
+## 配置文件
 
-3. **页面路由** (`src/pages/`)
-   - 首页: 聚合内容展示
-   - 频道页: 单频道内容
-   - 详情页: 单条消息详情
-   - RSS/JSON/Sitemap: SEO 和订阅支持
+| 文件 | 说明 |
+|------|------|
+| `wrangler.toml` | Cloudflare Workers/D1/Queue 配置 |
+| `astro.config.mjs` | Astro 构建配置 |
+| `package.json` | 项目依赖和脚本 |
+| `.env.example` | 环境变量模板 |
+
+## 核心概念
+
+| 概念 | 说明 |
+|------|------|
+| D1 数据库 | Cloudflare 边缘 SQLite，存储帖子和频道元数据 |
+| Queue 队列 | Cloudflare Queues，异步处理抓取任务 |
+| Cron 触发器 | Cloudflare Cron，定时触发抓取任务 |
+| Worker API | 为前端提供帖子/频道数据的 REST API |
+| 媒体代理 | wsrv.nl（图片）和 /static/（视频/音频） |
+| 游标分页 | 基于 published_at 的游标分页，避免 OFFSET 问题 |

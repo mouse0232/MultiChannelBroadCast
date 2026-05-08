@@ -6,12 +6,13 @@
 
 - Node.js >= 20.0.0
 - pnpm >= 9.9.0
+- Wrangler CLI（用于本地测试 Worker）
 
-### 快速开始
+### 前端开发
 
 ```bash
 # 克隆仓库
-git clone https://github.com/banlanzs/MultiChannelBroadCast.git
+git clone https://github.com/mouse0232/MultiChannelBroadCast.git
 cd MultiChannelBroadCast
 
 # 安装依赖
@@ -20,7 +21,9 @@ pnpm install
 # 复制环境变量文件
 cp .env.example .env
 
-# 编辑 .env 文件,配置 CHANNELS
+# 编辑 .env 文件，至少配置：
+# WORKER_URL=https://your-worker.workers.dev
+# CHANNELS=channel1,channel2
 
 # 启动开发服务器
 pnpm dev
@@ -28,63 +31,117 @@ pnpm dev
 
 访问 `http://localhost:4321` 查看效果。
 
+### Worker 开发
+
+```bash
+# 安装 Wrangler
+npm install -g wrangler
+
+# 本地运行 Worker
+wrangler dev
+
+# 部署 Worker
+wrangler deploy
+```
+
 ## 项目结构
 
 ```
-src/
-├── lib/                      # 工具库和业务逻辑
-│   ├── telegram/             # Telegram 相关模块
-│   │   ├── index.js          # 核心内容获取模块
-│   │   ├── push-config.js    # 推送配置模块
-│   │   ├── push-dedup.js     # 推送去重模块
-│   │   ├── push-formatter.js # 消息格式化模块
-│   │   ├── push-api.js       # Telegram API 调用模块
-│   │   ├── push-service.js   # 推送服务编排模块
-│   │   └── __tests__/        # 单元测试
-│   ├── dayjs.js              # Day.js 配置
-│   ├── env.js                # 环境变量辅助函数
-│   └── prism.js              # Prism.js 配置
-├── pages/                    # 页面路由
-│   ├── index.astro           # 首页
-│   ├── posts/[id].astro      # 消息详情页
-│   ├── channel/[channel].astro  # 频道页
-│   ├── rss.xml.js            # RSS 订阅
-│   └── ...
-├── components/               # UI 组件
-├── layouts/                  # 页面布局
-└── assets/                   # 静态资源(CSS/图片)
+├── src/                        # 前端源代码
+│   ├── lib/                    # 工具库
+│   │   ├── d1-client.js        # D1 API 客户端（请求 Worker）
+│   │   ├── telegram/           # Telegram 推送模块（已废弃，推送已移至 Worker）
+│   │   ├── env.js              # 环境变量辅助
+│   │   ├── dayjs.js            # Day.js 配置
+│   │   └── prism.js            # 代码高亮配置
+│   ├── pages/                  # 页面路由
+│   │   ├── index.astro         # 首页（聚合帖子 + 频道目录）
+│   │   ├── posts/[...id].astro # 帖子详情页
+│   │   ├── channel/[channel].astro  # 频道页
+│   │   ├── before/[cursor].astro    # 更早分页
+│   │   ├── after/[cursor].astro     # 更新分页
+│   │   └── rss.xml.js          # RSS 订阅
+│   ├── components/             # UI 组件
+│   │   ├── header.astro        # 页面头部
+│   │   ├── list.astro          # 帖子列表（含分页）
+│   │   └── item.astro          # 单条帖子（含复制/分享功能）
+│   ├── layouts/                # 页面布局
+│   │   └── base.astro          # 基础布局（含 SEO/侧栏/移动端菜单）
+│   └── assets/                 # 静态资源
+├── workers/                    # Worker 后端
+│   └── cache-worker.js         # Worker 入口（抓取/队列/API/推送）
+├── wrangler.toml               # Cloudflare 配置
+├── astro.config.mjs            # Astro 配置
+└── package.json                # 项目依赖
 ```
 
-## 添加新功能
+## 核心工作流
 
-### 1. 添加新的内容源
+### 1. 添加新频道
 
-如果要支持除 Telegram 外的其他平台:
+在 Cloudflare Worker 环境变量中修改 `CHANNELS`：
 
-1. 在 `src/lib/` 下创建新模块,如 `src/lib/twitter.js`
-2. 实现内容获取和解析函数
-3. 在 `getChannelInfo` 中集成新模块
-4. 更新环境变量配置
+```env
+CHANNELS=channel1,channel2,new_channel
+```
 
-### 2. 添加新的推送目标
+部署 Worker 后，Cron 会自动开始抓取新频道。
 
-如果要推送到其他平台(如 Discord、Slack):
+### 2. 修改抓取逻辑
 
-1. 创建新的推送模块,如 `src/lib/push-discord.js`
-2. 实现格式化函数和 API 调用函数
-3. 在 `push-service.js` 中添加新的推送逻辑
-4. 添加对应的环境变量
+编辑 `workers/cache-worker.js`：
 
-### 3. 自定义样式
+- `fetchAndParse()`：修改 HTTP 请求逻辑
+- `parsePosts()`：修改 HTML 解析和媒体提取
+- `processMediaUrls()`：修改媒体链接替换规则
 
-样式文件位于 `src/assets/`:
+修改后部署 Worker，然后访问 `/api/regrab` 重新抓取旧数据。
+
+### 3. 修改推送逻辑
+
+编辑 `workers/cache-worker.js` 中的 `triggerPush()` 函数：
+
+- 修改消息模板
+- 修改摘要长度（当前 150 字符）
+- 添加新的推送目标
+
+### 4. 修改分页逻辑
+
+编辑 `workers/cache-worker.js` 中的 `/api/posts` 端点：
+
+- 修改排序字段（当前 `published_at`）
+- 修改分页大小（当前 20）
+- 修改游标比较逻辑
+
+### 5. 自定义样式
+
+样式文件位于 `src/assets/`：
 
 - `normalize.css` - CSS 重置
 - `style.css` - 主样式
-- `item.css` - 文章项样式
+- `item.css` - 帖子项样式
 - `global.css` - 全局样式
+- 各页面 `.astro` 文件内也有 `<style>` 块
 
-直接修改这些文件即可自定义外观。
+## 数据库管理
+
+### 查看数据库
+
+```bash
+wrangler d1 execute multi-channel-db --command "SELECT * FROM posts LIMIT 10"
+```
+
+### 重置抓取进度
+
+```bash
+wrangler d1 execute multi-channel-db --command "UPDATE channel_meta SET last_msg_id = '0'"
+```
+
+### 清理旧数据
+
+```bash
+wrangler d1 execute multi-channel-db --command "DELETE FROM posts WHERE published_at < datetime('now', '-1 year')"
+```
 
 ## 测试
 
@@ -94,131 +151,136 @@ src/
 # 运行所有测试
 pnpm test
 
-# 监听模式(开发时使用)
+# 监听模式
 pnpm test -- --watch
 ```
 
-### 编写测试
-
-测试文件位于 `src/lib/telegram/__tests__/`,使用 Vitest 框架:
-
-```javascript
-import { describe, it, expect } from 'vitest'
-import { yourFunction } from '../your-module.js'
-
-describe('Your Module', () => {
-  it('should do something', () => {
-    expect(yourFunction()).toBe(expectedValue)
-  })
-})
-```
-
-### 测试覆盖范围
-
-- 推送配置模块: 5 个测试用例
-- 推送去重模块: 5 个测试用例
-- 消息格式化模块: 10 个测试用例
-- API 调用模块: 6 个测试用例
+测试文件位于 `src/lib/telegram/__tests__/`，使用 Vitest 框架。
 
 ## 部署
 
-### Vercel
+### 前端（Cloudflare Pages）
 
-```bash
-# 安装 Vercel CLI
-pnpm add -g vercel
-
-# 部署
-vercel
-```
-
-或在 Vercel Dashboard 中导入 GitHub 仓库。
-
-### Docker
-
-```bash
-# 构建镜像
-docker build -t multi-channel-broadcast .
-
-# 运行容器
-docker run -d \
-  --name multi-channel-broadcast \
-  -p 4321:4321 \
-  -e CHANNELS="channel1,channel2" \
-  multi-channel-broadcast
-```
-
-### Cloudflare Pages
-
-在 Cloudflare Dashboard 中:
-1. 连接 GitHub 仓库
-2. 设置构建命令: `pnpm build`
-3. 设置输出目录: `dist`
+1. 连接 GitHub 仓库到 Cloudflare Pages
+2. 构建命令：`pnpm build`
+3. 输出目录：`dist`
 4. 配置环境变量
+
+### 后端（Cloudflare Workers）
+
+```bash
+# 首次部署
+wrangler deploy
+
+# 部署时绑定资源（在 wrangler.toml 中配置）
+wrangler deploy
+```
+
+### 配置 Cron 触发器
+
+在 `wrangler.toml` 中：
+
+```toml
+[[triggers]]
+crons = ["*/5 * * * *"]  # 每 5 分钟
+```
+
+### 配置 Queue
+
+```bash
+# 创建队列
+wrangler queues create scraping-tasks
+
+# 在 wrangler.toml 中绑定
+[[queues.producers]]
+queue = "scraping-tasks"
+binding = "TASK_QUEUE"
+
+[[queues.consumers]]
+queue = "scraping-tasks"
+max_batch_size = 10
+max_retries = 2
+```
+
+### 配置 D1 数据库
+
+```bash
+# 创建数据库
+wrangler d1 create multi-channel-db
+
+# 执行迁移（需手动创建表）
+wrangler d1 execute multi-channel-db --file=schema.sql
+```
 
 ## 调试
 
-### 启用调试日志
+### Worker 日志
 
-所有推送操作都会输出日志:
-
-```
-[Push] Success: channel:123
-[Push] Skipped (already pushed): channel:123
-[Push] Failed: channel:123 - error message
-[Push] Invalid configuration, skipping push
+```bash
+wrangler tail
 ```
 
-### 检查推送配置
+### 前端调试
 
-在代码中临时添加:
-
-```javascript
-import { getPushConfig } from './lib/telegram/push-config.js'
-
-const config = getPushConfig(import.meta.env, Astro)
-console.log('Push config:', config)
+```bash
+pnpm dev
 ```
 
-### 测试推送功能
+访问 `http://localhost:4321`，查看浏览器控制台和 Network 面板。
 
-1. 设置 `TELEGRAM_PUSH_ENABLED=true`
-2. 配置有效的 Bot Token 和频道 ID
-3. 访问网站触发内容获取
-4. 检查控制台日志
+### 检查 Worker API
+
+直接访问：
+- `https://your-worker.workers.dev/api/channels`
+- `https://your-worker.workers.dev/api/posts?channel=all&limit=5`
 
 ## 常见问题
 
-### Q: 推送没有触发?
+### Q: 首页只显示一个频道的内容？
 
-A: 检查以下几点:
-1. `TELEGRAM_PUSH_ENABLED` 是否设置为 `true`
-2. `TELEGRAM_BOT_TOKEN` 和 `TELEGRAM_PUSH_CHANNEL_ID` 是否配置
-3. 机器人是否有目标频道的发送权限
-4. 检查日志是否有错误信息
+A: 检查：
+1. Worker 环境变量 `CHANNELS` 是否正确配置了多个频道
+2. 前端 `WORKER_URL` 是否指向正确的 Worker 地址
+3. D1 数据库中是否确实有多个频道的数据
 
-### Q: 推送失败?
+### Q: 帖子没有图片？
 
-A: 常见原因:
-- Bot Token 无效(401)
-- 机器人不是频道管理员(403)
-- 触发速率限制(429)
-- 网络超时
+A: 可能原因：
+1. 旧数据使用旧抓取逻辑（无图片），访问 `/api/regrab` 重新抓取
+2. Telegram HTML 结构变化，需要更新 `parsePosts()` 中的选择器
 
-### Q: 如何禁用推送?
+### Q: 分页链接 404？
 
-A: 删除或注释掉 `.env` 中的推送相关配置,或设置 `TELEGRAM_PUSH_ENABLED=false`。
+A: 确保：
+1. `before/[cursor].astro` 和 `after/[cursor].astro` 存在
+2. 分页 cursor 使用 `encodeURIComponent()` 编码
+3. 分页使用 `published_at` 字段而非 `id`（避免斜杠问题）
 
-### Q: 缓存时间如何调整?
+### Q: 如何禁用推送？
 
-A: 修改 `src/lib/telegram/index.js` 中的 `ttl` 值:
+A: 设置 `TELEGRAM_PUSH_ENABLED=false` 或删除该环境变量。
 
-```javascript
-const cache = new LRUCache({
-  ttl: 1000 * 60 * 5,  // 改为需要的毫秒
-  // ...
-})
-```
+### Q: Cron 没有触发抓取？
+
+A: 检查：
+1. Cron 触发器是否在 `wrangler.toml` 中正确配置
+2. Worker 是否已部署
+3. Queue 是否正确绑定
+4. 查看 Worker 日志：`wrangler tail`
+
+### Q: 图片加载失败？
+
+A: 检查：
+1. wsrv.nl 服务是否可访问
+2. 图片 URL 是否正确编码
+3. Telegram CDN 是否返回了正确的图片
+
+### Q: 视频无法播放或无法拖动进度条？
+
+A: 检查：
+1. `/static/` 路由是否在 Worker 中正确处理
+2. Range 请求头是否正确透传
+3. Content-Range 响应头是否正确返回
 
 ## 贡献指南
 

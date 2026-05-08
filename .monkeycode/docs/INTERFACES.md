@@ -4,201 +4,214 @@
 
 ### Post 对象
 
-从 Telegram 频道获取的单条消息结构:
+从 D1 数据库读取的帖子结构:
 
 ```typescript
 interface Post {
-  id: string                    // 消息 ID (格式: channel/messageId)
-  title: string                 // 消息标题(自动提取)
+  id: string                    // 帖子 ID (格式: channel/messageId)
   channel: string               // 来源频道用户名
-  type: 'text' | 'service'      // 消息类型
-  datetime: string              // 发布时间 (ISO 8601)
-  tags: string[]                // 标签列表(不含 #)
-  text: string                  // 纯文本内容
-  content: string               // HTML 格式内容
+  title: string                 // 帖子标题（自动提取，最多 100 字符）
+  content: string               // HTML 格式内容（含代理后的媒体）
+  published_at: string          // 发布时间 (ISO 8601，如 2024-05-07T11:54:14+00:00)
+  datetime?: string             // 兼容字段，等同于 published_at
+  tags?: string[]               // 标签列表（预留，当前未使用）
+  type?: string                 // 消息类型（预留，当前固定 'text'）
 }
 ```
 
-### ChannelInfo 对象
+### ChannelMeta 对象
 
-单频道信息结构:
+频道元数据结构（来自 channel_meta 表）:
 
 ```typescript
-interface ChannelInfo {
-  posts: Post[]                 // 消息列表
+interface ChannelMeta {
+  channel: string               // 频道用户名
+  last_msg_id: string           // 最后抓取的消息 ID（数字部分）
   title: string                 // 频道显示名称
-  description: string           // 频道描述(纯文本)
-  descriptionHTML: string       // 频道描述(HTML)
-  avatar: string                // 头像 URL(代理后)
-  avatarFallback: string        // 头像备用 URL
-  username: string              // 频道用户名
-}
-```
-
-### AggregatedInfo 对象
-
-多频道聚合信息结构:
-
-```typescript
-interface AggregatedInfo {
-  posts: Post[]                 // 聚合后的消息列表(按时间倒序)
-  title: string                 // 站点名称
-  description: string           // 站点描述
-  descriptionHTML: string       // 站点描述(HTML)
-  avatar: string                // 站点头像
-  channels: ChannelSummary[]    // 频道摘要列表
-}
-
-interface ChannelSummary {
-  username: string              // 频道用户名
-  title: string                 // 频道显示名称
-  avatar: string                // 频道头像 URL
-}
-```
-
-### PushConfig 对象
-
-推送配置结构:
-
-```typescript
-interface PushConfig {
-  enabled: boolean              // 是否启用推送
-  botToken: string | undefined  // Telegram Bot Token
-  channelId: string | undefined // 目标频道 ID
-  isValid: boolean              // 配置是否有效
-}
-```
-
-### PushMessage 对象
-
-推送到 Telegram 的消息格式:
-
-```typescript
-interface PushMessage {
-  text: string                  // 消息文本(HTML 格式)
-  parse_mode: 'HTML'            // 解析模式
-  link_preview_options: {
-    is_disabled: boolean        // 禁用链接预览
-  }
+  avatar: string                // 头像 URL（wsrv.nl 代理后）
 }
 ```
 
 ### API 响应对象
 
-Telegram Bot API 调用结果:
+#### GET /api/posts 响应
 
-```typescript
-interface ApiResponse {
-  success: boolean              // 是否成功
-  error?: string                // 错误信息(失败时)
+```json
+{
+  "posts": [Post]
 }
 ```
 
-## 核心函数接口
+查询参数:
+- `channel`: 频道用户名，`all` 表示所有频道
+- `limit`: 每页数量，默认 20
+- `before`: published_at 游标，获取更早的内容
+- `after`: published_at 游标，更新的内容
 
-### 内容获取函数
+#### GET /api/channels 响应
 
-#### getSingleChannelInfo
+```json
+{
+  "channels": [ChannelMeta]
+}
+```
 
-获取单个频道信息:
+#### GET /api/post/{id} 响应
+
+```json
+{
+  "post": Post
+}
+```
+
+注意：`id` 参数支持两种格式：
+- 完整 ID（URL 编码）：`yunyoocc%2F12345` → 精确查询
+- 纯数字 ID：`12345` → LIKE 模糊查询（向后兼容）
+
+#### GET /api/init 响应
+
+```json
+{
+  "status": "ok",
+  "message": "Init complete. Refresh your website.",
+  "totalChannels": 5,
+  "successCount": 5,
+  "errors": []  // 可选，有错误时包含
+}
+```
+
+#### GET /api/regrab 响应
+
+```json
+{
+  "status": "ok",
+  "message": "Regrab complete for 5 channels",
+  "successCount": 5,
+  "errors": []
+}
+```
+
+查询参数:
+- `limit`: 每个频道重新抓取的数量，默认 50
+
+## 前端组件 Props
+
+### List 组件
 
 ```typescript
-async function getSingleChannelInfo(
-  Astro: AstroContext,
-  channel: string,
-  options?: {
-    before?: string             // 获取此 ID 之前的消息
-    after?: string              // 获取此 ID 之后的消息
-    q?: string                  // 搜索关键词
-    type?: 'list' | 'single'    // 查询类型
-    id?: string                 // 单条消息 ID
+interface ListProps {
+  channel: {
+    posts: Post[]
+    title: string
+    username: string
+    avatar: string | null
+    description?: string
   }
-): Promise<ChannelInfo>
+  currentChannel?: string       // 当前频道用户名（首页为 null）
+  before?: boolean              // 是否显示"更早"按钮，默认 true
+  after?: boolean               // 是否显示"更新"按钮，默认 true
+  isItem?: boolean              // 是否为单帖模式，默认 false
+}
 ```
 
-#### getChannelInfo
-
-获取多频道聚合信息:
+### Item 组件
 
 ```typescript
-async function getChannelInfo(
-  Astro: AstroContext,
-  options?: {
-    before?: string
-    after?: string
-    q?: string
+interface ItemProps {
+  post: Post
+  isItem?: boolean              // 是否为单帖模式
+}
+```
+
+### Header 组件
+
+```typescript
+interface HeaderProps {
+  channel: {
+    title: string
+    avatar: string | null
+    username?: string
+    href?: string | false
   }
-): Promise<AggregatedInfo>
+  showGlobalRss?: boolean       // 是否显示全局 RSS 图标
+  rssUrl?: string               // RSS 链接地址
+}
 ```
 
-### 推送服务函数
+## Worker API 接口
 
-#### getPushConfig
+### 内容获取 API
 
-获取推送配置:
+#### GET /api/posts
+
+获取帖子列表，支持分页和频道过滤。
 
 ```typescript
-function getPushConfig(
-  importMetaEnv?: object,
-  Astro?: AstroContext
-): PushConfig
+async function getPosts(options?: {
+  channel?: string              // 频道用户名，默认 'all'
+  limit?: number                // 每页数量，默认 20
+  before?: string               // published_at 游标（更早）
+  after?: string                // published_at 游标（更新）
+}): Promise<{ posts: Post[] }>
 ```
 
-#### formatPushMessage
+#### GET /api/post/{id}
 
-格式化推送消息:
+获取单个帖子。
 
 ```typescript
-function formatPushMessage(
-  message: Post,
-  options?: {
-    siteUrl?: string            // 网站 URL
-    locale?: string             // 语言代码
-    timezone?: string           // 时区
-  }
-): PushMessage
+async function getPost(id: string): Promise<{ post: Post }>
 ```
 
-#### sendTelegramMessage
+#### GET /api/posts/search
 
-发送消息到 Telegram:
+搜索帖子。
 
 ```typescript
-async function sendTelegramMessage(
-  botToken: string,
-  channelId: string,
-  message: PushMessage
-): Promise<ApiResponse>
+async function searchPosts(options: {
+  q: string                     // 搜索关键词
+  channel?: string              // 频道过滤，默认 'all'
+  limit?: number                // 结果数量，默认 20
+}): Promise<{ posts: Post[] }>
 ```
 
-#### pushMessage
+#### GET /api/channels
 
-推送单条消息(编排函数):
+获取频道列表。
 
 ```typescript
-async function pushMessage(
-  message: Post,
-  Astro?: AstroContext,
-  importMetaEnv?: object
-): Promise<void>
+async function getChannels(): Promise<{ channels: ChannelMeta[] }>
 ```
 
-### 去重函数
+### 管理 API
 
-#### hasPushed
+#### GET /api/init
 
-检查消息是否已推送:
+初始化并全量抓取所有频道。
 
 ```typescript
-function hasPushed(messageId: string): boolean
+async function init(): Promise<{
+  status: string
+  message: string
+  totalChannels: number
+  successCount: number
+  errors?: string[]
+}>
 ```
 
-#### markAsPushed
+#### GET /api/regrab
 
-标记消息为已推送:
+重新抓取并更新旧帖子内容（用于修复抓取逻辑后更新已有数据）。
 
 ```typescript
-function markAsPushed(messageId: string): void
+async function regrab(options?: {
+  limit?: number                // 每频道重新抓取数量，默认 50
+}): Promise<{
+  status: string
+  message: string
+  successCount: number
+  errors?: string[]
+}>
 ```
 
 ## 环境变量接口
@@ -206,48 +219,117 @@ function markAsPushed(messageId: string): void
 ### 必需环境变量
 
 ```env
-CHANNELS=channel1,channel2,channel3  # 频道列表(逗号分隔)
+CHANNELS=channel1,channel2,channel3  # 频道列表（逗号分隔）
 ```
 
-### 可选环境变量
+### 前端环境变量
 
 ```env
 SITE_NAME=My Blog                    # 站点名称
+SITE_AVATAR=https://...              # 站点头像 URL
+WORKER_URL=https://...workers.dev    # Worker API 地址
 LOCALE=zh-cn                         # 语言代码
 TIMEZONE=Asia/Shanghai               # 时区
-TELEGRAM_HOST=t.me                   # Telegram 主机
-STATIC_PROXY=/static/                # 静态资源代理
-COMMENTS=true                        # 启用评论
+RSS_PREFIX=                          # RSS 前缀
+RSS_URL=https://.../rss.xml          # RSS 地址
+GOOGLE_SEARCH_SITE=                  # Google 搜索站点（可选）
+COMMENTS=true                        # 启用评论（Telegram widget）
+HEADER_INJECT=                       # 头部注入 HTML
+FOOTER_INJECT=                       # 尾部注入 HTML
+TAGS=true                            # 显示标签页
+LINKS=true                           # 显示链接页
+NAVS=标题,链接;标题,链接              # 自定义导航（分号分隔）
+TELEGRAM=username                    # Telegram 链接
+TWITTER=username                     # Twitter 链接
+GITHUB=username                      # GitHub 链接
 ```
 
-### 推送相关环境变量
+### Worker 环境变量
 
 ```env
+CHANNELS=channel1,channel2           # 频道列表（逗号分隔）
+TELEGRAM_HOST=t.me                   # Telegram 主机（支持多主机轮询）
+TELEGRAM_BOT_TOKEN=xxx               # Telegram Bot Token
+TELEGRAM_PUSH_CHANNEL_ID=@channel    # 推送目标频道
 TELEGRAM_PUSH_ENABLED=true           # 启用推送
-TELEGRAM_BOT_TOKEN=xxx               # Bot Token
-TELEGRAM_PUSH_CHANNEL_ID=@channel    # 目标频道
+```
+
+## SQL 查询接口
+
+### 帖子查询
+
+```sql
+-- 获取最新帖子
+SELECT * FROM posts WHERE 1=1
+  [AND channel = ?]
+  ORDER BY published_at DESC
+  LIMIT ?
+
+-- 获取更早的帖子（before 分页）
+SELECT * FROM posts WHERE 1=1
+  [AND channel = ?]
+  AND published_at < ?
+  ORDER BY published_at DESC
+  LIMIT ?
+
+-- 获取更新的帖子（after 分页）
+SELECT * FROM posts WHERE 1=1
+  [AND channel = ?]
+  AND published_at > ?
+  ORDER BY published_at ASC
+  LIMIT ?
+
+-- 搜索帖子
+SELECT * FROM posts WHERE
+  (title LIKE ? OR content LIKE ?)
+  [AND channel = ?]
+  ORDER BY id DESC
+  LIMIT ?
+```
+
+### 频道查询
+
+```sql
+-- 获取所有频道元数据
+SELECT channel, last_msg_id, title, avatar FROM channel_meta
+
+-- 更新频道元数据
+INSERT OR REPLACE INTO channel_meta
+  (channel, last_msg_id, title, avatar)
+  VALUES (?, ?, ?, ?)
+```
+
+### 帖子写入
+
+```sql
+-- 插入新帖子（忽略已存在的）
+INSERT OR IGNORE INTO posts
+  (id, channel, title, content, published_at)
+  VALUES (?, ?, ?, ?, ?)
+
+-- 更新已有帖子（用于 regrab）
+INSERT OR REPLACE INTO posts
+  (id, channel, title, content, published_at)
+  VALUES (?, ?, ?, ?, ?)
 ```
 
 ## 错误类型
 
-### 内容获取错误
+### API 错误
 
 ```typescript
-type ContentError =
-  | 'NO_CHANNELS_CONFIGURED'         // 未配置频道
-  | 'FETCH_FAILED'                   // 网络请求失败
-  | 'PARSE_ERROR'                    // HTML 解析错误
-  | 'TIMEOUT'                        // 请求超时
+type APIError =
+  | 'Post not found'               // 帖子不存在（404）
+  | 'Failed to fetch posts'        // 获取帖子失败
+  | 'Failed to fetch channels'     // 获取频道失败
 ```
 
-### 推送服务错误
+### Worker 错误
 
 ```typescript
-type PushError =
-  | 'INVALID_CONFIG'                 // 配置无效
-  | 'API_UNAUTHORIZED'               // Bot Token 无效
-  | 'API_FORBIDDEN'                  // 无权限发送消息
-  | 'API_RATE_LIMITED'               // 触发速率限制
-  | 'NETWORK_ERROR'                  // 网络错误
-  | 'TIMEOUT'                        // 请求超时
+type WorkerError =
+  | 'Fetch failed'                 // Telegram 请求失败
+  | 'Queue send failed'            // 队列发送失败
+  | 'D1 cleanup failed'            // 数据清理失败
+  | 'Push failed'                  // 推送失败
 ```
