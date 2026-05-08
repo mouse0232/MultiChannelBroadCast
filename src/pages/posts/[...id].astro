@@ -4,26 +4,24 @@ import { getEnv } from '../../lib/env'
 import { getWorkerBaseUrl } from '../../lib/d1-client'
 
 const { id } = Astro.params
+// id 是 URL 编码的完整 ID，如 "yunyoocc%2F12345" -> "yunyoocc/12345"
+const decodedId = decodeURIComponent(id)
 
 // 从 D1 获取帖子
-// id 可能是纯数字，也可能是 channel/123 格式
 let post = null
 let channelUsername = ''
 let channelTitle = ''
 
 try {
   const baseUrl = getWorkerBaseUrl(Astro)
-  // 提取数字部分用于查询
-  const numericId = id.includes('/') ? id.split('/').pop() : id
-  
-  const res = await fetch(`${baseUrl}/api/post/${numericId}`)
+  // 使用完整 ID 精确查询
+  const res = await fetch(`${baseUrl}/api/post/${encodeURIComponent(decodedId)}`)
   if (res.ok) {
     const data = await res.json()
     post = data.post
     if (post) {
       channelUsername = post.channel
       channelTitle = post.channel
-      // 保持 post.channel 字段供 List 组件使用
     }
   }
 } catch (e) {
@@ -52,7 +50,7 @@ const channel = {
   posts: [post],
   title: channelDisplayName,
   username: channelUsername,
-  avatar: null, // D1 currently doesn't store avatar
+  avatar: null,
   seo: {
     title: post.title,
     text: post.text || post.content?.replace(/<[^>]*>/g, '').substring(0, 100),

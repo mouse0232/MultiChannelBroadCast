@@ -481,21 +481,30 @@ export default {
         });
       }
 
-      // API: 获取单个帖子 (通过 ID 数字部分)
-      // GET /api/post/12345 -> 查找 channel/12345
-      if (url.pathname.match(/^\/api\/post\/\d+$/)) {
-        const postId = url.pathname.split('/').pop()
-        // D1 ID format is "channel/12345"
-        // We use LIKE to find the post ending with /postId
-        const { results } = await env.DB.prepare(
-          "SELECT * FROM posts WHERE id LIKE ? ORDER BY id DESC LIMIT 1"
-        ).bind(`%/${postId}`).all()
+      // API: 获取单个帖子
+      // GET /api/post/channel%2F12345 -> 精确匹配完整 ID
+      // GET /api/post/12345 -> 向后兼容：LIKE 匹配数字部分
+      if (url.pathname.startsWith('/api/post/')) {
+        const rawId = decodeURIComponent(url.pathname.split('/api/post/').pop())
         
-        if (results.length === 0) {
+        let results
+        if (rawId.includes('/')) {
+          // 完整 ID 精确查询 (如 "yunyoocc/12345")
+          results = await env.DB.prepare(
+            "SELECT * FROM posts WHERE id = ? LIMIT 1"
+          ).bind(rawId).all()
+        } else {
+          // 向后兼容：仅数字 ID 的 LIKE 查询
+          results = await env.DB.prepare(
+            "SELECT * FROM posts WHERE id LIKE ? ORDER BY published_at DESC LIMIT 1"
+          ).bind(`%/${rawId}`).all()
+        }
+        
+        if (results.length === 0 || results.results.length === 0) {
           return new Response(JSON.stringify({ error: 'Post not found' }), { status: 404, headers: corsHeaders })
         }
         
-        return new Response(JSON.stringify({ post: results[0] }), { headers: corsHeaders })
+        return new Response(JSON.stringify({ post: results.results[0] }), { headers: corsHeaders })
       }
 
       // API: 搜索帖子
