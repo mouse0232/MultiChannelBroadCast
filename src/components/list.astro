@@ -35,14 +35,14 @@ const afterCursor = displayPosts[0]?.published_at || displayPosts[0]?.id
   {!isItem && (
     <div class="pages-container pages-top">
       {
-        before && beforeCursor ? (
+        after && afterCursor ? (
           currentChannel ? (
-            <a href={`${SITE_URL}channel/${currentChannel}/before/${encodeURIComponent(beforeCursor)}`} title="更早" class="page">
-              ← 更早
+            <a href={`${SITE_URL}channel/${currentChannel}/after/${encodeURIComponent(afterCursor)}`} title="更新" class="page">
+              更新 →
             </a>
           ) : (
-            <a href={`${SITE_URL}before/${encodeURIComponent(beforeCursor)}`} title="更早" class="page">
-              ← 更早
+            <a href={`${SITE_URL}after/${encodeURIComponent(afterCursor)}`} title="更新" class="page">
+              更新 →
             </a>
           )
         ) : (
@@ -52,14 +52,14 @@ const afterCursor = displayPosts[0]?.published_at || displayPosts[0]?.id
 
       <div class="pages-info"></div>
       {
-        after && afterCursor ? (
+        before && beforeCursor ? (
           currentChannel ? (
-            <a href={`${SITE_URL}channel/${currentChannel}/after/${encodeURIComponent(afterCursor)}`} title="更新" class="page">
-              更新 →
+            <a href={`${SITE_URL}channel/${currentChannel}/before/${encodeURIComponent(beforeCursor)}`} title="更早" class="page">
+              ← 更早
             </a>
           ) : (
-            <a href={`${SITE_URL}after/${encodeURIComponent(afterCursor)}`} title="更新" class="page">
-              更新 →
+            <a href={`${SITE_URL}before/${encodeURIComponent(beforeCursor)}`} title="更早" class="page">
+              ← 更早
             </a>
           )
         ) : (
@@ -104,14 +104,14 @@ const afterCursor = displayPosts[0]?.published_at || displayPosts[0]?.id
 
   <div class="pages-container">
     {
-      before && beforeCursor ? (
+      after && afterCursor ? (
         currentChannel ? (
-          <a href={`${SITE_URL}channel/${currentChannel}/before/${encodeURIComponent(beforeCursor)}`} title="更早" class="page">
-            ← 更早
+          <a href={`${SITE_URL}channel/${currentChannel}/after/${encodeURIComponent(afterCursor)}`} title="更新" class="page">
+            更新 →
           </a>
         ) : (
-          <a href={`${SITE_URL}before/${encodeURIComponent(beforeCursor)}`} title="更早" class="page">
-            ← 更早
+          <a href={`${SITE_URL}after/${encodeURIComponent(afterCursor)}`} title="更新" class="page">
+            更新 →
           </a>
         )
       ) : (
@@ -121,14 +121,14 @@ const afterCursor = displayPosts[0]?.published_at || displayPosts[0]?.id
 
     <div class="pages-info"></div>
     {
-      after && afterCursor ? (
+      before && beforeCursor ? (
         currentChannel ? (
-          <a href={`${SITE_URL}channel/${currentChannel}/after/${encodeURIComponent(afterCursor)}`} title="更新" class="page">
-            更新 →
+          <a href={`${SITE_URL}channel/${currentChannel}/before/${encodeURIComponent(beforeCursor)}`} title="更早" class="page">
+            ← 更早
           </a>
         ) : (
-          <a href={`${SITE_URL}after/${encodeURIComponent(afterCursor)}`} title="更新" class="page">
-            更新 →
+          <a href={`${SITE_URL}before/${encodeURIComponent(beforeCursor)}`} title="更早" class="page">
+            ← 更早
           </a>
         )
       ) : (
