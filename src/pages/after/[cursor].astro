@@ -4,11 +4,11 @@ import { getPosts } from '../../lib/d1-client'
 import { getEnv } from '../../lib/env'
 
 const { cursor } = Astro.params
+// cursor 已经过 URL 编码，直接使用（fetch 会自动处理）
 
-const channelsStr = getEnv(import.meta.env, Astro, 'CHANNELS')
 const siteName = getEnv(import.meta.env, Astro, 'SITE_NAME') || 'Multi-Channel Broadcast'
 
-// 获取更新的帖子 (after 参数)
+// 获取所有频道的更新帖子 (cursor 是 published_at 的 after 参数)
 let posts = []
 try {
   posts = await getPosts(Astro, { channel: 'all', limit: 20, after: cursor })
@@ -22,6 +22,7 @@ const channelData = {
   username: '',
   posts: posts.map(p => ({
     ...p,
+    published_at: p.published_at || p.datetime,
     datetime: p.published_at || p.datetime,
     id: p.id,
     channel: p.channel,
@@ -31,4 +32,4 @@ const channelData = {
 }
 ---
 
-<List channel={channel} />
+<List channel={channelData} currentChannel={null} />

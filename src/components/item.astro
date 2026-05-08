@@ -12,9 +12,8 @@ dayjs.locale(locale)
 dayjs.tz.setDefault(timezone)
 
 const datetime = dayjs(post.datetime)
-// 兼容新旧 ID 格式 (channel/id -> id)
-const postId = post.id.includes('/') ? post.id.split('/').pop() : post.id
-const url = `${SITE_URL}posts/${postId}`
+// 使用完整 ID (channel/12345) 确保跨频道唯一性
+const url = `${SITE_URL}posts/${encodeURIComponent(post.id)}`
 
 // 读取评论配置 - 支持多种格式
 const commentsEnabled = getEnv(import.meta.env, Astro, 'COMMENTS')
@@ -66,7 +65,7 @@ if (import.meta.env.DEV && isItem) {
   {post.channel && (
     <div class="channel-source">
       <small>
-        来自频道: <a href={`https://t.me/${post.channel}`} target="_blank" rel="noopener">@{post.channel}</a>
+        来自频道: <a href={`/channel/${post.channel}`}>@{post.channel}</a>
       </small>
     </div>
   )}

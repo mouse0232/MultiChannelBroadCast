@@ -22,12 +22,13 @@ export async function getChannels(Astro) {
 /**
  * 从 D1 获取帖子列表
  * @param {object} Astro - Astro context
- * @param {object} options - 选项 { channel, limit, before }
+ * @param {object} options - 选项 { channel, limit, before, after }
  */
-export async function getPosts(Astro, { channel = 'all', limit = 20, before = '' } = {}) {
+export async function getPosts(Astro, { channel = 'all', limit = 20, before = '', after = '' } = {}) {
   const baseUrl = getWorkerBaseUrl(Astro)
   const params = new URLSearchParams({ channel, limit: String(limit) })
   if (before) params.set('before', before)
+  if (after) params.set('after', after)
   
   const res = await fetch(`${baseUrl}/api/posts?${params}`)
   if (!res.ok) throw new Error('Failed to fetch posts')
