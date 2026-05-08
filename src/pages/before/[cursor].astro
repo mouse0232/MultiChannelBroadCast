@@ -22,6 +22,7 @@ const channelData = {
   username: '',
   posts: posts.map(p => ({
     ...p,
+    published_at: p.published_at || p.datetime,
     datetime: p.published_at || p.datetime,
     id: p.id,
     channel: p.channel,

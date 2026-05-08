@@ -22,6 +22,7 @@ const channelData = {
   avatarFallback: null,
   posts: posts.map(p => ({
     ...p,
+    published_at: p.published_at || p.datetime,
     // 保持原有 post 结构兼容性
     id: p.id,
     channel: p.channel,
