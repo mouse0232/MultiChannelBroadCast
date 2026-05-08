@@ -334,23 +334,43 @@ async function triggerPush(posts, env) {
     if (log) continue
 
     // 2. 构建推送内容
-    // 提取纯文本摘要 (去除 HTML)
+    // 提取纯文本
     const plainText = stripHtml(post.content || '')
-    const summary = plainText.length > 150 ? plainText.substring(0, 150) + '...' : plainText
-    
-    // 标题处理
-    const title = post.title ? escapeHtml(post.title) : 'New Post'
     const channelName = post.channel || 'Unknown'
     
-    // 组合消息模板
-    const text = `📢 <b>[${channelName}] ${title}</b>\n\n${escapeHtml(summary)}\n\n<a href="https://t.me/${post.id}">阅读原文</a>`
+    // 固定标题
+    const title = `📢 来自 @${channelName} 的新动态`
+    
+    // 智能摘要
+    let summary = plainText
+    if (plainText.length > 150) {
+      // 尝试调用 AI 总结
+      try {
+        const aiSummary = await summarizeWithAI(plainText, env)
+        if (aiSummary) {
+           summary = aiSummary
+        } else {
+           summary = plainText.substring(0, 150) + '...'
+        }
+      } catch (e) {
+        // AI 失败降级
+        summary = plainText.substring(0, 150) + '...'
+        console.warn('AI summary failed, using fallback.')
+      }
+    }
 
-    // 3. 提取首图 (如果有则发图文)
+    // 构造链接 (优先使用站点链接以触发 OG 预览)
+    const postUrl = env.SITE_URL ? `${env.SITE_URL}posts/${encodeURIComponent(post.id)}` : `https://t.me/${post.id}`
+    
+    // 组合消息模板
+    const text = `${title}\n\n${escapeHtml(summary)}\n\n<a href="${postUrl}">阅读原文</a>`
+
+    // 3. 提取首图 (如果有则发图文，否则发带预览的纯文本)
     const imageUrl = extractFirstImage(post.content || '')
     
     try {
       if (imageUrl) {
-        // 发送图文
+        // 发送图文 (Telegram 优先展示图片，链接仅作跳转)
         await $fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
           method: 'POST',
           body: {
@@ -362,14 +382,14 @@ async function triggerPush(posts, env) {
           timeout: 10000
         })
       } else {
-        // 发送纯文本
+        // 发送纯文本 + 链接预览 (利用我们站点的 OG 标签生成卡片)
         await $fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
           method: 'POST',
           body: {
             chat_id: channelId,
             text: text,
             parse_mode: 'HTML',
-            disable_web_page_preview: true
+            disable_web_page_preview: false
           },
           timeout: 10000
         })
@@ -401,6 +421,22 @@ function stripHtml(html) {
     .replace(/&nbsp;/g, ' ')
     .replace(/\n\s*\n/g, '\n') // 去除多余空行
     .trim()
+}
+
+// 使用 AI 生成摘要 (Workers AI)
+async function summarizeWithAI(text, env) {
+  if (!env.AI) return null
+  try {
+    const prompt = `请总结以下内容为一段不超过 150 字的摘要，提取关键信息，保持客观：\n${text}`
+    const response = await env.AI.run("@cf/qwen/qwen1.5-14b-chat-awq", {
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 200
+    })
+    return response.response || null
+  } catch (e) {
+    console.error('Workers AI error:', e.message)
+    return null
+  }
 }
 
 // 提取第一张图片 URL

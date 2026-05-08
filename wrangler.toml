@@ -24,3 +24,12 @@ binding = "TASK_QUEUE"
 queue = "scraping-tasks"
 max_batch_size = 10       # 每次最多处理 10 个任务
 max_retries = 2          # 失败重试次数
+
+# 5. 绑定 Workers AI
+[ai]
+binding = "AI"
+
+# 环境变量
+[vars]
+# 请修改为你的实际站点地址 (末尾需带斜杠)，用于 Telegram 预览卡片跳转
+SITE_URL = "https://your-domain.pages.dev/"

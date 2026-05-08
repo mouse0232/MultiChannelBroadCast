@@ -46,14 +46,18 @@ if (channelNamesEnv) {
 
 const channelDisplayName = channelNameMap.get(channelUsername) || channelTitle || channelUsername
 
+// 提取帖子首图用于 OG 预览
+const postImageMatch = post.content?.match(/<img[^>]+src=["']([^"']+)["']/i)
+const postImage = postImageMatch ? postImageMatch[1] : null
+
 const channel = {
   posts: [post],
   title: channelDisplayName,
   username: channelUsername,
-  avatar: null,
+  avatar: postImage || null, // 优先使用帖子首图作为预览图
   seo: {
     title: post.title,
-    text: post.text || post.content?.replace(/<[^>]*>/g, '').substring(0, 100),
+    text: post.text || post.content?.replace(/<[^>]*>/g, '').substring(0, 150),
   }
 }
 ---
