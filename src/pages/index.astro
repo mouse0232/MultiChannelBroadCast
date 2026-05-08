@@ -4,41 +4,30 @@ import Header from '../components/header.astro'
 import { getEnv } from '../lib/env'
 import { getChannels } from '../lib/d1-client'
 
-// 读取频道配置 (用于 fallback 或排序)
-const channelsStr = getEnv(import.meta.env, Astro, 'CHANNELS') || getEnv(import.meta.env, Astro, 'CHANNEL')
-const configuredChannels = channelsStr ? channelsStr.split(',').map(c => c.trim()).filter(Boolean) : []
+// 从 Worker API 获取频道信息
+let channelInfos = []
+let isEmptyState = false
 
 const { SITE_URL } = Astro.locals
-const siteName = getEnv(import.meta.env, Astro, 'SITE_NAME') || 'Multi-Channel Broadcast'
+const siteName = getEnv(import.meta.env, Astro, 'SITE_NAME') || 'VPS Broadcast'
 const siteAvatar = getEnv(import.meta.env, Astro, 'SITE_AVATAR')
 
-// 从 Worker API 获取频道信息 (替代旧的实时抓取)
-// 注意：这依赖于环境变量 WORKER_URL 或默认的 Worker 地址
-let channelInfos = []
 try {
   const channelsFromDb = await getChannels(Astro)
   
-  // 格式化数据供前端展示
-  channelInfos = channelsFromDb.map(ch => ({
-    username: ch.channel,
-    title: ch.title || ch.channel, // 优先显示数据库中的昵称
-    avatar: ch.avatar || ''       // 优先显示数据库中的头像
-  }))
-
-  // 如果有配置的频道列表但 D1 中还没有数据 (首次运行)，使用配置列表作为 fallback
-  if (channelInfos.length === 0 && configuredChannels.length > 0) {
-    channelInfos = configuredChannels.map(ch => ({
-      username: ch,
-      title: ch,
-      avatar: ''
+  if (channelsFromDb.length === 0) {
+    isEmptyState = true
+  } else {
+    // 格式化数据供前端展示
+    channelInfos = channelsFromDb.map(ch => ({
+      username: ch.channel,
+      title: ch.title || ch.channel,
+      avatar: ch.avatar || ''
     }))
   }
 } catch (e) {
   console.error('Failed to fetch channels from D1:', e)
-  // Fallback to env config
-  if (configuredChannels.length > 0) {
-    channelInfos = configuredChannels.map(ch => ({ username: ch, title: ch, avatar: '' }))
-  }
+  isEmptyState = true
 }
 
 // 如果还是空的，可能未配置
@@ -60,23 +49,31 @@ const siteHeader = {
 
   <main class="home-channels">
     <h2 class="home-title">频道列表</h2>
-    <div class="channel-grid">
-      {channelInfos.map((info) => (
-        <a class="channel-card" href={`${SITE_URL}channel/${info.username}`} title={info.title}>
-          <div class="avatar-wrap">
-            {info.avatar ? (
-              <img src={info.avatar} alt={info.title} loading="lazy" />
-            ) : (
-              <div class="avatar-fallback">@</div>
-            )}
-          </div>
-          <div class="card-body">
-            <div class="card-title">{info.title}</div>
-            <div class="card-username">@{info.username}</div>
-          </div>
-        </a>
-      ))}
-    </div>
+    
+    {isEmptyState ? (
+      <div class="empty-state">
+        <p>⏳ 数据同步中...</p>
+        <small>系统正在后台初始化，请稍后刷新查看。</small>
+      </div>
+    ) : (
+      <div class="channel-grid">
+        {channelInfos.map((info) => (
+          <a class="channel-card" href={`${SITE_URL}channel/${info.username}`} title={info.title}>
+            <div class="avatar-wrap">
+              {info.avatar ? (
+                <img src={info.avatar} alt={info.title} loading="lazy" />
+              ) : (
+                <div class="avatar-fallback">@</div>
+              )}
+            </div>
+            <div class="card-body">
+              <div class="card-title">{info.title}</div>
+              <div class="card-username">@{info.username}</div>
+            </div>
+          </a>
+        ))}
+      </div>
+    )}
   </main>
 
 </Layout>
@@ -160,6 +157,15 @@ const siteHeader = {
   @media (max-width: 600px) {
     .channel-card { padding: 10px }
     .avatar-wrap { width: 48px; height: 48px }
+  }
+
+  .empty-state {
+    padding: 40px 20px;
+    text-align: center;
+    background: var(--card-bg, #fff);
+    border-radius: 8px;
+    border: 1px dashed var(--border-color, #e9e9e9);
+    color: var(--secondary-color, #777);
   }
 </style>
 ---

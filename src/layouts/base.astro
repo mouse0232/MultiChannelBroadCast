@@ -12,31 +12,9 @@ const { channel, currentChannel } = Astro.props
 
 const locale = getEnv(import.meta.env, Astro, 'LOCALE') || 'zh-cn'
 
-// 获取所有频道用于左侧导航
-const channelsStr = getEnv(import.meta.env, Astro, 'CHANNELS') || getEnv(import.meta.env, Astro, 'CHANNEL')
-const channels = channelsStr ? channelsStr.split(',').map(c => c.trim()).filter(Boolean) : []
-
-// 自动获取频道显示名称
-const channelNameMap = new Map()
-if (channels.length > 1) {
-  try {
-    const channelInfos = await Promise.all(
-      channels.map(async (ch) => {
-        try {
-          const info = await getSingleChannelInfo(Astro, ch, {})
-          return { channel: ch, title: info.title || ch }
-        } catch (error) {
-          return { channel: ch, title: ch }
-        }
-      })
-    )
-    channelInfos.forEach(({ channel: ch, title }) => {
-      channelNameMap.set(ch, title)
-    })
-  } catch (error) {
-    channels.forEach(ch => channelNameMap.set(ch, ch))
-  }
-}
+// [方案 A 重构]: 移除了旧的 CHANNELS 实时抓取逻辑
+// 频道信息现在由具体的页面 (Pages) 通过 API 获取并传入
+// 这里不再需要遍历所有频道去 Telegram 实时请求，避免性能问题和 IP 封禁
 
 // 备用:从环境变量读取
 const channelNamesEnv = getEnv(import.meta.env, Astro, 'CHANNEL_NAMES')
