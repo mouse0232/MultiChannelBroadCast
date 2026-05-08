@@ -163,12 +163,11 @@ const showSearchScope = !GOOGLE_SEARCH_SITE && hasChannelScope
         </div>
       )}
 
-      <div id="container">
-        <div id="main-container" class={pathname === '/' ? 'home-main' : ''}>
+        <div id="container">
+        <div id="main-container">
           <slot />
         </div>
-        {pathname !== '/' && (
-          <div id="aside-container">
+        <div id="aside-container">
             <slot name="aside">
             <div class="nav">
               <div class="nav-item">
@@ -251,8 +250,7 @@ const showSearchScope = !GOOGLE_SEARCH_SITE && hasChannelScope
               </div>
             )}
           </slot>
-          </div>
-        )}
+        </div>
       </div>
     </div>
     
