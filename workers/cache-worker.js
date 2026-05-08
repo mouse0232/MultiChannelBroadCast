@@ -261,7 +261,7 @@ function parsePosts(html, channel, lastMsgId) {
 }
 
 // ==========================================
-// 推送服务 (D1 修复版)
+// 推送服务 (D1 修复版 & 图文优化)
 // ==========================================
 async function triggerPush(posts, env) {
   if (env.TELEGRAM_PUSH_ENABLED !== 'true') return
@@ -272,28 +272,94 @@ async function triggerPush(posts, env) {
   if (!botToken || !channelId) return
 
   for (const post of posts) {
-    // 1. 检查 D1 推送日志
+    // 1. 检查 D1 推送日志 (防止重复推送)
     const log = await env.DB.prepare("SELECT 1 FROM push_logs WHERE post_id = ?").bind(post.id).first()
     if (log) continue
 
-    // 2. 发送消息
+    // 2. 构建推送内容
+    // 提取纯文本摘要 (去除 HTML)
+    const plainText = stripHtml(post.content || '')
+    const summary = plainText.length > 150 ? plainText.substring(0, 150) + '...' : plainText
+    
+    // 标题处理
+    const title = post.title ? escapeHtml(post.title) : 'New Post'
+    const channelName = post.channel || 'Unknown'
+    
+    // 组合消息模板
+    const text = `📢 <b>[${channelName}] ${title}</b>\n\n${escapeHtml(summary)}\n\n<a href="https://t.me/${post.id}">阅读原文</a>`
+
+    // 3. 提取首图 (如果有则发图文)
+    const imageUrl = extractFirstImage(post.content || '')
+    
     try {
-      const text = `🔔 <b>${post.title || 'New Post'}</b>\n\n<a href="https://t.me/${post.id}">View on Telegram</a>`
+      if (imageUrl) {
+        // 发送图文
+        await $fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
+          method: 'POST',
+          body: {
+            chat_id: channelId,
+            photo: imageUrl,
+            caption: text,
+            parse_mode: 'HTML'
+          },
+          timeout: 10000
+        })
+      } else {
+        // 发送纯文本
+        await $fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+          method: 'POST',
+          body: {
+            chat_id: channelId,
+            text: text,
+            parse_mode: 'HTML',
+            disable_web_page_preview: true
+          },
+          timeout: 10000
+        })
+      }
       
-      await $fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-        method: 'POST',
-        body: { chat_id: channelId, text, parse_mode: 'HTML', disable_web_page_preview: false },
-        timeout: 5000
-      })
-      
-      // 3. 记录日志
+      // 4. 记录日志
       await env.DB.prepare("INSERT OR IGNORE INTO push_logs (post_id) VALUES (?)").bind(post.id).run()
       console.log(`📩 Pushed: ${post.id}`)
     } catch (e) {
       console.warn(`Push failed for ${post.id}: ${e.message}`)
     }
+    
     await randomDelay(1000, 2000) // 避免触发 Telegram 推送风控
   }
+}
+
+// ==========================================
+// 辅助工具 (用于推送)
+// ==========================================
+
+// 去除 HTML 标签获取纯文本
+function stripHtml(html) {
+  if (!html) return ''
+  // 简单正则去标签，并处理常见实体
+  return html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\n\s*\n/g, '\n') // 去除多余空行
+    .trim()
+}
+
+// 提取第一张图片 URL
+function extractFirstImage(html) {
+  if (!html) return null
+  const match = html.match(/<img[^>]+src=["']([^"']+)["']/i)
+  return match ? match[1] : null
+}
+
+// HTML 转义 (Telegram parse_mode='HTML' 必需)
+function escapeHtml(text) {
+  if (!text) return ''
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
 }
 
 // ==========================================
