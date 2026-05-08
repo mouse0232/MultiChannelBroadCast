@@ -217,29 +217,84 @@ function parsePosts(html, channel, lastMsgId) {
     }
 
     const contentEl = $item.find('.tgme_widget_message_text')
-    // 如果内容空，可能是纯图片/视频消息，也可以抓取，但这里简化处理
-    // 如果想抓取所有，去掉 if (!contentEl.length) continue
-    // 但为了减少噪音，我们通常只抓取有文本的，或者至少有一个标题的
     let title = ''
     let contentHtml = ''
     
-     if (contentEl.length > 0) {
-        contentHtml = processMediaUrls(contentEl.html())
-       const text = contentEl.text().trim()
-       // 提取标题：尝试匹配到句号、换行或链接之前的内容
-       const match = text.match(/^.*?(?=[。\n]|http\S)/g)
-       if (match && match[0] && match[0].trim()) {
-         title = match[0].trim()
-       } else {
-         // 降级方案：如果匹配失败（例如纯链接或特殊字符开头），使用前 60 个字符
-         title = text.replace(/\n/g, ' ').substring(0, 60)
-       }
-       if (!title) title = 'New Post' // 最后的兜底
+    // 1. 提取文本内容
+    if (contentEl.length > 0) {
+      contentHtml = processMediaUrls(contentEl.html())
+      const text = contentEl.text().trim()
+      // 提取标题：尝试匹配到句号、换行或链接之前的内容
+      const match = text.match(/^.*?(?=[。\n]|http\S)/g)
+      if (match && match[0] && match[0].trim()) {
+        title = match[0].trim()
       } else {
-         // 处理纯媒体消息，获取描述
-         contentHtml = processMediaUrls($item.html()) // 替换所有媒体链接
-         title = 'New Media Post'
+        // 降级方案：如果匹配失败（例如纯链接或特殊字符开头），使用前 60 个字符
+        title = text.replace(/\n/g, ' ').substring(0, 60)
       }
+      if (!title) title = 'New Post' // 最后的兜底
+    }
+
+    // 2. 提取附加的媒体元素（照片、视频、文件等 - 它们是 .tgme_widget_message_text 的兄弟节点）
+    const mediaElements = []
+    
+    // 照片
+    $item.find('.tgme_widget_message_photo_wrap').each((_, el) => {
+      const style = $(el).attr('style') || ''
+      const bgMatch = style.match(/background-image:url\(['"]?([^'")]+)['"]?\)/)
+      if (bgMatch) {
+        let imgUrl = bgMatch[1]
+        // 代理图片
+        imgUrl = `https://wsrv.nl/?url=${encodeURIComponent(imgUrl)}`
+        mediaElements.push(`<img src="${imgUrl}" alt="Photo" loading="lazy" />`)
+      }
+    })
+    
+    // 链接预览图片
+    $item.find('.tgme_widget_message_link_image').each((_, el) => {
+      const img = $(el).find('img')
+      if (img.length > 0) {
+        let imgUrl = img.attr('src')
+        if (imgUrl) {
+          imgUrl = `https://wsrv.nl/?url=${encodeURIComponent(imgUrl)}`
+          mediaElements.push(`<img src="${imgUrl}" alt="Link Preview" loading="lazy" />`)
+        }
+      }
+    })
+    
+    // 视频
+    $item.find('.tgme_widget_message_video_wrap').each((_, el) => {
+      const video = $(el).find('video')
+      if (video.length > 0) {
+        const videoHtml = processMediaUrls($(el).html())
+        mediaElements.push(videoHtml)
+      } else {
+        // 没有 video 标签，用占位符
+        const thumb = $(el).find('.tgme_widget_message_video_thumb img')
+        if (thumb.length > 0) {
+          const thumbUrl = thumb.attr('src')
+          if (thumbUrl) {
+            const proxiedUrl = `https://wsrv.nl/?url=${encodeURIComponent(thumbUrl)}`
+            mediaElements.push(`<img src="${proxiedUrl}" alt="Video Thumbnail" loading="lazy" />`)
+          }
+        }
+      }
+    })
+
+    // 3. 合并文本和媒体
+    if (mediaElements.length > 0) {
+      const mediaHtml = mediaElements.join('')
+      if (contentHtml) {
+        contentHtml = mediaHtml + contentHtml
+      } else {
+        contentHtml = mediaHtml
+        title = title || 'New Media Post'
+      }
+    } else if (!contentHtml) {
+      // 纯媒体消息（无文本无识别到的媒体）
+      contentHtml = processMediaUrls($item.html())
+      title = title || 'New Media Post'
+    }
 
     const datetimeEl = $item.find('.tgme_widget_message_date time')
     const datetime = datetimeEl.attr('datetime')
