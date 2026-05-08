@@ -359,8 +359,8 @@ async function triggerPush(posts, env) {
       }
     }
 
-    // 构造链接 (优先使用站点链接以触发 OG 预览)
-    const postUrl = env.SITE_URL ? `${env.SITE_URL}posts/${encodeURIComponent(post.id)}` : `https://t.me/${post.id}`
+    // 构造链接 (跳转 Telegram 原帖)
+    const postUrl = `https://t.me/${post.id}`
     
     // 组合消息模板
     const text = `${title}\n\n${escapeHtml(summary)}\n\n<a href="${postUrl}">阅读原文</a>`
