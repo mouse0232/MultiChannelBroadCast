@@ -1,16 +1,17 @@
 ---
 import Layout from '../layouts/base.astro'
 import Header from '../components/header.astro'
+import Item from '../components/item.astro'
 import { getEnv } from '../lib/env'
-import { getChannels } from '../lib/d1-client'
-
-// 从 Worker API 获取频道信息
-let channelInfos = []
-let isEmptyState = false
+import { getChannels, getPosts } from '../lib/d1-client'
 
 const { SITE_URL } = Astro.locals
 const siteName = getEnv(import.meta.env, Astro, 'SITE_NAME') || 'VPS Broadcast'
 const siteAvatar = getEnv(import.meta.env, Astro, 'SITE_AVATAR')
+
+// 获取频道列表
+let channelInfos = []
+let isEmptyState = false
 
 try {
   const channelsFromDb = await getChannels(Astro)
@@ -18,7 +19,6 @@ try {
   if (channelsFromDb.length === 0) {
     isEmptyState = true
   } else {
-    // 格式化数据供前端展示
     channelInfos = channelsFromDb.map(ch => ({
       username: ch.channel,
       title: ch.title || ch.channel,
@@ -30,64 +30,147 @@ try {
   isEmptyState = true
 }
 
-// 如果还是空的，可能未配置
-if (channelInfos.length === 0) {
-  // 这里不直接 redirect 404，因为可能 Worker 还没部署好，给用户一个空状态提示更好
-  // 但为了保持原有逻辑：
-  // return Astro.redirect('/404') 
+// 获取聚合帖子列表 (所有频道)
+let posts = []
+try {
+  posts = await getPosts(Astro, { channel: 'all', limit: 20 })
+} catch (e) {
+  console.error('Failed to fetch aggregated posts from D1:', e)
 }
+
+// 构造聚合频道对象供 List/Item 组件使用
+const aggregatedChannel = {
+  username: 'all',
+  title: siteName,
+  description: 'All Channels Aggregation',
+  avatar: siteAvatar,
+  posts: posts.map(p => ({
+    ...p,
+    id: p.id,
+    channel: p.channel,
+    title: p.title,
+    content: p.content,
+    datetime: p.published_at || p.datetime,
+    tags: p.tags || [],
+    type: 'text'
+  }))
+}
+
+const beforeCursor = posts.length > 0 ? posts[posts.length - 1]?.id : null
+const afterCursor = posts.length > 0 ? posts[0]?.id : null
 
 const siteHeader = {
   title: siteName,
   avatar: siteAvatar || null
 }
-
 ---
 
 <Layout channel={siteHeader} currentChannel={null}>
   <Header channel={siteHeader} showGlobalRss={true} rssUrl={`${SITE_URL}rss.xml`} />
 
-  <main class="home-channels">
-    <h2 class="home-title">频道列表</h2>
-    
-    {isEmptyState ? (
-      <div class="empty-state">
-        <p>⏳ 数据同步中...</p>
-        <small>系统正在后台初始化，请稍后刷新查看。</small>
-      </div>
-    ) : (
-      <div class="channel-grid">
-        {channelInfos.map((info) => (
-          <a class="channel-card" href={`${SITE_URL}channel/${info.username}`} title={info.title}>
-            <div class="avatar-wrap">
-              {info.avatar ? (
-                <img src={info.avatar} alt={info.title} loading="lazy" />
+  <main class="home-aggregated">
+    {/* 聚合帖子列表 */}
+    <section class="feed-section">
+      <h2 class="feed-title">最新动态</h2>
+      
+      {isEmptyState ? (
+        <div class="empty-state">
+          <p>数据同步中...</p>
+          <small>系统正在后台初始化，请稍后刷新查看。</small>
+        </div>
+      ) : (
+        <>
+          <div class="items">
+            {posts.map((post) => (
+              <Item post={{
+                ...post,
+                datetime: post.published_at || post.datetime,
+                channel: post.channel
+              }} isItem={false} />
+            ))}
+          </div>
+
+          {posts.length === 0 && (
+            <div class="empty-state">
+              <p>暂无内容</p>
+              <small>请等待系统完成首次数据同步。</small>
+            </div>
+          )}
+
+          {posts.length > 0 && (
+            <div class="pagination">
+              {beforeCursor ? (
+                <a href={`${SITE_URL}before/${beforeCursor}`} title="更早" class="page">
+                  ← 更早
+                </a>
               ) : (
-                <div class="avatar-fallback">@</div>
+                <span class="page-placeholder">&nbsp;</span>
+              )}
+              <div class="pages-info"></div>
+              {afterCursor ? (
+                <a href={`${SITE_URL}after/${afterCursor}`} title="更新" class="page">
+                  更新 →
+                </a>
+              ) : (
+                <span class="page-placeholder">&nbsp;</span>
               )}
             </div>
-            <div class="card-body">
-              <div class="card-title">{info.title}</div>
-              <div class="card-username">@{info.username}</div>
-            </div>
-          </a>
-        ))}
-      </div>
+          )}
+        </>
+      )}
+    </section>
+
+    {/* 频道目录 */}
+    {!isEmptyState && channelInfos.length > 0 && (
+      <section class="directory-section">
+        <h2 class="directory-title">频道目录</h2>
+        <div class="channel-grid">
+          {channelInfos.map((info) => (
+            <a class="channel-card" href={`${SITE_URL}channel/${info.username}`} title={info.title}>
+              <div class="avatar-wrap">
+                {info.avatar ? (
+                  <img src={info.avatar} alt={info.title} loading="lazy" />
+                ) : (
+                  <div class="avatar-fallback">@</div>
+                )}
+              </div>
+              <div class="card-body">
+                <div class="card-title">{info.title}</div>
+                <div class="card-username">@{info.username}</div>
+              </div>
+            </a>
+          ))}
+        </div>
+      </section>
     )}
   </main>
-
 </Layout>
 
 <style>
-  .home-channels {
+  .home-aggregated {
     max-width: 980px;
     margin: 0 auto;
     padding: 20px;
   }
 
-  .home-title {
+  .feed-section {
+    margin-bottom: 40px;
+  }
+
+  .feed-title {
     font-size: 20px;
     margin: 8px 0 16px;
+    color: var(--text-color, #333);
+  }
+
+  .directory-section {
+    padding-top: 20px;
+    border-top: 1px solid var(--border-color, #e9e9e9);
+  }
+
+  .directory-title {
+    font-size: 18px;
+    margin: 0 0 16px;
     color: var(--text-color, #333);
   }
 
@@ -154,9 +237,37 @@ const siteHeader = {
     color: var(--secondary-color, #777);
   }
 
-  @media (max-width: 600px) {
-    .channel-card { padding: 10px }
-    .avatar-wrap { width: 48px; height: 48px }
+  .pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 0;
+    margin-top: 20px;
+    border-top: 1px solid var(--border-color, #e0e0e0);
+  }
+
+  .page {
+    text-decoration: none;
+    color: var(--text-color, #333);
+    padding: 6px 12px;
+    border: 1px solid var(--border-color, #e0e0e0);
+    border-radius: 6px;
+    transition: background 0.15s;
+  }
+
+  .page:hover {
+    background: var(--hover-background, #f5f5f5);
+  }
+
+  .pages-info {
+    flex: 1;
+    text-align: center;
+    font-size: 13px;
+    color: var(--secondary-color, #666);
+  }
+
+  .page-placeholder {
+    width: 80px;
   }
 
   .empty-state {
@@ -167,5 +278,19 @@ const siteHeader = {
     border: 1px dashed var(--border-color, #e9e9e9);
     color: var(--secondary-color, #777);
   }
+
+  .empty-state p {
+    margin: 0 0 8px;
+    font-size: 16px;
+  }
+
+  .empty-state small {
+    font-size: 13px;
+  }
+
+  @media (max-width: 600px) {
+    .home-aggregated { padding: 10px 20px }
+    .channel-card { padding: 10px }
+    .avatar-wrap { width: 48px; height: 48px }
+  }
 </style>
----
