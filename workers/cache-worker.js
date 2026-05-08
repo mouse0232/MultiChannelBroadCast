@@ -526,7 +526,7 @@ export default {
       }
 
       // API: 获取帖子列表
-      // GET /api/posts?channel=all&limit=20&before=channel/123&after=channel/100
+      // GET /api/posts?channel=all&limit=20&before=2024-01-01T00:00:00Z&after=2024-01-02T00:00:00Z
       if (url.pathname.startsWith('/api/posts')) {
         const channel = url.searchParams.get('channel') || 'all'
         const limit = parseInt(url.searchParams.get('limit') || '20')
@@ -541,20 +541,20 @@ export default {
           bindings.push(channel)
         }
 
-        // Pagination logic
+        // Pagination logic using published_at (datetime) instead of id
         if (after) {
           // 获取更新的内容 (Newer)
-          query += ` AND id > ?`
+          query += ` AND published_at > ?`
           bindings.push(after)
-          query += ` ORDER BY id ASC LIMIT ?`
+          query += ` ORDER BY published_at ASC LIMIT ?`
         } else if (before) {
           // 获取更早的内容 (Older)
-          query += ` AND id < ?`
+          query += ` AND published_at < ?`
           bindings.push(before)
-          query += ` ORDER BY id DESC LIMIT ?`
+          query += ` ORDER BY published_at DESC LIMIT ?`
         } else {
           // 最新的内容
-          query += ` ORDER BY id DESC LIMIT ?`
+          query += ` ORDER BY published_at DESC LIMIT ?`
         }
         
         bindings.push(limit)

@@ -56,8 +56,9 @@ const aggregatedChannel = {
   }))
 }
 
-const beforeCursor = posts.length > 0 ? posts[posts.length - 1]?.id : null
-const afterCursor = posts.length > 0 ? posts[0]?.id : null
+// 使用 published_at 作为分页 cursor（避免 id 包含斜杠导致路由问题）
+const beforeCursor = posts.length > 0 ? posts[posts.length - 1]?.published_at : null
+const afterCursor = posts.length > 0 ? posts[0]?.published_at : null
 
 const siteHeader = {
   title: siteName,
@@ -99,17 +100,17 @@ const siteHeader = {
 
           {posts.length > 0 && (
             <div class="pagination">
-              {beforeCursor ? (
-                <a href={`${SITE_URL}before/${beforeCursor}`} title="更早" class="page">
-                  ← 更早
+              {afterCursor ? (
+                <a href={`${SITE_URL}after/${encodeURIComponent(afterCursor)}`} title="更新" class="page">
+                  更新 →
                 </a>
               ) : (
                 <span class="page-placeholder">&nbsp;</span>
               )}
               <div class="pages-info"></div>
-              {afterCursor ? (
-                <a href={`${SITE_URL}after/${afterCursor}`} title="更新" class="page">
-                  更新 →
+              {beforeCursor ? (
+                <a href={`${SITE_URL}before/${encodeURIComponent(beforeCursor)}`} title="更早" class="page">
+                  ← 更早
                 </a>
               ) : (
                 <span class="page-placeholder">&nbsp;</span>
