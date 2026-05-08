@@ -1,327 +1,205 @@
 简体中文|[English](./README.md)
 # Multi-Channel Broadcast
 
-**将多个 Telegram 频道聚合为一个微博客** -inspired by [BroadcastChannel](https://github.com/ccbikai/BroadcastChannel).
+**将多个 Telegram 频道聚合为一个微博客** - inspired by [BroadcastChannel](https://github.com/ccbikai/BroadcastChannel).
 
+## 架构
 
-## 🆚 与 BroadcastChannel 的区别
+本项目采用**前后端分离架构**：
 
-| 特性 | BroadcastChannel | Multi-Channel Broadcast |
-|------|------------------|------------------------|
-| 频道数量 | 单频道 | **多频道聚合** |
-| 内容来源 | 单一频道 | **多个频道混合** |
-| 去重处理 | 不需要 | **智能去重** |
-| 频道标注 | 无 | **显示来源频道** |
-| 速率控制 | 基础重试 | **强化速率限制** |
-| 用户代理 | 固定 | **轮换UA池** |
-| 评论功能 | 支持 | **支持(多频道)** |
+- **前端**：Astro 静态站点生成，部署在 Cloudflare Pages
+- **后端**：Cloudflare Worker + D1 数据库，异步抓取内容
+- **缓存**：D1 持久化存储（无需内存缓存）
+- **队列**：Cloudflare Queues，并行处理频道抓取
 
+```
+┌─────────────┐     ┌──────────────────┐     ┌──────────────────┐
+│  Astro 页面  │────>│  Cloudflare      │────>│  D1 数据库       │
+│  (前端)     │     │  Worker (API)    │     │  (SQLite)        │
+└─────────────┘     └──────────────────┘     └──────────────────┘
+                           │
+                           │ Cron + Queue
+                           ▼
+                    ┌──────────────────┐
+                    │  Telegram 抓取器  │
+                    │  (异步/并行)     │
+                    └──────────────────┘
+```
 
----
+## 特性
+
+- 多频道聚合 + 分页浏览
+- 异步内容抓取（Cron + Queue）
+- 丰富的媒体支持（图片 wsrv.nl 代理，视频/音频 Worker 代理）
+- Telegram 推送通知（支持图文）
+- 防风控（UA 池、Host 轮询、随机延迟）
+- 全文搜索
+- RSS 订阅
+- 移动端响应式设计
+- Telegram 评论集成
 
 ## 技术栈
 
-- **框架**: [Astro](https://astro.build/) v4.15+
-- **内容源**: [Telegram Channels](https://telegram.org/tour/channels)
-- **模板**: [Sepia](https://github.com/Planetable/SiteTemplateSepia)
-- **缓存**: LRU Cache
-- **代码高亮**: Prism.js
-- **语言检测**: Flourite
+- **前端**：[Astro](https://astro.build/) v4.15+
+- **后端**：Cloudflare Workers
+- **数据库**：Cloudflare D1 (SQLite)
+- **队列**：Cloudflare Queues
+- **解析器**：Cheerio
+- **图片代理**：wsrv.nl
+- **视频代理**：Worker 本地代理（支持 Range）
 
+## 快速开始
+
+### 1. 部署 Worker（后端）
+
+```bash
+# 克隆项目
+git clone https://github.com/mouse0232/MultiChannelBroadCast.git
+cd MultiChannelBroadCast
+
+# 安装 Wrangler CLI
+npm install -g wrangler
+
+# 登录 Cloudflare
+wrangler login
+
+# 创建 D1 数据库
+wrangler d1 create multi-channel-db
+
+# 更新 wrangler.toml 中的 database_id
+
+# 部署 Worker
+wrangler deploy
+```
+
+在 Cloudflare Dashboard 设置环境变量：
+- `CHANNELS` - 逗号分隔的频道列表（必需）
+- `TELEGRAM_BOT_TOKEN` - 用于推送通知
+- `TELEGRAM_PUSH_CHANNEL_ID` - 推送目标频道
+- `TELEGRAM_PUSH_ENABLED` - 设为 `true` 启用推送
+
+### 2. 部署 Pages（前端）
+
+将 GitHub 仓库连接到 Cloudflare Pages：
+- **构建命令**：`pnpm build`
+- **输出目录**：`dist`
+
+设置环境变量：
+- `WORKER_URL` - 你的 Worker 地址（如 `https://your-worker.workers.dev`）
+- `SITE_NAME` - 站点名称
+- `CHANNELS` - 与 Worker 配置一致
+
+访问你的站点地址查看效果。
 
 ### 本地开发
 
 ```bash
-# 克隆项目
-git clone https://github.com/banlanzs/MultiChannelBroadCast.git
-cd MultiChannelBroadcast
-
 # 安装依赖
 pnpm install
 
-# 配置环境变量
+# 复制环境变量文件
 cp .env.example .env
-# 编辑 .env 文件,设置 CHANNELS
+
+# 编辑 .env 文件（设置 WORKER_URL 和 CHANNELS）
 
 # 启动开发服务器
 pnpm dev
 ```
 
-访问 `http://localhost:4321` 查看效果
-
-### Docker 部署
-
-使用 Docker 和 Docker Compose 部署:
-
-```bash
-# 克隆项目
-git clone https://github.com/banlanzs/MultiChannelBroadCast.git
-cd MultiChannelBroadcast
-
-# 配置环境变量
-cp .env.example .env
-# 编辑 .env 文件,设置 CHANNELS 等配置
-
-# 使用 Docker Compose 构建并启动 (国内用户默认使用 Dockerfile.cn)
-docker-compose up -d
-
-# 查看日志
-docker-compose logs -f
-
-# 停止服务
-docker-compose down
-```
-
-或者使用 Docker 命令:
-
-```bash
-# 构建镜像
-docker build -t multi-channel-broadcast .
-
-# 运行容器
-docker run -d \
-  --name multi-channel-broadcast \
-  -p 4321:4321 \
-  -e CHANNELS="channel1,channel2,channel3" \
-  -e SITE_NAME="My Blog" \
-  -e LOCALE="zh-cn" \
-  -e TIMEZONE="Asia/Shanghai" \
-  multi-channel-broadcast
-
-# 查看日志
-docker logs -f multi-channel-broadcast
-
-# 停止容器
-docker stop multi-channel-broadcast
-docker rm multi-channel-broadcast
-```
-
-访问 `http://localhost:4321` 查看效果
-
-**注意事项**:
-- 确保 Docker 和 Docker Compose 已安装
-- 建议使用 `.env` 文件管理环境变量
-- 生产环境建议配置反向代理(如 Nginx)
-
----
+访问 `http://localhost:4321` 查看效果。
 
 ## 配置说明
 
-创建 `.env` 文件并配置以下环境变量:
-
 ### 核心配置
 
-```env
-## 多频道配置 - 使用逗号分隔多个频道 (必需)
-CHANNELS=channel1,channel2,channel3
+| 变量 | 平台 | 说明 |
+|------|------|------|
+| `CHANNELS` | Worker | 逗号分隔的频道列表（必需） |
+| `WORKER_URL` | Pages | Worker API 地址 |
+| `SITE_NAME` | Pages | 站点名称 |
+| `SITE_AVATAR` | Pages | 站点头像 URL |
+| `LOCALE` | Pages | 语言代码（默认 zh-cn） |
+| `TIMEZONE` | Pages | 时区（默认 Asia/Shanghai） |
 
-## 或者使用单个频道 (向下兼容)
-CHANNEL=your_channel_name
+### 推送通知
 
-## 站点名称
-SITE_NAME=My Multi-Channel Blog
-
-## 语言和时区
-LOCALE=zh-cn
-TIMEZONE=Asia/Shanghai
-```
-
-### 社交媒体配置
-
-```env
-## 社交媒体用户名
-TELEGRAM=your_telegram
-TWITTER=your_twitter
-GITHUB=your_github
-
-## 需要完整URL的社交媒体
-MASTODON=https://mastodon.social/@username
-BLUESKY=https://bsky.app/profile/username
-DISCORD=https://discord.gg/invite
-PODCAST=https://your-podcast.com
-```
+| 变量 | 平台 | 说明 |
+|------|------|------|
+| `TELEGRAM_PUSH_ENABLED` | Worker | 设为 `true` 启用 |
+| `TELEGRAM_BOT_TOKEN` | Worker | 通过 @BotFather 获取 |
+| `TELEGRAM_PUSH_CHANNEL_ID` | Worker | 目标频道（@名称 或 -100xxx） |
 
 ### 高级配置
 
-```env
-## Telegram主机 (一般不需要修改)
-TELEGRAM_HOST=t.me
+| 变量 | 平台 | 说明 |
+|------|------|------|
+| `TELEGRAM_HOST` | Worker | Telegram 主机（支持轮询） |
+| `COMMENTS` | Pages | 启用 Telegram 评论 |
+| `GOOGLE_SEARCH_SITE` | Pages | Google 搜索站点 |
+| `HEADER_INJECT` | Pages | 头部 HTML 注入 |
+| `FOOTER_INJECT` | Pages | 尾部 HTML 注入 |
+| `NAVS` | Pages | 自定义导航链接 |
 
-## 静态资源代理 (可选)
-STATIC_PROXY=/static/
+## Worker API
 
-## 启用 Telegram 评论功能
-## 设置为 true 后,在帖子详情页会显示 Telegram 评论区
-## 注意: 需要频道开启了讨论组功能
-COMMENTS=true
+| 端点 | 说明 |
+|------|------|
+| `GET /api/posts` | 获取帖子列表（支持分页） |
+| `GET /api/posts/search` | 搜索帖子 |
+| `GET /api/post/{id}` | 获取单个帖子 |
+| `GET /api/channels` | 获取频道列表 |
+| `GET /api/init` | 初始化并全量抓取 |
+| `GET /api/regrab` | 重新抓取并更新旧帖子 |
+| `GET /static/*` | 视频/音频代理 |
 
-## 代码注入 (支持HTML)
-HEADER_INJECT=<!-- Google Analytics -->
-FOOTER_INJECT=<!-- 页脚统计代码 -->
+## 媒体代理
 
-## Sentry错误追踪 (可选)
-SENTRY_DSN=your_sentry_dsn
-SENTRY_PROJECT=your_project
-SENTRY_AUTH_TOKEN=your_auth_token
-```
+| 类型 | 方式 | URL 格式 |
+|------|------|---------|
+| 图片 | wsrv.nl CDN | `https://wsrv.nl/?url={编码后URL}` |
+| 视频/音频 | Worker 代理 | `/static/{host}/{path}` |
 
-### Telegram 推送功能 (可选)
+## 分页策略
 
-在网站获取新内容时,自动将消息推送到指定的 Telegram 频道:
+基于 `published_at` 的游标分页：
 
-```env
-## 启用推送通知 (设置为 true 启用)
-TELEGRAM_PUSH_ENABLED=true
+- **首页**：`ORDER BY published_at DESC LIMIT 20`
+- **更早**：`published_at < {cursor}`
+- **更新**：`published_at > {cursor}`
 
-## Telegram Bot Token (通过 @BotFather 获取)
-TELEGRAM_BOT_TOKEN=your_bot_token_here
+## 常见问题
 
-## 目标推送频道 ID (格式: @频道名 或 chat ID)
-## 机器人需要是该频道的管理员或有发送消息权限
-TELEGRAM_PUSH_CHANNEL_ID=@your_channel_name
-```
+### 为什么用 D1 而不是内存缓存？
 
-**配置步骤:**
-1. 通过 Telegram 的 [@BotFather](https://t.me/BotFather) 创建机器人
-2. 发送 `/newbot` 并按提示获取 Bot Token
-3. 将机器人添加为目标频道的管理员(或确保有发送消息权限)
-4. 配置上述环境变量
-5. 推送功能默认关闭,不会影响现有功能
+D1 提供持久化存储，内容在服务重启后不会丢失，且所有边缘节点共享同一数据库。这消除了 LRU 缓存的需求，并提供一致的性能。
 
+### 内容多久更新一次？
 
-## 自定义样式
+默认情况下，Cloudflare Cron 每 5 分钟触发一次。你可以在 `wrangler.toml` 中调整 cron 调度。
 
-样式文件位于 `src/assets/` 目录:
+### 帖子中看不到图片？
 
-- `normalize.css` - CSS重置
-- `style.css` - 主样式
-- `item.css` - 文章项样式
-- `global.css` - 全局样式
+旧帖子可能是在图片抓取功能添加之前抓取的。访问 `/api/regrab` 重新抓取并更新已有帖子。
 
-可以直接修改这些文件来自定义网站外观。
+## 项目文档
 
----
+详细文档位于 `.monkeycode/docs/` 目录：
+- [系统架构](./.monkeycode/docs/ARCHITECTURE.md)
+- [接口定义](./.monkeycode/docs/INTERFACES.md)
+- [开发者指南](./.monkeycode/docs/DEVELOPER_GUIDE.md)
 
-
-建议:
-- 不要设置过多频道(建议≤5个)
-- 适当增加缓存时间
-- 使用代理(如需要)
-
-### 多频道内容如何排序?
-
-所有频道的内容会按照 **发布时间倒序** 排列,最新的内容显示在最前面。同时会进行去重处理,避免重复显示。
-
-### 如何区分不同频道的内容?
-
-每条内容下方会显示 "来自频道: @channel_name",点击可以跳转到该频道。
-
-### 如何启用评论功能?
-
-1. 在 `.env` 文件中添加 `COMMENTS=true`
-2. 确保你的 Telegram 频道已开启讨论组功能
-3. 点击帖子时间戳进入详情页,会在下方显示评论区
-
-**注意事项**:
-- 评论功能使用 Telegram 官方 widget,数据存储在 Telegram
-- 只有开启了讨论组的频道消息才能显示评论
-- 评论区会异步加载,可能需要几秒钟
-- 每个帖子最多显示 50 条评论
-
----
-
-## Cloudflare Pages 部署
-1.git链接仓库
-2.构建命令
-```
-pnpm install && pnpm build
-dist
-```
-
-## Vercel 部署
-
-### 一键部署
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/banlanzs/MultiChannelBroadCast)
-
-### 手动部署
-
-1. Fork 本仓库到你的 GitHub 账号
-2. 在 [Vercel Dashboard](https://vercel.com/new) 导入项目
-3. 配置环境变量（必需）：
-   - `CHANNELS`：频道列表（逗号分隔）
-   - `SITE_NAME`：站点名称
-   - 其他可选变量参考 `.env.example`
-4. 点击 "Deploy" 开始部署
-
-### 构建配置
-
-Vercel 会自动检测 Astro 项目，无需手动配置。如果需要自定义：
-
-- **Framework Preset**: Astro
-- **Build Command**: `pnpm build`
-- **Output Directory**: `dist`
-- **Install Command**: `pnpm install`
-- **Node.js Version**: 20.x
-
-### 环境变量配置
-
-在 Vercel Dashboard → Settings → Environment Variables 中添加：
-
-| 变量名 | 说明 | 必需 |
-|--------|------|------|
-| `CHANNELS` | 频道列表（逗号分隔） | ✅ |
-| `SITE_NAME` | 站点名称 | ✅ |
-| `LOCALE` | 语言代码（默认 zh-cn） | ❌ |
-| `TIMEZONE` | 时区（默认 Asia/Shanghai） | ❌ |
-| `COMMENTS` | 启用评论功能（true/false） | ❌ |
-
-完整环境变量列表参考 `.env.example`。
-
-### 性能说明
-
-本项目使用 ISR（Incremental Static Regeneration）缓存策略：
-- 页面在边缘节点缓存 30 分钟
-- 缓存过期后自动重新生成
-- 首次访问可能需要 1-3 秒加载时间
-- 后续访问响应时间 <100ms
-
-### 注意事项
-
-⚠️ **重要**：
-- Vercel 部署使用 serverless 架构，内存缓存不共享
-- 后台缓存更新机制在 Vercel 上不可用
-- 高流量场景建议使用 Docker 部署或配置 Vercel KV (Redis)
-
-## TO DO
-
-### 部署相关
-- [x] 完善 Vercel 部署支持
-- [ ] 优化 Cloudflare Pages 构建流程
-- [ ] 添加 Netlify 部署文档
-
-### 功能增强
-- [ ] 添加频道过滤功能
-- [ ] 支持自定义排序规则
-- [ ] 添加频道分组功能
-- [ ] 支持更多内容平台
-
----
-
-## 🤝 贡献
+## 贡献
 
 欢迎提交 Issue 和 Pull Request!
 
----
-
-## 📄 许可证
+## 许可证
 
 MIT
 
-## Thanks
+## 感谢
 
 [BroadcastChannel](https://github.com/ccbikai/BroadcastChannel)
 
 ## Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=banlanzs/MultiChannelBroadCast&type=date&legend=top-left)](https://www.star-history.com/#banlanzs/MultiChannelBroadCast&type=date&legend=top-left)
+[![Star History Chart](https://api.star-history.com/svg?repos=mouse0232/MultiChannelBroadCast&type=date&legend=top-left)](https://www.star-history.com/#mouse0232/MultiChannelBroadCast&type=date&legend=top-left)
