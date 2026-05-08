@@ -95,9 +95,10 @@ async function processSingleChannel(task, env) {
 
   // 3. 写入 D1 (事务处理)
   // 使用 batch 批量写入
+  // 改用 INSERT OR REPLACE 确保更新旧帖子内容（如新增图片抓取）
   const statements = posts.map(post => {
     return env.DB.prepare(`
-      INSERT OR IGNORE INTO posts (id, channel, title, content, published_at) 
+      INSERT OR REPLACE INTO posts (id, channel, title, content, published_at) 
       VALUES (?, ?, ?, ?, ?)
     `).bind(post.id, post.channel, post.title, post.content, post.datetime)
   })
@@ -241,6 +242,7 @@ function parsePosts(html, channel, lastMsgId) {
     // 照片
     $item.find('.tgme_widget_message_photo_wrap').each((_, el) => {
       const style = $(el).attr('style') || ''
+      // 匹配单引号或双引号: background-image:url('...') 或 background-image:url("...")
       const bgMatch = style.match(/background-image:url\(['"]?([^'")]+)['"]?\)/)
       if (bgMatch) {
         let imgUrl = bgMatch[1]
@@ -436,6 +438,63 @@ export default {
     }
 
     try {
+      // API: 重新抓取并更新旧帖子 (供修复抓取逻辑后使用)
+      // GET /api/regrab?channel=all&limit=100
+      if (url.pathname === '/api/regrab') {
+        const channelsStr = env.CHANNELS || ''
+        const channels = channelsStr.split(',').map(c => c.trim()).filter(Boolean)
+        const regrabLimit = parseInt(url.searchParams.get('limit') || '50')
+        let successCount = 0
+        let errors = []
+
+        for (const ch of channels) {
+          try {
+            // 获取当前 lastMsgId
+            const meta = await env.DB.prepare("SELECT last_msg_id FROM channel_meta WHERE channel = ?").bind(ch).first()
+            const lastMsgId = meta?.last_msg_id
+            
+            // 抓取该频道最近 regrabLimit 条消息（从最新往前）
+            // 通过临时设置 lastMsgId 为 0 来实现全量抓取
+            const result = await fetchAndParse(ch, env, '0')
+            const posts = result.posts.slice(0, regrabLimit)
+            const channelInfo = result.info
+            
+            if (posts.length === 0) {
+              console.log(`ℹ️ No posts to regrab for ${ch}`)
+              continue
+            }
+
+            // 更新帖子（INSERT OR REPLACE）
+            const statements = posts.map(post => {
+              return env.DB.prepare(`
+                INSERT OR REPLACE INTO posts (id, channel, title, content, published_at) 
+                VALUES (?, ?, ?, ?, ?)
+              `).bind(post.id, post.channel, post.title, post.content, post.datetime)
+            })
+
+            // 不更新 lastMsgId，保持原有进度
+            statements.push(
+              env.DB.prepare(
+                "INSERT OR REPLACE INTO channel_meta (channel, last_msg_id, title, avatar) VALUES (?, ?, ?, ?)"
+              ).bind(ch, lastMsgId || '0', channelInfo.title, channelInfo.avatar)
+            )
+
+            await env.DB.batch(statements)
+            successCount++
+            await randomDelay(500, 1500)
+          } catch (e) {
+            errors.push(`Channel ${ch} Error: ${e.message}`)
+          }
+        }
+
+        return new Response(JSON.stringify({
+          status: 'ok',
+          message: `Regrab complete for ${successCount} channels`,
+          successCount,
+          errors: errors.length > 0 ? errors : undefined
+        }), { headers: corsHeaders, status: 200 })
+      }
+
       // API: 初始化并测试推送 (供首次部署后手动触发)
       // GET /api/init
       if (url.pathname === '/api/init') {
