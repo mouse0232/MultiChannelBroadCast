@@ -99,25 +99,12 @@ async function processSingleChannel(task, env) {
   for (const post of posts) {
     const rawId = post.id.split('/').pop()
     if (lastMsgId && parseInt(rawId) <= parseInt(lastMsgId)) {
-      // 旧消息：检查是否需要更新
-      // 修复：Telegram 编辑消息不修改时间，必须通过内容比对
-      
-      const existing = await env.DB.prepare("SELECT content FROM posts WHERE id = ?").bind(post.id).first()
-      
-      // 简单的内容变化检测 (比对关键文本片段，避免 HTML 微小变动导致误判)
-      let needsUpdate = false
-      if (existing) {
-         const oldText = stripHtml(existing.content || '')
-         const newText = stripHtml(post.content || '')
-         if (oldText !== newText) {
-            needsUpdate = true
-         }
-      }
-
-      if (needsUpdate) {
+      // 旧消息：检查是否需要更新（通过时间比对）
+      const existing = await env.DB.prepare("SELECT published_at FROM posts WHERE id = ?").bind(post.id).first()
+      if (existing && post.datetime > existing.published_at) {
         // 消息被编辑过，需要更新
         postsToSave.push(post)
-        console.log(`📝 Updated post: ${post.id} (content changed)`)
+        console.log(`📝 Updated post: ${post.id} (edited)`)
         
         // 同步更新 Telegram 推送消息
         try {
