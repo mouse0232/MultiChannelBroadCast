@@ -633,6 +633,62 @@ export default {
       }
 
       // ==========================================
+      // 图片代理逻辑 (R2 持久化缓存 Demo)
+      // URL 格式: /img-proxy?url=https://cdnX.telesco.pe/file/...
+      // ==========================================
+      if (url.pathname === '/img-proxy') {
+        const targetUrl = url.searchParams.get('url');
+        if (!targetUrl || !targetUrl.includes('telesco.pe')) {
+          return new Response('Invalid URL', { status: 400, headers: corsHeaders });
+        }
+
+        // 生成 R2 Key (SHA-256 哈希保证唯一且安全)
+        const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(targetUrl));
+        const key = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+
+        // 1. 尝试从 R2 读取
+        const cached = await env.IMG_CACHE.get(key);
+        if (cached) {
+          const headers = new Headers({
+            'Content-Type': cached.httpMetadata?.contentType || 'image/jpeg',
+            'Cache-Control': 'public, max-age=31536000',
+            'Access-Control-Allow-Origin': '*'
+          });
+          return new Response(cached.body, { headers });
+        }
+
+        // 2. 从 Telegram 源站拉取
+        const tgRes = await fetch(targetUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Referer': 'https://t.me/',
+            'Accept': 'image/*,*/*;q=0.8'
+          }
+        });
+
+        if (!tgRes.ok) {
+          return new Response('Source image not found', { status: 404, headers: corsHeaders });
+        }
+
+        const body = await tgRes.arrayBuffer();
+        const contentType = tgRes.headers.get('Content-Type') || 'image/jpeg';
+
+        // 3. 写入 R2 持久化
+        await env.IMG_CACHE.put(key, body, {
+          httpMetadata: { contentType },
+          customMetadata: { sourceUrl: targetUrl }
+        });
+
+        // 4. 返回给用户
+        const resHeaders = new Headers({
+          'Content-Type': contentType,
+          'Cache-Control': 'public, max-age=31536000',
+          'Access-Control-Allow-Origin': '*'
+        });
+        return new Response(body, { headers: resHeaders });
+      }
+
+      // ==========================================
       // 视频/音频代理逻辑 (支持 Range/Seek)
       // URL 格式: /static/cdnX.telegram-cdn.org/file/...
       // ==========================================

@@ -29,6 +29,11 @@ max_retries = 2          # 失败重试次数
 [ai]
 binding = "AI"
 
+# 6. 绑定 R2 存储桶 (图片缓存 Demo)
+[[r2_buckets]]
+binding = "IMG_CACHE"
+bucket_name = "tg-image-cache"
+
 # 注意：环境变量建议直接在 Cloudflare Dashboard 中设置
 # 如果需要在本地定义变量，取消注释下方的 [vars] 部分并修改值
 # [vars]
