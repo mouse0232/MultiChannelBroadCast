@@ -114,20 +114,21 @@ async function processSingleChannel(task, env) {
           if (botToken && channelId) {
              const log = await env.DB.prepare("SELECT tg_message_id FROM push_logs WHERE post_id = ?").bind(post.id).first()
              
-             if (log?.tg_message_id) {
-                const { text, hasImage } = await createPushContent(post, env)
-                
-                if (hasImage) {
-                   await $fetch(`https://api.telegram.org/bot${botToken}/editMessageCaption`, {
-                      method: 'POST',
-                      body: { chat_id: channelId, message_id: log.tg_message_id, caption: text, parse_mode: 'HTML' }
-                   })
-                } else {
-                   await $fetch(`https://api.telegram.org/bot${botToken}/editMessageText`, {
-                      method: 'POST',
-                      body: { chat_id: channelId, message_id: log.tg_message_id, text: text, parse_mode: 'HTML' }
-                   })
-                }
+              if (log?.tg_message_id) {
+                 const imageUrl = extractFirstImage(post.content || '')
+                 const { text } = await createPushContent(post, env)
+                 
+                 if (imageUrl) {
+                    await $fetch(`https://api.telegram.org/bot${botToken}/editMessageCaption`, {
+                       method: 'POST',
+                       body: { chat_id: channelId, message_id: log.tg_message_id, caption: text, parse_mode: 'HTML' }
+                    })
+                 } else {
+                    await $fetch(`https://api.telegram.org/bot${botToken}/editMessageText`, {
+                       method: 'POST',
+                       body: { chat_id: channelId, message_id: log.tg_message_id, text: text, parse_mode: 'HTML' }
+                    })
+                 }
                 console.log(`✏️ Synced TG edit for ${post.id}`)
              }
           }
@@ -371,7 +372,7 @@ function parsePosts(html, channel, lastMsgId) {
   return { posts, info: { title, avatar } }
 }
 
-// 构建推送内容 (供发送和编辑复用)
+// 构建推送文本内容 (供发送和编辑复用)
 async function createPushContent(post, env) {
   const plainText = stripHtml(post.content || '')
   const channelName = post.channel || 'Unknown'
@@ -396,9 +397,8 @@ async function createPushContent(post, env) {
   }
 
   const text = `${title}\n\n${escapeHtml(summary)}\n\n<a href="${postUrl}">阅读原文</a>`
-  const hasImage = !!extractFirstImage(post.content || '')
   
-  return { text, hasImage }
+  return { text }
 }
 
 // ==========================================
@@ -418,17 +418,18 @@ async function triggerPush(posts, env) {
     if (log?.tg_message_id) continue
 
     try {
-      // 2. 构建内容
-      const { text, hasImage } = await createPushContent(post, env)
+      // 2. 提取首图 (只提取一次)
+      const imageUrl = extractFirstImage(post.content || '')
+      const { text } = await createPushContent(post, env)
       
       let response
-      if (hasImage) {
+      if (imageUrl) {
         // 发送图文
         response = await $fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
           method: 'POST',
           body: {
             chat_id: channelId,
-            photo: extractFirstImage(post.content || ''),
+            photo: imageUrl,
             caption: text,
             parse_mode: 'HTML'
           },
