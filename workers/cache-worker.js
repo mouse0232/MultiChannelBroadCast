@@ -91,17 +91,71 @@ async function processSingleChannel(task, env) {
     // 注意：即使没有新帖子，我们也不能直接 return，因为还需要更新 channel_meta 中的 title 和 avatar
   }
 
-  console.log(`📦 Parsed ${posts.length} new posts for ${channel}`)
+  console.log(`📦 Parsed ${posts.length} posts for ${channel}`)
 
-  // 3. 写入 D1 (事务处理)
-  // 使用 batch 批量写入
-  // 改用 INSERT OR REPLACE 确保更新旧帖子内容（如新增图片抓取）
-  const statements = posts.map(post => {
-    return env.DB.prepare(`
-      INSERT OR REPLACE INTO posts (id, channel, title, content, published_at) 
-      VALUES (?, ?, ?, ?, ?)
-    `).bind(post.id, post.channel, post.title, post.content, post.datetime)
-  })
+  // 3. 区分新消息、更新消息、无变化消息
+  const postsToSave = []
+  
+  for (const post of posts) {
+    const rawId = post.id.split('/').pop()
+    if (lastMsgId && parseInt(rawId) <= parseInt(lastMsgId)) {
+      // 旧消息：检查是否需要更新（通过时间比对）
+      const existing = await env.DB.prepare("SELECT published_at FROM posts WHERE id = ?").bind(post.id).first()
+      if (existing && post.datetime > existing.published_at) {
+        // 消息被编辑过，需要更新
+        postsToSave.push(post)
+        console.log(`📝 Updated post: ${post.id} (edited)`)
+        
+        // 同步更新 Telegram 推送消息
+        try {
+          const botToken = env.TELEGRAM_BOT_TOKEN
+          const channelId = env.TELEGRAM_PUSH_CHANNEL_ID
+          
+          if (botToken && channelId) {
+             const log = await env.DB.prepare("SELECT tg_message_id FROM push_logs WHERE post_id = ?").bind(post.id).first()
+             
+              if (log?.tg_message_id) {
+                 const imageUrl = extractFirstImage(post.content || '')
+                 const { text } = await createPushContent(post, env)
+                 
+                 if (imageUrl) {
+                    await $fetch(`https://api.telegram.org/bot${botToken}/editMessageCaption`, {
+                       method: 'POST',
+                       body: { chat_id: channelId, message_id: log.tg_message_id, caption: text, parse_mode: 'HTML' }
+                    })
+                 } else {
+                    await $fetch(`https://api.telegram.org/bot${botToken}/editMessageText`, {
+                       method: 'POST',
+                       body: { chat_id: channelId, message_id: log.tg_message_id, text: text, parse_mode: 'HTML' }
+                    })
+                 }
+                console.log(`✏️ Synced TG edit for ${post.id}`)
+             }
+          }
+        } catch (e) {
+           console.warn(`TG Sync Edit failed for ${post.id}: ${e.message}`)
+        }
+      } else {
+        // 无变化，跳过数据库写入
+        // console.log(`⏭️ Skipped post: ${post.id} (no change)`)
+      }
+    } else {
+      // 新消息
+      postsToSave.push(post)
+    }
+  }
+
+  // 4. 写入 D1 (仅保存新消息和更新的消息)
+  if (postsToSave.length > 0) {
+    const statements = postsToSave.map(post => {
+      return env.DB.prepare(`
+        INSERT OR REPLACE INTO posts (id, channel, title, content, published_at) 
+        VALUES (?, ?, ?, ?, ?)
+      `).bind(post.id, post.channel, post.title, post.content, post.datetime)
+    })
+    
+    await env.DB.batch(statements)
+  }
 
   // Update channel_meta (includes channel info now)
   // Telegram ID is usually channel/12345 format, we take 12345
@@ -111,20 +165,24 @@ async function processSingleChannel(task, env) {
   // If no posts, maxRawId might be 0, keep old lastMsgId if exists
   const finalMsgId = rawIds.length > 0 ? maxRawId : lastMsgId;
 
-  statements.push(
-    env.DB.prepare(
-      "INSERT OR REPLACE INTO channel_meta (channel, last_msg_id, title, avatar) VALUES (?, ?, ?, ?)"
-    ).bind(channel, finalMsgId, channelInfo.title, channelInfo.avatar)
-  )
+  await env.DB.prepare(
+    "INSERT OR REPLACE INTO channel_meta (channel, last_msg_id, title, avatar) VALUES (?, ?, ?, ?)"
+  ).bind(channel, finalMsgId, channelInfo.title, channelInfo.avatar).run()
 
-  await env.DB.batch(statements)
-
-  // 4. 触发推送
+  // 5. 触发推送（只推送新消息，不推送更新的消息）
   // 重要：如果是首次运行 (初始化数据)，只存入数据库，不进行推送，防止消息轰炸
+  const newPosts = posts.filter(p => !lastMsgId || parseInt(p.id.split('/').pop()) > parseInt(lastMsgId))
+  
   if (isFirstRun) {
     console.log(`ℹ️ First run for ${channel}, skipping push notifications.`)
   } else {
-    await triggerPush(posts, env)
+    if (newPosts.length > 0) {
+      await triggerPush(newPosts, env)
+    }
+    const updatedCount = postsToSave.length - newPosts.length
+    if (updatedCount > 0) {
+      console.log(`🔕 Skipped push for ${updatedCount} updated posts (no notification)`)
+    }
   }
   
   console.log(`✅ Finished channel: ${channel}`)
@@ -201,7 +259,8 @@ function parsePosts(html, channel, lastMsgId) {
   const items = $('.tgme_widget_message_wrap').toArray()
   
   // Telegram 列表页通常是按时间倒序 (最新的在前面)
-  // 但为了更新 lastMsgId，我们可能需要反转，或者直接处理并找到最大的 ID
+  // 修改：不再跳过旧消息，全部返回以便检测编辑更新
+  // 检查最近 50 条消息，识别是否有编辑更新
   
   for (const item of items) {
     const $item = $(item).find('.tgme_widget_message')
@@ -211,11 +270,7 @@ function parsePosts(html, channel, lastMsgId) {
     const rawId = postAttr.split('/').pop()
     const id = postAttr // 使用 "channel/12345" 作为全局唯一 ID
     
-    // 增量逻辑：如果 ID 小于等于 lastMsgId，说明是旧数据，跳过
-    // 注意：这里比较的是字符串还是数字？Telegram ID 是数字递增的
-    if (lastMsgId && parseInt(rawId) <= parseInt(lastMsgId)) {
-      continue
-    }
+    // 修改：不再直接跳过旧消息，而是继续解析以便检测编辑
 
     const contentEl = $item.find('.tgme_widget_message_text')
     let title = ''
@@ -317,6 +372,35 @@ function parsePosts(html, channel, lastMsgId) {
   return { posts, info: { title, avatar } }
 }
 
+// 构建推送文本内容 (供发送和编辑复用)
+async function createPushContent(post, env) {
+  const plainText = stripHtml(post.content || '')
+  const channelName = post.channel || 'Unknown'
+  
+  // 固定标题
+  const title = `📢 来自 @${channelName} 的新动态`
+  const postUrl = `https://t.me/${post.id}`
+  
+  // 智能摘要
+  let summary = plainText
+  if (plainText.length > 150) {
+    try {
+      const aiSummary = await summarizeWithAI(plainText, env)
+      if (aiSummary) {
+         summary = aiSummary
+      } else {
+         summary = plainText.substring(0, 150) + '...'
+      }
+    } catch (e) {
+      summary = plainText.substring(0, 150) + '...'
+    }
+  }
+
+  const text = `${title}\n\n${escapeHtml(summary)}\n\n<a href="${postUrl}">阅读原文</a>`
+  
+  return { text }
+}
+
 // ==========================================
 // 推送服务 (D1 修复版 & 图文优化)
 // ==========================================
@@ -330,48 +414,18 @@ async function triggerPush(posts, env) {
 
   for (const post of posts) {
     // 1. 检查 D1 推送日志 (防止重复推送)
-    const log = await env.DB.prepare("SELECT 1 FROM push_logs WHERE post_id = ?").bind(post.id).first()
-    if (log) continue
+    const log = await env.DB.prepare("SELECT tg_message_id FROM push_logs WHERE post_id = ?").bind(post.id).first()
+    if (log?.tg_message_id) continue
 
-    // 2. 构建推送内容
-    // 提取纯文本
-    const plainText = stripHtml(post.content || '')
-    const channelName = post.channel || 'Unknown'
-    
-    // 固定标题
-    const title = `📢 来自 @${channelName} 的新动态`
-    
-    // 智能摘要
-    let summary = plainText
-    if (plainText.length > 150) {
-      // 尝试调用 AI 总结
-      try {
-        const aiSummary = await summarizeWithAI(plainText, env)
-        if (aiSummary) {
-           summary = aiSummary
-        } else {
-           summary = plainText.substring(0, 150) + '...'
-        }
-      } catch (e) {
-        // AI 失败降级
-        summary = plainText.substring(0, 150) + '...'
-        console.warn('AI summary failed, using fallback.')
-      }
-    }
-
-    // 构造链接 (跳转 Telegram 原帖)
-    const postUrl = `https://t.me/${post.id}`
-    
-    // 组合消息模板
-    const text = `${title}\n\n${escapeHtml(summary)}\n\n<a href="${postUrl}">阅读原文</a>`
-
-    // 3. 提取首图 (如果有则发图文，否则发带预览的纯文本)
-    const imageUrl = extractFirstImage(post.content || '')
-    
     try {
+      // 2. 提取首图 (只提取一次)
+      const imageUrl = extractFirstImage(post.content || '')
+      const { text } = await createPushContent(post, env)
+      
+      let response
       if (imageUrl) {
-        // 发送图文 (Telegram 优先展示图片，链接仅作跳转)
-        await $fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
+        // 发送图文
+        response = await $fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
           method: 'POST',
           body: {
             chat_id: channelId,
@@ -382,8 +436,8 @@ async function triggerPush(posts, env) {
           timeout: 10000
         })
       } else {
-        // 发送纯文本 + 链接预览 (利用我们站点的 OG 标签生成卡片)
-        await $fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+        // 发送纯文本
+        response = await $fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
           method: 'POST',
           body: {
             chat_id: channelId,
@@ -395,14 +449,18 @@ async function triggerPush(posts, env) {
         })
       }
       
-      // 4. 记录日志
-      await env.DB.prepare("INSERT OR IGNORE INTO push_logs (post_id) VALUES (?)").bind(post.id).run()
-      console.log(`📩 Pushed: ${post.id}`)
+      // 3. 记录日志 (保存 Telegram 消息 ID 以便后续编辑)
+      const tgMsgId = response.result?.message_id
+      if (tgMsgId) {
+        await env.DB.prepare("INSERT OR REPLACE INTO push_logs (post_id, tg_message_id) VALUES (?, ?)")
+          .bind(post.id, tgMsgId).run()
+      }
+      console.log(`📩 Pushed: ${post.id} (TG ID: ${tgMsgId})`)
     } catch (e) {
       console.warn(`Push failed for ${post.id}: ${e.message}`)
     }
     
-    await randomDelay(1000, 2000) // 避免触发 Telegram 推送风控
+    await randomDelay(1000, 2000)
   }
 }
 
