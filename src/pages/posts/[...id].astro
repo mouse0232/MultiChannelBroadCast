@@ -51,7 +51,10 @@ const postImageMatch = post.content?.match(/<img[^>]+src=["']([^"']+)["']/i)
 const postImage = postImageMatch ? postImageMatch[1] : null
 
 const channel = {
-  posts: [post],
+  posts: [{
+    ...post,
+    datetime: post.published_at || post.datetime
+  }],
   title: channelDisplayName,
   username: channelUsername,
   avatar: postImage || null, // 优先使用帖子首图作为预览图
