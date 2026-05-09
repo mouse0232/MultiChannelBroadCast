@@ -282,7 +282,7 @@ function parsePosts(html, channel, lastMsgId) {
     
     // 修改：不再直接跳过旧消息，而是继续解析以便检测编辑
 
-    const contentEl = $item.find('.tgme_widget_message_text')
+    const contentEl = $item.find('.tgme_widget_message_text:not(.js-message_reply_text)')
     let title = ''
     let contentHtml = ''
     
