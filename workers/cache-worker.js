@@ -688,22 +688,19 @@ export default {
 
       // API: 获取单个帖子
       // GET /api/post/channel%2F12345 -> 精确匹配完整 ID
-      // GET /api/post/12345 -> 向后兼容：LIKE 匹配数字部分
       if (url.pathname.startsWith('/api/post/')) {
         const rawId = decodeURIComponent(url.pathname.split('/api/post/').pop())
         
-        let results
-        if (rawId.includes('/')) {
-          // 完整 ID 精确查询 (如 "yunyoocc/12345")
-          results = await env.DB.prepare(
-            "SELECT * FROM posts WHERE id = ? LIMIT 1"
-          ).bind(rawId).all()
-        } else {
-          // 向后兼容：仅数字 ID 的 LIKE 查询
-          results = await env.DB.prepare(
-            "SELECT * FROM posts WHERE id LIKE ? ORDER BY published_at DESC LIMIT 1"
-          ).bind(`%/${rawId}`).all()
+        // 校验 ID 格式：必须包含斜杠 (channel/id)
+        // 移除了旧版 LIKE 模糊查询，避免全表扫描导致 D1 额度耗尽
+        if (!rawId.includes('/')) {
+          return new Response(JSON.stringify({ error: 'Invalid post ID format. Expected: channel/id' }), { status: 400, headers: corsHeaders })
         }
+
+        // 完整 ID 精确查询
+        const results = await env.DB.prepare(
+          "SELECT * FROM posts WHERE id = ? LIMIT 1"
+        ).bind(rawId).all()
         
         if (results.length === 0 || results.results.length === 0) {
           return new Response(JSON.stringify({ error: 'Post not found' }), { status: 404, headers: corsHeaders })
