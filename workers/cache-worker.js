@@ -272,25 +272,32 @@ function parsePosts(html, channel, lastMsgId, workerUrl) {
     const rawId = postAttr.split('/').pop()
     const id = postAttr // 使用 "channel/12345" 作为全局唯一 ID
     
-    // 修改：不再直接跳过旧消息，而是继续解析以便检测编辑
-
-    const contentEl = $item.find('.tgme_widget_message_text:not(.js-message_reply_text)')
+    // 修改：恢复引用提取，分离引用与正文，避免内容混淆
+    const replyEl = $item.find('.tgme_widget_message_reply')
+    const contentEl = $item.find('.tgme_widget_message_text').not(replyEl).filter('.tgme_widget_message_text')
     let title = ''
     let contentHtml = ''
     
-    // 1. 提取文本内容
+    // 1. 提取文本内容（优先引用，后接正文）
+    let fullHtml = ''
+    if (replyEl.length > 0) {
+      fullHtml += replyEl.html()
+    }
     if (contentEl.length > 0) {
-      contentHtml = processMediaUrls(contentEl.html(), workerUrl)
-      const text = contentEl.text().trim()
-      // 提取标题：尝试匹配到句号、换行或链接之前的内容
-      const match = text.match(/^.*?(?=[。\n]|http\S)/g)
+      fullHtml += contentEl.html()
+    }
+
+    if (fullHtml) {
+      contentHtml = processMediaUrls(fullHtml, workerUrl)
+      // 提取标题：仅从正文部分提取，避免引用内容污染
+      const mainText = contentEl.text().trim()
+      const match = mainText.match(/^.*?(?=[。\n]|http\S)/g)
       if (match && match[0] && match[0].trim()) {
         title = match[0].trim()
       } else {
-        // 降级方案：如果匹配失败（例如纯链接或特殊字符开头），使用前 60 个字符
-        title = text.replace(/\n/g, ' ').substring(0, 60)
+        title = mainText.replace(/\n/g, ' ').substring(0, 60)
       }
-      if (!title) title = 'New Post' // 最后的兜底
+      if (!title) title = replyEl.text().trim().substring(0, 60) || 'New Post'
     }
 
     // 2. 提取附加的媒体元素（照片、视频、文件等 - 它们是 .tgme_widget_message_text 的兄弟节点）
