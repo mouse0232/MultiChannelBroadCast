@@ -76,7 +76,7 @@ async function processSingleChannel(task, env) {
 
   // 1. 获取上次抓取进度
   const meta = await env.DB.prepare("SELECT last_msg_id FROM channel_meta WHERE channel = ?").bind(channel).first()
-  const lastMsgId = meta?.last_msg_id
+  const lastMsgId = meta?.last_msgId
   
   // 标记是否为首次运行 (如果数据库里没有该频道的记录，或者 last_msg_id 为空，则视为未初始化)
   const isFirstRun = !meta || !lastMsgId
@@ -91,11 +91,30 @@ async function processSingleChannel(task, env) {
     // 注意：即使没有新帖子，我们也不能直接 return，因为还需要更新 channel_meta 中的 title 和 avatar
   }
 
-  console.log(`📦 Parsed ${posts.length} new posts for ${channel}`)
+  console.log(`📦 Parsed ${posts.length} posts for ${channel}`)
 
-  // 3. 写入 D1 (事务处理)
+  // 3. 区分新消息和更新的消息
+  const newPosts = []
+  const updatedPosts = []
+  
+  for (const post of posts) {
+    const rawId = post.id.split('/').pop()
+    if (lastMsgId && parseInt(rawId) <= parseInt(lastMsgId)) {
+      // 旧消息：检查是否需要更新（通过时间比对）
+      const existing = await env.DB.prepare("SELECT published_at FROM posts WHERE id = ?").bind(post.id).first()
+      if (existing && post.datetime > existing.published_at) {
+        // 消息被编辑过，需要更新
+        updatedPosts.push(post)
+        console.log(`📝 Updated post: ${post.id} (edited)`)
+      }
+    } else {
+      // 新消息
+      newPosts.push(post)
+    }
+  }
+
+  // 4. 写入 D1 (事务处理)
   // 使用 batch 批量写入
-  // 改用 INSERT OR REPLACE 确保更新旧帖子内容（如新增图片抓取）
   const statements = posts.map(post => {
     return env.DB.prepare(`
       INSERT OR REPLACE INTO posts (id, channel, title, content, published_at) 
@@ -119,12 +138,17 @@ async function processSingleChannel(task, env) {
 
   await env.DB.batch(statements)
 
-  // 4. 触发推送
+  // 5. 触发推送（只推送新消息，不推送更新的消息）
   // 重要：如果是首次运行 (初始化数据)，只存入数据库，不进行推送，防止消息轰炸
   if (isFirstRun) {
     console.log(`ℹ️ First run for ${channel}, skipping push notifications.`)
   } else {
-    await triggerPush(posts, env)
+    if (newPosts.length > 0) {
+      await triggerPush(newPosts, env)
+    }
+    if (updatedPosts.length > 0) {
+      console.log(`🔕 Skipped push for ${updatedPosts.length} updated posts (no notification)`)
+    }
   }
   
   console.log(`✅ Finished channel: ${channel}`)
@@ -201,7 +225,8 @@ function parsePosts(html, channel, lastMsgId) {
   const items = $('.tgme_widget_message_wrap').toArray()
   
   // Telegram 列表页通常是按时间倒序 (最新的在前面)
-  // 但为了更新 lastMsgId，我们可能需要反转，或者直接处理并找到最大的 ID
+  // 修改：不再跳过旧消息，全部返回以便检测编辑更新
+  // 检查最近 50 条消息，识别是否有编辑更新
   
   for (const item of items) {
     const $item = $(item).find('.tgme_widget_message')
@@ -211,11 +236,7 @@ function parsePosts(html, channel, lastMsgId) {
     const rawId = postAttr.split('/').pop()
     const id = postAttr // 使用 "channel/12345" 作为全局唯一 ID
     
-    // 增量逻辑：如果 ID 小于等于 lastMsgId，说明是旧数据，跳过
-    // 注意：这里比较的是字符串还是数字？Telegram ID 是数字递增的
-    if (lastMsgId && parseInt(rawId) <= parseInt(lastMsgId)) {
-      continue
-    }
+    // 修改：不再直接跳过旧消息，而是继续解析以便检测编辑
 
     const contentEl = $item.find('.tgme_widget_message_text')
     let title = ''
