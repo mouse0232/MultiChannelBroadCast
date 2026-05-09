@@ -272,50 +272,39 @@ function parsePosts(html, channel, lastMsgId, workerUrl) {
     const rawId = postAttr.split('/').pop()
     const id = postAttr // 使用 "channel/12345" 作为全局唯一 ID
     
-    // 修改：精准还原 Telegram 引用样式，解决重复显示问题
-    const replyEl = $item.find('.tgme_widget_message_reply')
-    // 获取正文元素：仅匹配具有 js-message_text 类且不在引用块内的元素
-    const contentEl = $item.find('.js-message_text').filter((_, el) => {
+    // 修改：还原原项目逻辑，拼接原始 HTML，利用 CSS 原生样式
+    const replyEl = $item.find('.tgme_widget_message_reply');
+    
+    // 获取正文：找到所有文本块，排除掉属于引用块的文本
+    const contentEl = $item.find('.tgme_widget_message_text').filter((_, el) => {
        return !$(el).closest('.tgme_widget_message_reply').length;
-    })
+    });
     
-    let title = ''
-    let contentHtml = ''
+    let title = '';
+    let contentHtml = '';
     
-    // 1. 提取引用部分 (精简结构，添加内联样式)
-    let finalHtml = ''
+    // 拼接 HTML：先引用，后正文
+    let finalHtml = '';
     if (replyEl.length > 0) {
-       // 获取被引用的作者名
-       const replyAuthor = replyEl.find('.tgme_widget_message_author_name').text().trim()
-       // 获取被引用的内容
-       const replyText = replyEl.find('.js-message_reply_text').text().trim()
-       
-       if (replyAuthor || replyText) {
-          // 使用 Telegram 网页版同款样式
-          finalHtml = `<div style="border-left: 2px solid #d7e3ec; padding-left: 8px; margin-bottom: 8px; color: #777; font-size: 0.9em; line-height: 1.4;">`
-          if (replyAuthor) finalHtml += `<b style="color: #555; font-size: 0.95em;">${replyAuthor}</b><br>`
-          if (replyText) finalHtml += replyText
-          finalHtml += `</div>`
-       }
+       finalHtml += replyEl.html();
     }
-
-    // 2. 提取正文部分
     if (contentEl.length > 0) {
-       finalHtml += contentEl.html()
+       finalHtml += contentEl.html();
     }
 
     if (finalHtml) {
-      contentHtml = processMediaUrls(finalHtml, workerUrl)
+      contentHtml = processMediaUrls(finalHtml, workerUrl);
       
-      // 标题提取：仅从正文文本提取
-      const mainText = contentEl.text().trim()
-      const match = mainText.match(/^.*?(?=[。\n]|http\S)/g)
+      // 标题仅从正文提取
+      const mainText = contentEl.text().trim();
+      const match = mainText.match(/^.*?(?=[。\n]|http\S)/g);
       if (match && match[0] && match[0].trim()) {
-        title = match[0].trim()
+        title = match[0].trim();
       } else {
-        title = mainText.replace(/\n/g, ' ').substring(0, 60)
+        title = mainText.replace(/\n/g, ' ').substring(0, 60);
       }
-      if (!title) title = replyEl.text().trim().substring(0, 60) || 'New Post'
+      // 兜底
+      if (!title && !contentEl.length) title = 'New Post';
     }
 
     // 2. 提取附加的媒体元素（照片、视频、文件等 - 它们是 .tgme_widget_message_text 的兄弟节点）
