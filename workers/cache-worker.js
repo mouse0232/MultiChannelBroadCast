@@ -190,21 +190,23 @@ async function processSingleChannel(task, env) {
 // ==========================================
 
 // 处理媒体链接：
-// 1. 图片 (<img>) -> 替换为 wsrv.nl 代理 (支持国内访问)
+// 1. 图片 (<img>) -> 替换为 R2 缓存代理 (支持国内访问 + 持久化)
 // 2. 视频/音频 (<video>, <audio>) -> 替换为本地 /static/ 代理 (支持 Range/拖动进度条)
-function processMediaUrls(html) {
+function processMediaUrls(html, workerUrl) {
     if (!html) return html;
 
-    // 1. 处理图片 (wsrv.nl)
+    // 图片代理前缀
+    const imgProxyPrefix = workerUrl ? `${workerUrl}/img-proxy?url=` : 'https://wsrv.nl/?url=';
+
+    // 1. 处理图片
     html = html.replace(
         /(<img[^>]*src=")(https?:\/\/cdn\d+\.telegram-cdn\.org\/file\/[^"]+)(")/gi,
         (match, prefix, url, suffix) => {
-            return `${prefix}https://wsrv.nl/?url=${encodeURIComponent(url)}${suffix}`;
+            return `${prefix}${imgProxyPrefix}${encodeURIComponent(url)}${suffix}`;
         }
     );
 
     // 2. 处理视频和音频 (Local Worker Proxy)
-    // 格式转换: https://cdn4.telegram-cdn.org/file/xyz.mp4 -> /static/cdn4.telegram-cdn.org/file/xyz.mp4
     html = html.replace(
         /(<(?:video|audio|source)[^>]*src=")(https?:\/\/(cdn\d+\.telegram-cdn\.org)(\/file\/[^"]+))(")/gi,
         (match, prefix, fullUrl, host, path, suffix) => {
@@ -228,16 +230,16 @@ async function fetchAndParse(channel, env, lastMsgId) {
   }
   
   try {
-    // 如果是增量抓取，Telegram 支持 after 参数，但网页版不一定支持，这里我们先全量拉取并在代码过滤
-    // 为了简单起见，我们获取完整页面然后解析
     const html = await $fetch(url, { headers, retry: 2, retryDelay: 2000 })
-    return parsePosts(html, channel, lastMsgId)
+    // 传入 Worker URL 用于生成图片代理链接
+    const workerUrl = env.WORKER_URL || '' 
+    return parsePosts(html, channel, lastMsgId, workerUrl)
   } catch (e) {
     throw new Error(`Fetch failed: ${e.message}`)
   }
 }
 
-function parsePosts(html, channel, lastMsgId) {
+function parsePosts(html, channel, lastMsgId, workerUrl) {
   const $ = cheerio.load(html)
   const posts = []
   
@@ -248,8 +250,11 @@ function parsePosts(html, channel, lastMsgId) {
   let avatar = $('.tgme_page_photo_image img').attr('src');
   
   // 代理头像
-  if (avatar && !avatar.startsWith('https://wsrv.nl')) {
-    avatar = `https://wsrv.nl/?url=${encodeURIComponent(avatar)}`;
+  if (avatar) {
+    const imgProxyPrefix = workerUrl ? `${workerUrl}/img-proxy?url=` : 'https://wsrv.nl/?url=';
+    if (!avatar.startsWith(imgProxyPrefix)) {
+      avatar = `${imgProxyPrefix}${encodeURIComponent(avatar)}`;
+    }
   }
   
   // 找到所有消息
@@ -275,7 +280,7 @@ function parsePosts(html, channel, lastMsgId) {
     
     // 1. 提取文本内容
     if (contentEl.length > 0) {
-      contentHtml = processMediaUrls(contentEl.html())
+      contentHtml = processMediaUrls(contentEl.html(), workerUrl)
       const text = contentEl.text().trim()
       // 提取标题：尝试匹配到句号、换行或链接之前的内容
       const match = text.match(/^.*?(?=[。\n]|http\S)/g)
@@ -299,7 +304,8 @@ function parsePosts(html, channel, lastMsgId) {
       if (bgMatch) {
         let imgUrl = bgMatch[1]
         // 代理图片
-        imgUrl = `https://wsrv.nl/?url=${encodeURIComponent(imgUrl)}`
+        const imgProxyPrefix = workerUrl ? `${workerUrl}/img-proxy?url=` : 'https://wsrv.nl/?url=';
+        imgUrl = `${imgProxyPrefix}${encodeURIComponent(imgUrl)}`
         mediaElements.push(`<img src="${imgUrl}" alt="Photo" loading="lazy" />`)
       }
     })
@@ -310,7 +316,8 @@ function parsePosts(html, channel, lastMsgId) {
       if (img.length > 0) {
         let imgUrl = img.attr('src')
         if (imgUrl) {
-          imgUrl = `https://wsrv.nl/?url=${encodeURIComponent(imgUrl)}`
+          const imgProxyPrefix = workerUrl ? `${workerUrl}/img-proxy?url=` : 'https://wsrv.nl/?url=';
+          imgUrl = `${imgProxyPrefix}${encodeURIComponent(imgUrl)}`
           mediaElements.push(`<img src="${imgUrl}" alt="Link Preview" loading="lazy" />`)
         }
       }
@@ -320,7 +327,7 @@ function parsePosts(html, channel, lastMsgId) {
     $item.find('.tgme_widget_message_video_wrap').each((_, el) => {
       const video = $(el).find('video')
       if (video.length > 0) {
-        const videoHtml = processMediaUrls($(el).html())
+        const videoHtml = processMediaUrls($(el).html(), workerUrl)
         mediaElements.push(videoHtml)
       } else {
         // 没有 video 标签，用占位符
@@ -328,7 +335,8 @@ function parsePosts(html, channel, lastMsgId) {
         if (thumb.length > 0) {
           const thumbUrl = thumb.attr('src')
           if (thumbUrl) {
-            const proxiedUrl = `https://wsrv.nl/?url=${encodeURIComponent(thumbUrl)}`
+            const imgProxyPrefix = workerUrl ? `${workerUrl}/img-proxy?url=` : 'https://wsrv.nl/?url=';
+            const proxiedUrl = `${imgProxyPrefix}${encodeURIComponent(thumbUrl)}`
             mediaElements.push(`<img src="${proxiedUrl}" alt="Video Thumbnail" loading="lazy" />`)
           }
         }
