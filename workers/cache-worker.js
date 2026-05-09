@@ -93,9 +93,8 @@ async function processSingleChannel(task, env) {
 
   console.log(`📦 Parsed ${posts.length} posts for ${channel}`)
 
-  // 3. 区分新消息和更新的消息
-  const newPosts = []
-  const updatedPosts = []
+  // 3. 区分新消息、更新消息、无变化消息
+  const postsToSave = []
   
   for (const post of posts) {
     const rawId = post.id.split('/').pop()
@@ -104,23 +103,29 @@ async function processSingleChannel(task, env) {
       const existing = await env.DB.prepare("SELECT published_at FROM posts WHERE id = ?").bind(post.id).first()
       if (existing && post.datetime > existing.published_at) {
         // 消息被编辑过，需要更新
-        updatedPosts.push(post)
+        postsToSave.push(post)
         console.log(`📝 Updated post: ${post.id} (edited)`)
+      } else {
+        // 无变化，跳过数据库写入
+        // console.log(`⏭️ Skipped post: ${post.id} (no change)`)
       }
     } else {
       // 新消息
-      newPosts.push(post)
+      postsToSave.push(post)
     }
   }
 
-  // 4. 写入 D1 (事务处理)
-  // 使用 batch 批量写入
-  const statements = posts.map(post => {
-    return env.DB.prepare(`
-      INSERT OR REPLACE INTO posts (id, channel, title, content, published_at) 
-      VALUES (?, ?, ?, ?, ?)
-    `).bind(post.id, post.channel, post.title, post.content, post.datetime)
-  })
+  // 4. 写入 D1 (仅保存新消息和更新的消息)
+  if (postsToSave.length > 0) {
+    const statements = postsToSave.map(post => {
+      return env.DB.prepare(`
+        INSERT OR REPLACE INTO posts (id, channel, title, content, published_at) 
+        VALUES (?, ?, ?, ?, ?)
+      `).bind(post.id, post.channel, post.title, post.content, post.datetime)
+    })
+    
+    await env.DB.batch(statements)
+  }
 
   // Update channel_meta (includes channel info now)
   // Telegram ID is usually channel/12345 format, we take 12345
@@ -130,24 +135,23 @@ async function processSingleChannel(task, env) {
   // If no posts, maxRawId might be 0, keep old lastMsgId if exists
   const finalMsgId = rawIds.length > 0 ? maxRawId : lastMsgId;
 
-  statements.push(
-    env.DB.prepare(
-      "INSERT OR REPLACE INTO channel_meta (channel, last_msg_id, title, avatar) VALUES (?, ?, ?, ?)"
-    ).bind(channel, finalMsgId, channelInfo.title, channelInfo.avatar)
-  )
-
-  await env.DB.batch(statements)
+  await env.DB.prepare(
+    "INSERT OR REPLACE INTO channel_meta (channel, last_msg_id, title, avatar) VALUES (?, ?, ?, ?)"
+  ).bind(channel, finalMsgId, channelInfo.title, channelInfo.avatar).run()
 
   // 5. 触发推送（只推送新消息，不推送更新的消息）
   // 重要：如果是首次运行 (初始化数据)，只存入数据库，不进行推送，防止消息轰炸
+  const newPosts = posts.filter(p => !lastMsgId || parseInt(p.id.split('/').pop()) > parseInt(lastMsgId))
+  
   if (isFirstRun) {
     console.log(`ℹ️ First run for ${channel}, skipping push notifications.`)
   } else {
     if (newPosts.length > 0) {
       await triggerPush(newPosts, env)
     }
-    if (updatedPosts.length > 0) {
-      console.log(`🔕 Skipped push for ${updatedPosts.length} updated posts (no notification)`)
+    const updatedCount = postsToSave.length - newPosts.length
+    if (updatedCount > 0) {
+      console.log(`🔕 Skipped push for ${updatedCount} updated posts (no notification)`)
     }
   }
   
