@@ -272,24 +272,42 @@ function parsePosts(html, channel, lastMsgId, workerUrl) {
     const rawId = postAttr.split('/').pop()
     const id = postAttr // 使用 "channel/12345" 作为全局唯一 ID
     
-    // 修改：恢复引用提取，分离引用与正文，避免内容混淆
+    // 修改：精准还原 Telegram 引用样式，解决重复显示问题
     const replyEl = $item.find('.tgme_widget_message_reply')
-    const contentEl = $item.find('.tgme_widget_message_text').not(replyEl).filter('.tgme_widget_message_text')
+    // 获取正文元素：仅匹配具有 js-message_text 类且不在引用块内的元素
+    const contentEl = $item.find('.js-message_text').filter((_, el) => {
+       return !$(el).closest('.tgme_widget_message_reply').length;
+    })
+    
     let title = ''
     let contentHtml = ''
     
-    // 1. 提取文本内容（优先引用，后接正文）
-    let fullHtml = ''
+    // 1. 提取引用部分 (精简结构，添加内联样式)
+    let finalHtml = ''
     if (replyEl.length > 0) {
-      fullHtml += replyEl.html()
-    }
-    if (contentEl.length > 0) {
-      fullHtml += contentEl.html()
+       // 获取被引用的作者名
+       const replyAuthor = replyEl.find('.tgme_widget_message_author_name').text().trim()
+       // 获取被引用的内容
+       const replyText = replyEl.find('.js-message_reply_text').text().trim()
+       
+       if (replyAuthor || replyText) {
+          // 使用 Telegram 网页版同款样式
+          finalHtml = `<div style="border-left: 2px solid #d7e3ec; padding-left: 8px; margin-bottom: 8px; color: #777; font-size: 0.9em; line-height: 1.4;">`
+          if (replyAuthor) finalHtml += `<b style="color: #555; font-size: 0.95em;">${replyAuthor}</b><br>`
+          if (replyText) finalHtml += replyText
+          finalHtml += `</div>`
+       }
     }
 
-    if (fullHtml) {
-      contentHtml = processMediaUrls(fullHtml, workerUrl)
-      // 提取标题：仅从正文部分提取，避免引用内容污染
+    // 2. 提取正文部分
+    if (contentEl.length > 0) {
+       finalHtml += contentEl.html()
+    }
+
+    if (finalHtml) {
+      contentHtml = processMediaUrls(finalHtml, workerUrl)
+      
+      // 标题提取：仅从正文文本提取
       const mainText = contentEl.text().trim()
       const match = mainText.match(/^.*?(?=[。\n]|http\S)/g)
       if (match && match[0] && match[0].trim()) {
