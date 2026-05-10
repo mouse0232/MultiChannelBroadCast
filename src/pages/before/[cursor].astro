@@ -12,8 +12,11 @@ const siteName = getEnv(import.meta.env, Astro, 'SITE_NAME') || 'Multi-Channel B
 
 // 获取指定频道的更早帖子
 let posts = []
+let hasMore = false
 try {
   posts = await getPosts(Astro, { channel: filterChannel, limit: 20, before: cursor })
+  // 检查是否还有更多数据：如果返回了20条，说明可能还有更多
+  hasMore = posts.length >= 20
 } catch (e) {
   console.error('Failed to fetch posts:', e)
 }
@@ -34,4 +37,4 @@ const channelData = {
 }
 ---
 
-<List channel={channelData} currentChannel={null} />
+<List channel={channelData} currentChannel={null} hasMoreBefore={hasMore} />

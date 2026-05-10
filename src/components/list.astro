@@ -4,7 +4,7 @@ import Header from '../components/header.astro'
 import Item from '../components/item.astro'
 
 const { SITE_URL } = Astro.locals
-const { channel, before = true, after = true, isItem = false, currentChannel } = Astro.props
+const { channel, before = true, after = true, isItem = false, currentChannel, hasMoreBefore = true } = Astro.props
 const posts = channel.posts ?? []
 
 // 分页优化: 每页显示20条
@@ -119,7 +119,7 @@ const afterCursor = displayPosts[0]?.published_at || displayPosts[0]?.id
         )
       }
     {
-      before && beforeCursor ? (
+      before && beforeCursor && hasMoreBefore ? (
         currentChannel ? (
           <a href={`${SITE_URL}channel/${currentChannel}/before/${encodeURIComponent(beforeCursor)}`} title="更早" class="page page-older">
             ← 更早

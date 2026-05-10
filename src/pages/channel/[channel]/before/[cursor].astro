@@ -15,8 +15,11 @@ if (channels.length > 0 && !channels.includes(channelName)) {
 
 // 获取帖子
 let posts = []
+let hasMore = false
 try {
   posts = await getPosts(Astro, { channel: channelName, limit: 20, before: cursor })
+  // 检查是否还有更多数据：如果返回了20条，说明可能还有更多
+  hasMore = posts.length >= 20
 } catch (e) {
   console.error(`Failed to fetch posts for ${channelName}:`, e)
 }
@@ -36,4 +39,4 @@ const channelData = {
 }
 ---
 
-<List channel={channelData} currentChannel={channelName} />
+<List channel={channelData} currentChannel={channelName} hasMoreBefore={hasMore} />
