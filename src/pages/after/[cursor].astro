@@ -6,12 +6,14 @@ import { getEnv } from '../../lib/env'
 const { cursor } = Astro.params
 // cursor 已经过 URL 编码，直接使用（fetch 会自动处理）
 
+// 读取 URL 中的频道过滤参数
+const filterChannel = Astro.url.searchParams.get('channel') || 'all'
 const siteName = getEnv(import.meta.env, Astro, 'SITE_NAME') || 'Multi-Channel Broadcast'
 
-// 获取所有频道的更新帖子 (cursor 是 published_at 的 after 参数)
+// 获取指定频道的更新帖子
 let posts = []
 try {
-  posts = await getPosts(Astro, { channel: 'all', limit: 20, after: cursor })
+  posts = await getPosts(Astro, { channel: filterChannel, limit: 20, after: cursor })
 } catch (e) {
   console.error('Failed to fetch posts:', e)
 }
