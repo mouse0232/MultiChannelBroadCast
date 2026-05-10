@@ -660,63 +660,64 @@ export default {
       // URL 格式: /img-proxy?url=https://cdnX.telesco.pe/file/...
       // ==========================================
       if (url.pathname === '/img-proxy') {
-        const targetUrl = url.searchParams.get('url');
-        if (!targetUrl || !targetUrl.includes('telesco.pe')) {
-          return new Response('Invalid URL', { status: 400, headers: corsHeaders });
-        }
+        try {
+          const targetUrl = url.searchParams.get('url');
+          if (!targetUrl || !targetUrl.includes('telesco.pe')) {
+            return new Response('Invalid URL', { status: 400, headers: corsHeaders });
+          }
 
-        // 生成 R2 Key (SHA-256 哈希保证唯一且安全)
-        const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(targetUrl));
-        const key = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+          // 生成 R2 Key (SHA-256 哈希保证唯一且安全)
+          const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(targetUrl));
+          const key = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
 
-        // 1. 尝试从 R2 读取
-        const cached = await env.IMG_CACHE.get(key);
-        if (cached) {
-          const headers = new Headers({
-            'Content-Type': cached.httpMetadata?.contentType || 'image/jpeg',
+          // 1. 尝试从 R2 读取
+          const cached = await env.IMG_CACHE.get(key);
+          if (cached) {
+            const headers = new Headers({
+              'Content-Type': cached.httpMetadata?.contentType || 'image/jpeg',
+              'Cache-Control': 'public, max-age=31536000',
+              'Access-Control-Allow-Origin': '*'
+            });
+            return new Response(cached.body, { headers });
+          }
+
+          // 2. 从 Telegram 源站拉取
+          const tgRes = await fetch(targetUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+              'Referer': 'https://t.me/',
+              'Accept': 'image/*,*/*;q=0.8'
+            }
+          });
+
+          if (!tgRes.ok) {
+            // 降级链：如果源站 404 或 403，返回 302 跳转，让浏览器尝试直连原图
+            if (tgRes.status === 404 || tgRes.status === 403) {
+               return new Response(null, { status: 302, headers: { 'Location': targetUrl } });
+            }
+            return new Response('Source image error: ' + tgRes.status, { status: tgRes.status, headers: corsHeaders });
+          }
+
+          const body = await tgRes.arrayBuffer();
+          const contentType = tgRes.headers.get('Content-Type') || 'image/jpeg';
+
+          // 3. 写入 R2 持久化
+          await env.IMG_CACHE.put(key, body, {
+            httpMetadata: { contentType },
+            customMetadata: { sourceUrl: targetUrl }
+          });
+
+          // 4. 返回给用户
+          const resHeaders = new Headers({
+            'Content-Type': contentType,
             'Cache-Control': 'public, max-age=31536000',
             'Access-Control-Allow-Origin': '*'
           });
-          return new Response(cached.body, { headers });
+          return new Response(body, { headers: resHeaders });
+        } catch (e) {
+          // 降级链：如果请求本身报错，也尝试 302 跳转
+          return new Response(null, { status: 302, headers: { 'Location': targetUrl } });
         }
-
-        // 2. 从 Telegram 源站拉取
-        const tgRes = await fetch(targetUrl, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Referer': 'https://t.me/',
-            'Accept': 'image/*,*/*;q=0.8'
-          }
-        });
-
-        if (!tgRes.ok) {
-          // 降级链：如果源站 404 或 403，返回 302 跳转，让浏览器尝试直连原图
-          if (tgRes.status === 404 || tgRes.status === 403) {
-             return new Response(null, { status: 302, headers: { 'Location': targetUrl } });
-          }
-          return new Response('Source image error: ' + tgRes.status, { status: tgRes.status, headers: corsHeaders });
-        }
-
-        const body = await tgRes.arrayBuffer();
-        const contentType = tgRes.headers.get('Content-Type') || 'image/jpeg';
-
-        // 3. 写入 R2 持久化
-        await env.IMG_CACHE.put(key, body, {
-          httpMetadata: { contentType },
-          customMetadata: { sourceUrl: targetUrl }
-        });
-
-        // 4. 返回给用户
-        const resHeaders = new Headers({
-          'Content-Type': contentType,
-          'Cache-Control': 'public, max-age=31536000',
-          'Access-Control-Allow-Origin': '*'
-        });
-        return new Response(body, { headers: resHeaders });
-      } catch (e) {
-        // 降级链：如果请求本身报错，也尝试 302 跳转
-        return new Response(null, { status: 302, headers: { 'Location': targetUrl } });
-      }
       }
 
       // ==========================================
