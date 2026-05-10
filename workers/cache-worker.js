@@ -296,6 +296,7 @@ function parsePosts(html, channel, lastMsgId, workerUrl) {
       contentHtml = processMediaUrls(finalHtml, workerUrl);
       
       // 标题仅从正文提取
+      let mainText = contentEl.text().trim(); // 获取正文文本
     // 标题智能提取优化：过滤干扰词
     let cleanText = mainText.replace(/(^|\s)([#@]\S+)/g, '').trim(); // 移除 #标签 和 @提及
     const match = cleanText.match(/^.*?(?=[。\n]|http\S)/g);
