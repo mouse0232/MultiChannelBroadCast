@@ -853,7 +853,7 @@ export default {
         return new Response(JSON.stringify({ posts: results }), { 
           headers: { 
             ...corsHeaders, 
-            'Cache-Control': 'public, max-age=300, stale-while-revalidate=600' 
+            'Cache-Control': 'public, max-age=3600, stale-while-revalidate=7200' 
           } 
         })
       }
@@ -884,25 +884,6 @@ export default {
             }
           });
         }
-        
-        // 简单的速率限制：每 IP 每分钟最多 10 次请求
-        const clientIP = request.headers.get('cf-connecting-ip') || 'unknown';
-        const rateLimitKey = `ratelimit:${clientIP}:posts`;
-        const currentCount = await env.CHANNEL_CACHE.get(rateLimitKey);
-        const count = currentCount ? parseInt(currentCount) : 0;
-        
-        if (count >= 10) {
-          if (loggingEnabled) {
-            console.log('Rate limit exceeded:', { ip: clientIP, count: count });
-          }
-          return new Response(JSON.stringify({ error: 'Rate limit exceeded' }), { 
-            status: 429, 
-            headers: corsHeaders 
-          });
-        }
-        
-        // 更新计数器（1分钟过期）
-        await env.CHANNEL_CACHE.put(rateLimitKey, String(count + 1), { expirationTtl: 60 });
         
         const channel = url.searchParams.get('channel') || 'all'
         const limit = Math.min(parseInt(url.searchParams.get('limit') || '20'), 100)
@@ -945,7 +926,7 @@ export default {
         return new Response(JSON.stringify({ posts: results }), { 
           headers: { 
             ...corsHeaders, 
-            'Cache-Control': 'public, max-age=300, stale-while-revalidate=600' 
+            'Cache-Control': 'public, max-age=3600, stale-while-revalidate=7200' 
           } 
         })
       }
