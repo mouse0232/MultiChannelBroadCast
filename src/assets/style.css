@@ -855,6 +855,226 @@ li:has(input[type='checkbox']:checked:disabled)::before {
   }
 }
 
+/* 移动端响应式重构 - 新增规则 */
+@media screen and (max-width: 768px) {
+  /* 主容器全宽 */
+  #main-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding-left: 15px !important;
+    padding-right: 15px !important;
+  }
+  
+  /* 隐藏侧边栏 */
+  #aside-container {
+    display: none !important;
+  }
+  
+  /* 顶部导航优化 */
+  #header {
+    padding: 8px 0px !important;
+    margin-bottom: 12px !important;
+  }
+  
+  .header-avatar {
+    width: 36px !important;
+    height: 36px !important;
+    border-width: 2px !important;
+  }
+  
+  .header-title {
+    font-size: 18px !important;
+    margin-left: 8px !important;
+  }
+  
+  /* 列表项间距调整 */
+  .items {
+    margin-left: 0px !important;
+    margin-top: 16px !important;
+  }
+  
+  /* 内容块内边距调整 */
+  .title-box, .text-box, .image-box, .video-box, .audio-box, .tag-box {
+    padding-left: 20px !important;
+    margin-left: 2px !important;
+  }
+  
+  .title-box {
+    padding-top: 20px !important;
+    padding-bottom: 20px !important;
+    font-size: 20px !important;
+  }
+  
+  .text-box {
+    padding-top: 20px !important;
+    padding-bottom: 20px !important;
+    font-size: 15px !important;
+  }
+  
+  .image-box, .video-box, .audio-box {
+    padding-top: 20px !important;
+    padding-bottom: 20px !important;
+  }
+  
+  .tag-box {
+    padding-top: 0px !important;
+    padding-bottom: 20px !important;
+    font-size: 13px !important;
+  }
+  
+  /* 时间戳样式 */
+  .time-box > .time {
+    font-size: 13px !important;
+  }
+  
+  /* 分页控件优化 */
+  .pages-container {
+    margin-top: 15px !important;
+    margin-bottom: 15px !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+  
+  .pages-info {
+    flex: 1 1 100% !important;
+    order: -1 !important;
+    margin-bottom: 5px !important;
+    font-size: 11px !important;
+  }
+  
+  a.page:link, a.page:visited {
+    padding: 6px 12px !important;
+    font-size: 13px !important;
+  }
+  
+  /* 表格响应式 */
+  .content table {
+    display: block !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  
+  /* 搜索框优化 */
+  .search-form input[type="text"] {
+    font-size: 14px !important;
+  }
+  
+  /* 返回顶部按钮在移动端隐藏（避免与汉堡菜单冲突） */
+  #back-to-top {
+    display: none !important;
+  }
+}
+
+/* 移动端响应式重构 - 新增规则 */
+@media screen and (max-width: 768px) {
+  /* 主容器全宽 */
+  #main-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding-left: 15px !important;
+    padding-right: 15px !important;
+  }
+  
+  /* 隐藏侧边栏 */
+  #aside-container {
+    display: none !important;
+  }
+  
+  /* 顶部导航优化 */
+  #header {
+    padding: 8px 0px !important;
+    margin-bottom: 12px !important;
+  }
+  
+  .header-avatar {
+    width: 36px !important;
+    height: 36px !important;
+    border-width: 2px !important;
+  }
+  
+  .header-title {
+    font-size: 18px !important;
+    margin-left: 8px !important;
+  }
+  
+  /* 列表项间距调整 */
+  .items {
+    margin-left: 0px !important;
+    margin-top: 16px !important;
+  }
+  
+  /* 内容块内边距调整 */
+  .title-box, .text-box, .image-box, .video-box, .audio-box, .tag-box {
+    padding-left: 20px !important;
+    margin-left: 2px !important;
+  }
+  
+  .title-box {
+    padding-top: 20px !important;
+    padding-bottom: 20px !important;
+    font-size: 20px !important;
+  }
+  
+  .text-box {
+    padding-top: 20px !important;
+    padding-bottom: 20px !important;
+    font-size: 15px !important;
+  }
+  
+  .image-box, .video-box, .audio-box {
+    padding-top: 20px !important;
+    padding-bottom: 20px !important;
+  }
+  
+  .tag-box {
+    padding-top: 0px !important;
+    padding-bottom: 20px !important;
+    font-size: 13px !important;
+  }
+  
+  /* 时间戳样式 */
+  .time-box > .time {
+    font-size: 13px !important;
+  }
+  
+  /* 分页控件优化 */
+  .pages-container {
+    margin-top: 15px !important;
+    margin-bottom: 15px !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+  
+  .pages-info {
+    flex: 1 1 100% !important;
+    order: -1 !important;
+    margin-bottom: 5px !important;
+    font-size: 11px !important;
+  }
+  
+  a.page:link, a.page:visited {
+    padding: 6px 12px !important;
+    font-size: 13px !important;
+  }
+  
+  /* 表格响应式 */
+  .content table {
+    display: block !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  
+  /* 搜索框优化 */
+  .search-form input[type="text"] {
+    font-size: 14px !important;
+  }
+  
+  /* 返回顶部按钮在移动端隐藏（避免与汉堡菜单冲突） */
+  #back-to-top {
+    display: none !important;
+  }
+}
+
 @media screen and (max-width: 799px) {
   #container {
     width: 100%;

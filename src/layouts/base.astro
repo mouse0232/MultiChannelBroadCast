@@ -3,6 +3,8 @@ import '../assets/normalize.css'
 import '../assets/style.css'
 import '../assets/item.css'
 import '../assets/global.css'
+import 'prismjs/themes/prism.css'
+import 'prismjs/themes/prism.css'
 import { SEO } from 'astro-seo'
 import { getEnv } from '../lib/env'
 import { getSingleChannelInfo } from '../lib/telegram'
@@ -307,6 +309,7 @@ const showSearchScope = !GOOGLE_SEARCH_SITE && hasChannelScope
         </div>
       </footer>
     )}
+    <script type="module" src="/src/lib/code-highlight-client.js"></script>
   </body>
 </html>
 
