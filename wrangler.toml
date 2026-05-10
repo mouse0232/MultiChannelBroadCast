@@ -3,6 +3,17 @@ compatibility_date = "2024-05-01"
 main = "workers/cache-worker.js"
 compatibility_flags = [ "nodejs_compat" ]
 
+# Observability 配置 - 保持开启状态
+[observability]
+enabled = true
+
+  [observability.logs]
+  head_sampling_rate = 1
+
+  [observability.traces]
+  enabled = true
+  head_sampling_rate = 0.01
+
 # 1. 绑定 D1 数据库
 [[d1_databases]]
 binding = "DB"
