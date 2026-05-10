@@ -136,23 +136,6 @@ const afterCursor = displayPosts[0]?.published_at || displayPosts[0]?.id
         <span class="page-placeholder">&nbsp;</span>
       )
     }
-
-    <div class="pages-info"></div>
-    {
-      before && beforeCursor ? (
-        currentChannel ? (
-          <a href={`${SITE_URL}channel/${currentChannel}/before/${encodeURIComponent(beforeCursor)}`} title="更早" class="page">
-            ← 更早
-          </a>
-        ) : (
-          <a href={`${SITE_URL}before/${encodeURIComponent(beforeCursor)}`} title="更早" class="page">
-            ← 更早
-          </a>
-        )
-      ) : (
-        <span class="page-placeholder">&nbsp;</span>
-      )
-    }
   </div>
 </Layout>
 
