@@ -807,7 +807,7 @@ export default {
       if (url.pathname === '/api/posts/search') {
         const q = url.searchParams.get('q')
         const channel = url.searchParams.get('channel') || 'all'
-        const limit = parseInt(url.searchParams.get('limit') || '20')
+        const limit = Math.min(parseInt(url.searchParams.get('limit') || '20'), 100)
         
         if (!q) {
           return new Response(JSON.stringify({ posts: [] }), { headers: corsHeaders })
@@ -838,7 +838,7 @@ export default {
       // GET /api/posts?channel=all&limit=20&before=2024-01-01T00:00:00Z&after=2024-01-02T00:00:00Z
       if (url.pathname.startsWith('/api/posts')) {
         const channel = url.searchParams.get('channel') || 'all'
-        const limit = parseInt(url.searchParams.get('limit') || '20')
+        const limit = Math.min(parseInt(url.searchParams.get('limit') || '20'), 100)
         const before = url.searchParams.get('before')
         const after = url.searchParams.get('after')
         
