@@ -837,16 +837,19 @@ export default {
       // API: 获取帖子列表
       // GET /api/posts?channel=all&limit=20&before=2024-01-01T00:00:00Z&after=2024-01-02T00:00:00Z
       if (url.pathname.startsWith('/api/posts')) {
-        // 添加调试日志
-        console.log('API posts request:', {
-          channel: url.searchParams.get('channel'),
-          limit: url.searchParams.get('limit'),
-          before: url.searchParams.get('before'),
-          after: url.searchParams.get('after'),
-          userAgent: request.headers.get('user-agent'),
-          referer: request.headers.get('referer'),
-          ip: request.headers.get('cf-connecting-ip')
-        });
+        // 添加调试日志（可配置开关）
+        const loggingEnabled = env.API_LOGGING_ENABLED === 'true';
+        if (loggingEnabled) {
+          console.log('API posts request:', {
+            channel: url.searchParams.get('channel'),
+            limit: url.searchParams.get('limit'),
+            before: url.searchParams.get('before'),
+            after: url.searchParams.get('after'),
+            userAgent: request.headers.get('user-agent'),
+            referer: request.headers.get('referer'),
+            ip: request.headers.get('cf-connecting-ip')
+          });
+        }
         
         // 简单的速率限制：每 IP 每分钟最多 10 次请求
         const clientIP = request.headers.get('cf-connecting-ip') || 'unknown';
