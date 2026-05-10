@@ -853,7 +853,7 @@ export default {
         return new Response(JSON.stringify({ posts: results }), { 
           headers: { 
             ...corsHeaders, 
-            'Cache-Control': 'public, max-age=3600, stale-while-revalidate=7200' 
+            'Cache-Control': 'public, max-age=1800, stale-while-revalidate=3600' 
           } 
         })
       }
@@ -926,7 +926,7 @@ export default {
         return new Response(JSON.stringify({ posts: results }), { 
           headers: { 
             ...corsHeaders, 
-            'Cache-Control': 'public, max-age=3600, stale-while-revalidate=7200' 
+            'Cache-Control': 'public, max-age=1800, stale-while-revalidate=3600' 
           } 
         })
       }
