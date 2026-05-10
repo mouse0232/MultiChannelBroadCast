@@ -30,10 +30,11 @@ try {
   isEmptyState = true
 }
 
-// 获取聚合帖子列表 (所有频道)
+// 获取聚合帖子列表 (所有频道或特定频道)
+const filterChannel = Astro.url.searchParams.get('channel') || 'all';
 let posts = []
 try {
-  posts = await getPosts(Astro, { channel: 'all', limit: 20 })
+  posts = await getPosts(Astro, { channel: filterChannel, limit: 20 })
 } catch (e) {
   console.error('Failed to fetch aggregated posts from D1:', e)
 }
@@ -70,6 +71,27 @@ const siteHeader = {
   <Header channel={siteHeader} showGlobalRss={true} rssUrl={`${SITE_URL}rss.xml`} />
 
   <main class="home-aggregated">
+    {/* 频道过滤栏 */}
+    {!isEmptyState && channelInfos.length > 0 && (
+      <div class="channel-filter-wrapper">
+        <a 
+          href={`${SITE_URL}`} 
+          class={`channel-tag ${filterChannel === 'all' ? 'active' : ''}`}
+        >
+          All
+        </a>
+        {channelInfos.map((info) => (
+          <a 
+            href={`${SITE_URL}?channel=${info.username}`} 
+            class={`channel-tag ${filterChannel === info.username ? 'active' : ''}`}
+            title={info.title}
+          >
+            {info.title}
+          </a>
+        ))}
+      </div>
+    )}
+
     {/* 聚合帖子列表 */}
     <section class="feed-section">
       <h2 class="feed-title">最新动态</h2>
@@ -101,7 +123,7 @@ const siteHeader = {
           {posts.length > 0 && (
             <div class="pagination">
               {afterCursor ? (
-                <a href={`${SITE_URL}after/${encodeURIComponent(afterCursor)}`} title="更新" class="page">
+                <a href={`${SITE_URL}after/${encodeURIComponent(afterCursor)}${filterChannel !== 'all' ? ('?channel=' + filterChannel) : ''}`} title="更新" class="page">
                   更新 →
                 </a>
               ) : (
@@ -109,7 +131,7 @@ const siteHeader = {
               )}
               <div class="pages-info"></div>
               {beforeCursor ? (
-                <a href={`${SITE_URL}before/${encodeURIComponent(beforeCursor)}`} title="更早" class="page">
+                <a href={`${SITE_URL}before/${encodeURIComponent(beforeCursor)}${filterChannel !== 'all' ? ('?channel=' + filterChannel) : ''}`} title="更早" class="page">
                   ← 更早
                 </a>
               ) : (
@@ -152,6 +174,39 @@ const siteHeader = {
     max-width: 980px;
     margin: 0 auto;
     padding: 20px;
+  }
+
+  .channel-filter-wrapper {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    overflow-x: auto;
+    padding-bottom: 10px;
+    scrollbar-width: thin;
+  }
+
+  .channel-tag {
+    display: inline-block;
+    padding: 6px 12px;
+    background: var(--card-bg, #fff);
+    border: 1px solid var(--border-color, #e9e9e9);
+    border-radius: 20px;
+    text-decoration: none;
+    color: var(--text-color, #333);
+    font-size: 14px;
+    white-space: nowrap;
+    transition: all 0.2s;
+  }
+
+  .channel-tag:hover {
+    background: var(--hover-background, #f5f5f5);
+    transform: translateY(-1px);
+  }
+
+  .channel-tag.active {
+    background: var(--text-color, #333);
+    color: var(--background-color, #fff);
+    border-color: var(--text-color, #333);
   }
 
   .feed-section {

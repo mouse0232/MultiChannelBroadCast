@@ -296,8 +296,9 @@ function parsePosts(html, channel, lastMsgId, workerUrl) {
       contentHtml = processMediaUrls(finalHtml, workerUrl);
       
       // 标题仅从正文提取
-      const mainText = contentEl.text().trim();
-      const match = mainText.match(/^.*?(?=[。\n]|http\S)/g);
+    // 标题智能提取优化：过滤干扰词
+    let cleanText = mainText.replace(/(^|\s)([#@]\S+)/g, '').trim(); // 移除 #标签 和 @提及
+    const match = cleanText.match(/^.*?(?=[。\n]|http\S)/g);
       if (match && match[0] && match[0].trim()) {
         title = match[0].trim();
       } else {
@@ -689,7 +690,11 @@ export default {
         });
 
         if (!tgRes.ok) {
-          return new Response('Source image not found', { status: 404, headers: corsHeaders });
+          // 降级链：如果源站 404 或 403，返回 302 跳转，让浏览器尝试直连原图
+          if (tgRes.status === 404 || tgRes.status === 403) {
+             return new Response(null, { status: 302, headers: { 'Location': targetUrl } });
+          }
+          return new Response('Source image error: ' + tgRes.status, { status: tgRes.status, headers: corsHeaders });
         }
 
         const body = await tgRes.arrayBuffer();
@@ -708,6 +713,10 @@ export default {
           'Access-Control-Allow-Origin': '*'
         });
         return new Response(body, { headers: resHeaders });
+      } catch (e) {
+        // 降级链：如果请求本身报错，也尝试 302 跳转
+        return new Response(null, { status: 302, headers: { 'Location': targetUrl } });
+      }
       }
 
       // ==========================================
@@ -784,7 +793,12 @@ export default {
           return new Response(JSON.stringify({ error: 'Post not found' }), { status: 404, headers: corsHeaders })
         }
         
-        return new Response(JSON.stringify({ post: results.results[0] }), { headers: corsHeaders })
+        return new Response(JSON.stringify({ post: results.results[0] }), { 
+          headers: { 
+            ...corsHeaders, 
+            'Cache-Control': 'public, max-age=300, stale-while-revalidate=600' 
+          } 
+        })
       }
 
       // API: 搜索帖子
@@ -811,7 +825,12 @@ export default {
 
         const { results } = await env.DB.prepare(query).bind(...bindings).all()
         
-        return new Response(JSON.stringify({ posts: results }), { headers: corsHeaders })
+        return new Response(JSON.stringify({ posts: results }), { 
+          headers: { 
+            ...corsHeaders, 
+            'Cache-Control': 'public, max-age=300, stale-while-revalidate=600' 
+          } 
+        })
       }
 
       // API: 获取帖子列表
@@ -855,7 +874,12 @@ export default {
           results.reverse()
         }
         
-        return new Response(JSON.stringify({ posts: results }), { headers: corsHeaders })
+        return new Response(JSON.stringify({ posts: results }), { 
+          headers: { 
+            ...corsHeaders, 
+            'Cache-Control': 'public, max-age=300, stale-while-revalidate=600' 
+          } 
+        })
       }
 
       // API: 获取频道信息 (从 channel_meta 提取)
@@ -874,7 +898,12 @@ export default {
           }
         })
 
-        return new Response(JSON.stringify({ channels: allChannels }), { headers: corsHeaders })
+        return new Response(JSON.stringify({ channels: allChannels }), { 
+          headers: { 
+            ...corsHeaders, 
+            'Cache-Control': 'public, max-age=300, stale-while-revalidate=600' 
+          } 
+        })
       }
 
       return new Response('Worker is running.', { status: 200 })
