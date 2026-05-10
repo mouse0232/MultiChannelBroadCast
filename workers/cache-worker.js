@@ -805,6 +805,29 @@ export default {
       // API: 搜索帖子
       // GET /api/posts/search?q=keyword&channel=all
       if (url.pathname === '/api/posts/search') {
+        // 添加增强调试日志（可配置开关）
+        const loggingEnabled = env.API_LOGGING_ENABLED === 'true';
+        if (loggingEnabled) {
+          console.log('API Debug:', {
+            timestamp: new Date().toISOString(),
+            path: url.pathname,
+            method: request.method,
+            params: {
+              q: url.searchParams.get('q'),
+              channel: url.searchParams.get('channel'),
+              limit: url.searchParams.get('limit')
+            },
+            headers: {
+              userAgent: request.headers.get('user-agent'),
+              referer: request.headers.get('referer'),
+              origin: request.headers.get('origin'),
+              cfConnectingIP: request.headers.get('cf-connecting-ip'),
+              cfRay: request.headers.get('cf-ray'),
+              accept: request.headers.get('accept')
+            }
+          });
+        }
+        
         const q = url.searchParams.get('q')
         const channel = url.searchParams.get('channel') || 'all'
         const limit = Math.min(parseInt(url.searchParams.get('limit') || '20'), 100)
@@ -837,17 +860,27 @@ export default {
       // API: 获取帖子列表
       // GET /api/posts?channel=all&limit=20&before=2024-01-01T00:00:00Z&after=2024-01-02T00:00:00Z
       if (url.pathname.startsWith('/api/posts')) {
-        // 添加调试日志（可配置开关）
+        // 添加增强调试日志（可配置开关）
         const loggingEnabled = env.API_LOGGING_ENABLED === 'true';
         if (loggingEnabled) {
-          console.log('API posts request:', {
-            channel: url.searchParams.get('channel'),
-            limit: url.searchParams.get('limit'),
-            before: url.searchParams.get('before'),
-            after: url.searchParams.get('after'),
-            userAgent: request.headers.get('user-agent'),
-            referer: request.headers.get('referer'),
-            ip: request.headers.get('cf-connecting-ip')
+          console.log('API Debug:', {
+            timestamp: new Date().toISOString(),
+            path: url.pathname,
+            method: request.method,
+            params: {
+              channel: url.searchParams.get('channel'),
+              limit: url.searchParams.get('limit'),
+              before: url.searchParams.get('before'),
+              after: url.searchParams.get('after')
+            },
+            headers: {
+              userAgent: request.headers.get('user-agent'),
+              referer: request.headers.get('referer'),
+              origin: request.headers.get('origin'),
+              cfConnectingIP: request.headers.get('cf-connecting-ip'),
+              cfRay: request.headers.get('cf-ray'),
+              accept: request.headers.get('accept')
+            }
           });
         }
         
@@ -858,6 +891,9 @@ export default {
         const count = currentCount ? parseInt(currentCount) : 0;
         
         if (count >= 10) {
+          if (loggingEnabled) {
+            console.log('Rate limit exceeded:', { ip: clientIP, count: count });
+          }
           return new Response(JSON.stringify({ error: 'Rate limit exceeded' }), { 
             status: 429, 
             headers: corsHeaders 
