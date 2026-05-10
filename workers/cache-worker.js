@@ -837,6 +837,33 @@ export default {
       // API: 获取帖子列表
       // GET /api/posts?channel=all&limit=20&before=2024-01-01T00:00:00Z&after=2024-01-02T00:00:00Z
       if (url.pathname.startsWith('/api/posts')) {
+        // 添加调试日志
+        console.log('API posts request:', {
+          channel: url.searchParams.get('channel'),
+          limit: url.searchParams.get('limit'),
+          before: url.searchParams.get('before'),
+          after: url.searchParams.get('after'),
+          userAgent: request.headers.get('user-agent'),
+          referer: request.headers.get('referer'),
+          ip: request.headers.get('cf-connecting-ip')
+        });
+        
+        // 简单的速率限制：每 IP 每分钟最多 10 次请求
+        const clientIP = request.headers.get('cf-connecting-ip') || 'unknown';
+        const rateLimitKey = `ratelimit:${clientIP}:posts`;
+        const currentCount = await env.CHANNEL_CACHE.get(rateLimitKey);
+        const count = currentCount ? parseInt(currentCount) : 0;
+        
+        if (count >= 10) {
+          return new Response(JSON.stringify({ error: 'Rate limit exceeded' }), { 
+            status: 429, 
+            headers: corsHeaders 
+          });
+        }
+        
+        // 更新计数器（1分钟过期）
+        await env.CHANNEL_CACHE.put(rateLimitKey, String(count + 1), { expirationTtl: 60 });
+        
         const channel = url.searchParams.get('channel') || 'all'
         const limit = Math.min(parseInt(url.searchParams.get('limit') || '20'), 100)
         const before = url.searchParams.get('before')
