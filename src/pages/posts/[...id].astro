@@ -14,8 +14,11 @@ let channelTitle = ''
 
 try {
   const baseUrl = getWorkerBaseUrl(Astro)
+  const secret = import.meta.env.PUBLIC_API_SECRET_KEY || ''
   // 使用完整 ID 精确查询
-  const res = await fetch(`${baseUrl}/api/post/${encodeURIComponent(decodedId)}`)
+  const res = await fetch(`${baseUrl}/api/post/${encodeURIComponent(decodedId)}`, {
+    headers: { 'X-API-Secret': secret }
+  })
   if (res.ok) {
     const data = await res.json()
     post = data.post
