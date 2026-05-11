@@ -131,7 +131,7 @@ const siteHeader = {
               )}
               <div class="pages-info"></div>
               {beforeCursor ? (
-                <a href={`${SITE_URL}before/${encodeURIComponent(beforeCursor)}${filterChannel !== 'all' ? ('?channel=' + filterChannel) : ''}`} title="更早" class="page">
+                <a href={`${SITE_URL}before/${encodeURIComponent(beforeCursor)}${filterChannel !== 'all' ? ('?channel=' + filterChannel + '&page=2') : ('?page=2')}`} title="更早" class="page">
                   ← 更早
                 </a>
               ) : (

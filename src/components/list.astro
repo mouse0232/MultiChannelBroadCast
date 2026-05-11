@@ -4,16 +4,39 @@ import Header from '../components/header.astro'
 import Item from '../components/item.astro'
 
 const { SITE_URL } = Astro.locals
-const { channel, before = true, after = true, isItem = false, currentChannel, hasMoreBefore = true } = Astro.props
+const { 
+  channel, 
+  before = true, 
+  after = true, 
+  isItem = false, 
+  currentChannel, 
+  hasMoreBefore = true,
+  maxPages = 100,       // 默认最大页数
+  currentPage = 1       // 当前页码
+} = Astro.props
 const posts = channel.posts ?? []
 
-// 分页优化: 每页显示20条
+// 分页优化: 每页显示 20 条
 const POSTS_PER_PAGE = 20
 const displayPosts = posts.slice(0, POSTS_PER_PAGE)
 
-// 使用 published_at 作为分页 cursor（避免 id 含斜杠导致路由 404）
+// 使用 published_at 作为分页 cursor
 const beforeCursor = displayPosts[displayPosts.length - 1]?.published_at || displayPosts[displayPosts.length - 1]?.id
 const afterCursor = displayPosts[0]?.published_at || displayPosts[0]?.id
+
+// 判断是否达到页数上限
+const isLimitReached = currentPage >= maxPages
+
+// 判断是否为单频道模式（有 currentChannel 或 channel.username 不为 'all'）
+const isSingleChannelMode = !!currentChannel || (channel.username && channel.username !== 'all')
+
+// 获取最后一条消息的 ID 用于生成 TG 链接
+const lastPostId = displayPosts.length > 0 ? displayPosts[displayPosts.length - 1].id.split('/').pop() : null
+const tgLink = isSingleChannelMode && lastPostId && currentChannel 
+  ? `https://t.me/s/${currentChannel}/${lastPostId}` 
+  : (isSingleChannelMode && lastPostId && channel.username !== 'all' 
+      ? `https://t.me/s/${channel.username}/${lastPostId}` 
+      : null)
 ---
 
 <Layout channel={channel} currentChannel={currentChannel} id="main-container">
@@ -119,13 +142,13 @@ const afterCursor = displayPosts[0]?.published_at || displayPosts[0]?.id
         )
       }
     {
-      before && beforeCursor && hasMoreBefore ? (
+      before && beforeCursor && hasMoreBefore && !isLimitReached ? (
         currentChannel ? (
-          <a href={`${SITE_URL}channel/${currentChannel}/before/${encodeURIComponent(beforeCursor)}`} title="更早" class="page page-older">
+          <a href={`${SITE_URL}channel/${currentChannel}/before/${encodeURIComponent(beforeCursor)}?page=${currentPage + 1}`} title="更早" class="page page-older">
             ← 更早
           </a>
         ) : (
-          <a href={`${SITE_URL}before/${encodeURIComponent(beforeCursor)}${Astro.url.searchParams.get('channel') ? ('?channel=' + Astro.url.searchParams.get('channel')) : ''}`} title="更早" class="page page-older">
+          <a href={`${SITE_URL}before/${encodeURIComponent(beforeCursor)}${Astro.url.searchParams.get('channel') ? ('?channel=' + Astro.url.searchParams.get('channel') + '&page=' + (currentPage + 1)) : ('?page=' + (currentPage + 1))}`} title="更早" class="page page-older">
             ← 更早
           </a>
         )
@@ -134,6 +157,26 @@ const afterCursor = displayPosts[0]?.published_at || displayPosts[0]?.id
       )
     }
   </div>
+
+  {isLimitReached && !isSingleChannelMode && (
+    <div class="limit-message">
+      <p>已加载 {maxPages} 页，更多内容请筛选频道查看。</p>
+    </div>
+  )}
+
+  {isLimitReached && isSingleChannelMode && tgLink && (
+    <div class="limit-message">
+      <p>已加载 {maxPages} 页，查看更多历史消息请访问 Telegram 官方频道。</p>
+      <a href={tgLink} target="_blank" rel="noopener noreferrer" class="tg-link-btn">前往 Telegram 官方频道 →</a>
+    </div>
+  )}
+
+  {hasMoreBefore === false && posts.length > 0 && isSingleChannelMode && tgLink && (
+    <div class="limit-message">
+      <p>没有更多消息了，查看完整历史请访问 Telegram 官方频道。</p>
+      <a href={tgLink} target="_blank" rel="noopener noreferrer" class="tg-link-btn">前往 Telegram 官方频道 →</a>
+    </div>
+  )}
   </div>
 </Layout>
 
@@ -176,5 +219,29 @@ const afterCursor = displayPosts[0]?.published_at || displayPosts[0]?.id
 
   .page-placeholder {
     visibility: hidden;
+  }
+
+  .limit-message {
+    padding: 40px 20px;
+    text-align: center;
+    color: var(--secondary-color, #666);
+    font-size: 0.95rem;
+    margin-top: 20px;
+  }
+  .limit-message p {
+    margin-bottom: 15px;
+  }
+  .tg-link-btn {
+    display: inline-block;
+    padding: 10px 20px;
+    background: #2481cc;
+    color: white;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: bold;
+    transition: opacity 0.2s;
+  }
+  .tg-link-btn:hover {
+    opacity: 0.85;
   }
 </style>
