@@ -30,7 +30,14 @@ export async function getPosts(Astro, { channel = 'all', limit = 20, before = ''
   if (before) params.set('before', before)
   if (after) params.set('after', after)
   
-  const res = await fetch(`${baseUrl}/api/posts?${params}`)
+  // 获取真实用户 IP (从 Cloudflare Pages 请求头中)
+  const realIP = Astro.request?.headers?.get('cf-connecting-ip') || Astro.request?.headers?.get('x-real-ip');
+  const headers = {};
+  if (realIP) {
+      headers['X-Real-User-IP'] = realIP;
+  }
+
+  const res = await fetch(`${baseUrl}/api/posts?${params}`, { headers })
   if (!res.ok) throw new Error('Failed to fetch posts')
   const data = await res.json()
   return data.posts

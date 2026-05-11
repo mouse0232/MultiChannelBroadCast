@@ -864,10 +864,14 @@ export default {
         // 添加增强调试日志（可配置开关）
         const loggingEnabled = env.API_LOGGING_ENABLED === 'true';
         if (loggingEnabled) {
+          // 优先读取 Pages 传递的真实 IP，否则 fallback 到 CF 原始 IP
+          const realUserIP = request.headers.get('x-real-user-ip') || request.headers.get('cf-connecting-ip');
+          
           console.log('API Debug:', {
             timestamp: new Date().toISOString(),
             path: url.pathname,
             method: request.method,
+            realUserIP: realUserIP, // 记录真实 IP
             params: {
               channel: url.searchParams.get('channel'),
               limit: url.searchParams.get('limit'),
@@ -878,7 +882,7 @@ export default {
               userAgent: request.headers.get('user-agent'),
               referer: request.headers.get('referer'),
               origin: request.headers.get('origin'),
-              cfConnectingIP: request.headers.get('cf-connecting-ip'),
+              cfConnectingIP: request.headers.get('cf-connecting-ip'), // 对比用
               cfRay: request.headers.get('cf-ray'),
               accept: request.headers.get('accept')
             }
