@@ -13,7 +13,7 @@ export function getWorkerBaseUrl(Astro) {
  */
 export async function getChannels(Astro) {
   const baseUrl = getWorkerBaseUrl(Astro)
-  const secret = import.meta.env.API_SECRET_KEY || ''
+  const secret = import.meta.env.PUBLIC_API_SECRET_KEY || ''
   const res = await fetch(`${baseUrl}/api/channels`, {
       headers: { 'X-API-Secret': secret }
   })
@@ -29,7 +29,7 @@ export async function getChannels(Astro) {
  */
 export async function getPosts(Astro, { channel = 'all', limit = 20, before = '', after = '' } = {}) {
   const baseUrl = getWorkerBaseUrl(Astro)
-  const secret = import.meta.env.API_SECRET_KEY || ''
+  const secret = import.meta.env.PUBLIC_API_SECRET_KEY || ''
   const params = new URLSearchParams({ channel, limit: String(limit) })
   if (before) params.set('before', before)
   if (after) params.set('after', after)
