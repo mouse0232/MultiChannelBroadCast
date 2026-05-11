@@ -14,7 +14,7 @@ const channelName = scope === 'channel' ? requestedChannel : 'all'
 let posts = []
 try {
   const baseUrl = getWorkerBaseUrl(Astro)
-  const secret = import.meta.env.PUBLIC_API_SECRET_KEY || ''
+  const secret = Astro.locals?.runtime?.env?.API_SECRET_KEY || import.meta.env.PUBLIC_API_SECRET_KEY || '';
   const res = await fetch(`${baseUrl}/api/posts/search?q=${encodeURIComponent(q)}&channel=${channelName}`, {
     headers: { 'X-API-Secret': secret }
   })

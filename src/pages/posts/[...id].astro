@@ -14,7 +14,7 @@ let channelTitle = ''
 
 try {
   const baseUrl = getWorkerBaseUrl(Astro)
-  const secret = import.meta.env.PUBLIC_API_SECRET_KEY || ''
+  const secret = Astro.locals?.runtime?.env?.API_SECRET_KEY || import.meta.env.PUBLIC_API_SECRET_KEY || '';
   // 使用完整 ID 精确查询
   const res = await fetch(`${baseUrl}/api/post/${encodeURIComponent(decodedId)}`, {
     headers: { 'X-API-Secret': secret }

@@ -13,7 +13,8 @@ export function getWorkerBaseUrl(Astro) {
  */
 export async function getChannels(Astro) {
   const baseUrl = getWorkerBaseUrl(Astro)
-  const secret = import.meta.env.PUBLIC_API_SECRET_KEY || ''
+  // 优先从运行时环境获取 Secret，避免暴露给客户端
+  const secret = Astro.locals?.runtime?.env?.API_SECRET_KEY || import.meta.env.PUBLIC_API_SECRET_KEY || '';
   const res = await fetch(`${baseUrl}/api/channels`, {
       headers: { 'X-API-Secret': secret }
   })
@@ -29,7 +30,8 @@ export async function getChannels(Astro) {
  */
 export async function getPosts(Astro, { channel = 'all', limit = 20, before = '', after = '' } = {}) {
   const baseUrl = getWorkerBaseUrl(Astro)
-  const secret = import.meta.env.PUBLIC_API_SECRET_KEY || ''
+  // 优先从运行时环境获取 Secret，避免暴露给客户端
+  const secret = Astro.locals?.runtime?.env?.API_SECRET_KEY || import.meta.env.PUBLIC_API_SECRET_KEY || '';
   const params = new URLSearchParams({ channel, limit: String(limit) })
   if (before) params.set('before', before)
   if (after) params.set('after', after)
