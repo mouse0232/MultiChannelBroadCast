@@ -17,7 +17,7 @@ export async function GET(context) {
     .map(
       (post) => `
   <url>
-    <loc>${site.origin}/posts/${post.id}</loc>
+    <loc>${site.origin}/posts/${encodeURIComponent(post.id)}</loc>
     <lastmod>${post.datetime}</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>

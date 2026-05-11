@@ -24,7 +24,7 @@ export async function GET(context) {
     items: posts.map((post) => ({
       title: post.title || 'New Post',
       pubDate: new Date(post.published_at || post.datetime),
-      link: `${SITE_URL}posts/${post.id.split('/').pop()}`,
+      link: `${SITE_URL}posts/${encodeURIComponent(post.id)}`,
       content: sanitizeHtml(post.content || '', {
         allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img', 'video', 'audio']),
         allowedAttributes: {

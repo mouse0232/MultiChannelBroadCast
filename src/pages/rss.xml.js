@@ -32,7 +32,7 @@ export async function GET(context) {
       return {
         title: title,
         pubDate: new Date(post.published_at || post.datetime),
-        link: `${SITE_URL}posts/${post.id.split('/').pop()}`,
+        link: `${SITE_URL}posts/${encodeURIComponent(post.id)}`,
         content: sanitizeHtml(post.content || '', {
           allowedTags: sanitizeHtml.defaults.allowedTags.concat(['img', 'video', 'audio']),
           allowedAttributes: {

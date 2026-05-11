@@ -21,8 +21,8 @@ export async function GET(context) {
       ],
       language: 'zh-CN',
       items: channel.posts.map((post) => ({
-        id: `${SITE_URL}posts/${post.id}`,
-        url: `${SITE_URL}posts/${post.id}`,
+        id: `${SITE_URL}posts/${encodeURIComponent(post.id)}`,
+        url: `${SITE_URL}posts/${encodeURIComponent(post.id)}`,
         title: post.title,
         content_html: post.content,
         date_published: post.datetime,
