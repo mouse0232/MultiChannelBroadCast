@@ -44,10 +44,18 @@ async function scheduled(event, env, ctx) {
 
   // 2. 定期清理 D1 旧数据 (例如：每次 Cron 执行时，清理一年前的数据)
   try {
+    // 清理过期的帖子
     const deleteResult = await env.DB.prepare(
       "DELETE FROM posts WHERE published_at < datetime('now', '-1 year')"
     ).run()
     console.log(`🧹 Cleaned up old posts from D1: ${deleteResult.meta.changes || 0} rows deleted`)
+
+    // 清理对应的推送日志（当帖子被删除后，日志也就没有意义了）
+    // 注意：这不需要时间字段，只要帖子不在 posts 表里了，就清理日志
+    const logDeleteResult = await env.DB.prepare(
+      "DELETE FROM push_logs WHERE post_id NOT IN (SELECT id FROM posts)"
+    ).run()
+    console.log(`🧹 Cleaned up orphan push_logs: ${logDeleteResult.meta.changes || 0} rows deleted`)
   } catch (e) {
     console.error('D1 cleanup failed:', e)
   }
