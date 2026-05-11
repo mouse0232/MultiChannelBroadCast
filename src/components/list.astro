@@ -125,6 +125,27 @@ const tgLink = isSingleChannelMode && lastPostId && currentChannel
     </div>
   )}
 
+  {/* 分页提示信息：放在分页按钮上方 */}
+  {isLimitReached && !isSingleChannelMode && (
+    <div class="limit-message">
+      <p>已加载 {maxPages} 页，更多内容请筛选频道查看。</p>
+    </div>
+  )}
+
+  {isLimitReached && isSingleChannelMode && tgLink && (
+    <div class="limit-message">
+      <p>已加载 {maxPages} 页，查看更多历史消息请访问 Telegram 官方频道。</p>
+      <a href={tgLink} target="_blank" rel="noopener noreferrer" class="tg-link-btn">前往 Telegram 官方频道 →</a>
+    </div>
+  )}
+
+  {hasMoreBefore === false && posts.length > 0 && isSingleChannelMode && tgLink && (
+    <div class="limit-message">
+      <p>没有更多消息了，查看完整历史请访问 Telegram 官方频道。</p>
+      <a href={tgLink} target="_blank" rel="noopener noreferrer" class="tg-link-btn">前往 Telegram 官方频道 →</a>
+    </div>
+  )}
+
   <div class="pages-container">
     {
       after && afterCursor ? (
@@ -157,26 +178,6 @@ const tgLink = isSingleChannelMode && lastPostId && currentChannel
       )
     }
   </div>
-
-  {isLimitReached && !isSingleChannelMode && (
-    <div class="limit-message">
-      <p>已加载 {maxPages} 页，更多内容请筛选频道查看。</p>
-    </div>
-  )}
-
-  {isLimitReached && isSingleChannelMode && tgLink && (
-    <div class="limit-message">
-      <p>已加载 {maxPages} 页，查看更多历史消息请访问 Telegram 官方频道。</p>
-      <a href={tgLink} target="_blank" rel="noopener noreferrer" class="tg-link-btn">前往 Telegram 官方频道 →</a>
-    </div>
-  )}
-
-  {hasMoreBefore === false && posts.length > 0 && isSingleChannelMode && tgLink && (
-    <div class="limit-message">
-      <p>没有更多消息了，查看完整历史请访问 Telegram 官方频道。</p>
-      <a href={tgLink} target="_blank" rel="noopener noreferrer" class="tg-link-btn">前往 Telegram 官方频道 →</a>
-    </div>
-  )}
   </div>
 </Layout>
 
