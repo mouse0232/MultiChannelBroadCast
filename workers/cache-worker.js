@@ -556,6 +556,15 @@ export default {
       // API: 重新抓取并更新旧帖子 (供修复抓取逻辑后使用)
       // GET /api/regrab?channel=all&limit=100
       if (url.pathname === '/api/regrab') {
+        // Secret 验证：管理接口必须加锁
+        const providedSecret = request.headers.get('X-API-Secret') || ''
+        if (env.API_SECRET_KEY && providedSecret !== env.API_SECRET_KEY) {
+          return new Response(JSON.stringify({ error: 'Unauthorized: Invalid Secret Key' }), { 
+            status: 403, 
+            headers: corsHeaders 
+          })
+        }
+
         const channelsStr = env.CHANNELS || ''
         const channels = channelsStr.split(',').map(c => c.trim()).filter(Boolean)
         const regrabLimit = parseInt(url.searchParams.get('limit') || '50')
@@ -613,6 +622,15 @@ export default {
       // API: 初始化并测试推送 (供首次部署后手动触发)
       // GET /api/init
       if (url.pathname === '/api/init') {
+        // Secret 验证：管理接口必须加锁
+        const providedSecret = request.headers.get('X-API-Secret') || ''
+        if (env.API_SECRET_KEY && providedSecret !== env.API_SECRET_KEY) {
+          return new Response(JSON.stringify({ error: 'Unauthorized: Invalid Secret Key' }), { 
+            status: 403, 
+            headers: corsHeaders 
+          })
+        }
+
         const channelsStr = env.CHANNELS || ''
         const channels = channelsStr.split(',').map(c => c.trim()).filter(Boolean)
         let successCount = 0
