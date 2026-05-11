@@ -776,8 +776,16 @@ export default {
       }
 
       // API: 获取单个帖子
-      // GET /api/post/channel%2F12345 -> 精确匹配完整 ID
       if (url.pathname.startsWith('/api/post/')) {
+        // Secret 验证
+        const providedSecret = request.headers.get('X-API-Secret') || ''
+        if (env.API_SECRET_KEY && providedSecret !== env.API_SECRET_KEY) {
+          return new Response(JSON.stringify({ error: 'Unauthorized' }), { 
+            status: 403, 
+            headers: corsHeaders 
+          })
+        }
+
         const rawId = decodeURIComponent(url.pathname.split('/api/post/').pop())
         
         // 校验 ID 格式：必须包含斜杠 (channel/id)
@@ -804,15 +812,26 @@ export default {
       }
 
       // API: 搜索帖子
-      // GET /api/posts/search?q=keyword&channel=all
       if (url.pathname === '/api/posts/search') {
-        // 添加增强调试日志（可配置开关）
+        // Secret 验证
+        const providedSecret = request.headers.get('X-API-Secret') || ''
+        if (env.API_SECRET_KEY && providedSecret !== env.API_SECRET_KEY) {
+          return new Response(JSON.stringify({ error: 'Unauthorized' }), { 
+            status: 403, 
+            headers: corsHeaders 
+          })
+        }
+
+        // 添加增强调试日志
         const loggingEnabled = env.API_LOGGING_ENABLED === 'true';
         if (loggingEnabled) {
+          const realUserIP = request.headers.get('x-real-user-ip') || request.headers.get('cf-connecting-ip');
+          
           console.log('API Debug:', {
             timestamp: new Date().toISOString(),
             path: url.pathname,
             method: request.method,
+            realUserIP: realUserIP,
             params: {
               q: url.searchParams.get('q'),
               channel: url.searchParams.get('channel'),
@@ -859,19 +878,26 @@ export default {
       }
 
       // API: 获取帖子列表
-      // GET /api/posts?channel=all&limit=20&before=2024-01-01T00:00:00Z&after=2024-01-02T00:00:00Z
       if (url.pathname.startsWith('/api/posts')) {
-        // 添加增强调试日志（可配置开关）
+        // Secret 验证
+        const providedSecret = request.headers.get('X-API-Secret') || ''
+        if (env.API_SECRET_KEY && providedSecret !== env.API_SECRET_KEY) {
+          return new Response(JSON.stringify({ error: 'Unauthorized' }), { 
+            status: 403, 
+            headers: corsHeaders 
+          })
+        }
+
+        // 添加增强调试日志
         const loggingEnabled = env.API_LOGGING_ENABLED === 'true';
         if (loggingEnabled) {
-          // 优先读取 Pages 传递的真实 IP，否则 fallback 到 CF 原始 IP
           const realUserIP = request.headers.get('x-real-user-ip') || request.headers.get('cf-connecting-ip');
           
           console.log('API Debug:', {
             timestamp: new Date().toISOString(),
             path: url.pathname,
             method: request.method,
-            realUserIP: realUserIP, // 记录真实 IP
+            realUserIP: realUserIP,
             params: {
               channel: url.searchParams.get('channel'),
               limit: url.searchParams.get('limit'),
@@ -882,7 +908,7 @@ export default {
               userAgent: request.headers.get('user-agent'),
               referer: request.headers.get('referer'),
               origin: request.headers.get('origin'),
-              cfConnectingIP: request.headers.get('cf-connecting-ip'), // 对比用
+              cfConnectingIP: request.headers.get('cf-connecting-ip'),
               cfRay: request.headers.get('cf-ray'),
               accept: request.headers.get('accept')
             }
@@ -936,8 +962,16 @@ export default {
       }
 
       // API: 获取频道信息 (从 channel_meta 提取)
-      // GET /api/channels
       if (url.pathname.startsWith('/api/channels')) {
+        // Secret 验证
+        const providedSecret = request.headers.get('X-API-Secret') || ''
+        if (env.API_SECRET_KEY && providedSecret !== env.API_SECRET_KEY) {
+          return new Response(JSON.stringify({ error: 'Unauthorized' }), { 
+            status: 403, 
+            headers: corsHeaders 
+          })
+        }
+
         const { results } = await env.DB.prepare("SELECT channel, last_msg_id, title, avatar FROM channel_meta").all()
         
         // 补充 env.CHANNELS 中配置但未抓取过的频道

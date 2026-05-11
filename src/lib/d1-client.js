@@ -13,7 +13,10 @@ export function getWorkerBaseUrl(Astro) {
  */
 export async function getChannels(Astro) {
   const baseUrl = getWorkerBaseUrl(Astro)
-  const res = await fetch(`${baseUrl}/api/channels`)
+  const secret = import.meta.env.API_SECRET_KEY || ''
+  const res = await fetch(`${baseUrl}/api/channels`, {
+      headers: { 'X-API-Secret': secret }
+  })
   if (!res.ok) throw new Error('Failed to fetch channels')
   const data = await res.json()
   return data.channels
@@ -26,13 +29,18 @@ export async function getChannels(Astro) {
  */
 export async function getPosts(Astro, { channel = 'all', limit = 20, before = '', after = '' } = {}) {
   const baseUrl = getWorkerBaseUrl(Astro)
+  const secret = import.meta.env.API_SECRET_KEY || ''
   const params = new URLSearchParams({ channel, limit: String(limit) })
   if (before) params.set('before', before)
   if (after) params.set('after', after)
   
-  // 获取真实用户 IP (从 Cloudflare Pages 请求头中)
+  // 获取真实用户 IP
   const realIP = Astro.request?.headers?.get('cf-connecting-ip') || Astro.request?.headers?.get('x-real-ip');
-  const headers = {};
+  
+  // 构建请求头
+  const headers = {
+      'X-API-Secret': secret,
+  };
   if (realIP) {
       headers['X-Real-User-IP'] = realIP;
   }
