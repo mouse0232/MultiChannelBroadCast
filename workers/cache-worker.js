@@ -226,25 +226,31 @@ function processMediaUrls(html, workerUrl) {
 }
 
 async function fetchAndParse(channel, env, lastMsgId) {
-  // Host 轮询逻辑
-  const hosts = (env.TELEGRAM_HOST || 't.me').split(',').map(h => h.trim())
-  const host = hosts[Math.floor(Math.random() * hosts.length)]
+  const hosts = (env.TELEGRAM_HOST || 't.me').split(',').map(h => h.trim()).filter(Boolean)
+  const workerUrl = env.WORKER_URL || '' 
   
-  const url = `https://${host}/s/${channel}`
-  const headers = { 
-    'User-Agent': getRandomUserAgent(),
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-    'Accept-Language': 'en-US,en;q=0.5'
+  // 接力模式：按顺序尝试 Host，直到成功
+  for (const host of hosts) {
+    console.log(`🔄 Trying host: ${host} for channel ${channel}`)
+    
+    try {
+      const url = `https://${host}/s/${channel}`
+      const headers = { 
+        'User-Agent': getRandomUserAgent(),
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5'
+      }
+      
+      const html = await $fetch(url, { headers, retry: 1, retryDelay: 1000 })
+      console.log(`✅ Successfully fetched from ${host}`)
+      return parsePosts(html, channel, lastMsgId, workerUrl)
+    } catch (e) {
+      console.warn(`❌ Host ${host} failed: ${e.message}. Trying next host...`)
+      // 继续循环尝试下一个
+    }
   }
-  
-  try {
-    const html = await $fetch(url, { headers, retry: 2, retryDelay: 2000 })
-    // 传入 Worker URL 用于生成图片代理链接
-    const workerUrl = env.WORKER_URL || '' 
-    return parsePosts(html, channel, lastMsgId, workerUrl)
-  } catch (e) {
-    throw new Error(`Fetch failed: ${e.message}`)
-  }
+
+  throw new Error(`All hosts failed for channel: ${channel}`)
 }
 
 function parsePosts(html, channel, lastMsgId, workerUrl) {
