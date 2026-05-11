@@ -689,8 +689,18 @@ export default {
       if (url.pathname === '/img-proxy') {
         try {
           const targetUrl = url.searchParams.get('url');
-          if (!targetUrl || !targetUrl.includes('telesco.pe')) {
-            return new Response('Invalid URL', { status: 400, headers: corsHeaders });
+          if (!targetUrl) return new Response('Missing url parameter', { status: 400, headers: corsHeaders });
+
+          // 严格安全校验：防止被当作开放代理 (Open Proxy)
+          try {
+            const parsedUrl = new URL(targetUrl);
+            // 仅允许代理 Telegram 官方 CDN 域名 (防止恶意滥用)
+            const isTelegram = parsedUrl.hostname === 'telesco.pe' || parsedUrl.hostname.endsWith('.telesco.pe');
+            if (!isTelegram) {
+              return new Response('Forbidden: Only Telegram CDN images are allowed', { status: 403, headers: corsHeaders });
+            }
+          } catch (e) {
+            return new Response('Invalid URL format', { status: 400, headers: corsHeaders });
           }
 
           // 生成 R2 Key (SHA-256 哈希保证唯一且安全)
