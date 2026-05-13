@@ -20,15 +20,34 @@ function randomDelay(min = 1000, max = 3000) {
 }
 
 // ==========================================
+// 0. 日志控制工具
+// ==========================================
+// 根据环境变量 LOG_LEVEL 控制日志输出
+// 默认：ERROR 模式 (只输出错误)
+// 配置 LOG_LEVEL=INFO：输出所有日志 (Debug)
+function createLogger(env) {
+  const isDebug = env.LOG_LEVEL === 'INFO';
+  return {
+    info: (...args) => { if (isDebug) console.log(...args); },
+    error: (...args) => console.error(...args)
+  };
+}
+
+// ==========================================
 // 1. Cron 触发器 (生产者)
 // ==========================================
 async function scheduled(event, env, ctx) {
-  console.log('⏰ Cron triggered: Dispatching tasks')
+  const log = createLogger(env);
+  
+  log.info('⏰ Cron triggered: Dispatching tasks')
 
   const channelsStr = env.CHANNELS || ''
   const channels = channelsStr.split(',').map(c => c.trim()).filter(Boolean)
 
-  if (channels.length === 0) return console.warn('No channels configured')
+  if (channels.length === 0) {
+    log.info('No channels configured')
+    return 
+  }
 
   // 1. 发送抓取任务到队列
   const tasks = channels.map(ch => ({ channel: ch }))
@@ -37,9 +56,9 @@ async function scheduled(event, env, ctx) {
   try {
     // 批量发送
     await env.TASK_QUEUE.sendBatch(tasks.map(task => ({ body: task })))
-    console.log(`✅ Dispatched ${tasks.length} tasks to Queue`)
+    log.info(`✅ Dispatched ${tasks.length} tasks to Queue`)
   } catch (e) {
-    console.error('Failed to send tasks to Queue:', e)
+    log.error('Failed to send tasks to Queue:', e)
   }
 
   // 2. 定期清理 D1 旧数据 (例如：每次 Cron 执行时，清理一年前的数据)
@@ -48,16 +67,16 @@ async function scheduled(event, env, ctx) {
     const deleteResult = await env.DB.prepare(
       "DELETE FROM posts WHERE published_at < datetime('now', '-1 year')"
     ).run()
-    console.log(`🧹 Cleaned up old posts from D1: ${deleteResult.meta.changes || 0} rows deleted`)
+    log.info(`🧹 Cleaned up old posts from D1: ${deleteResult.meta.changes || 0} rows deleted`)
 
     // 清理对应的推送日志（当帖子被删除后，日志也就没有意义了）
     // 注意：这不需要时间字段，只要帖子不在 posts 表里了，就清理日志
     const logDeleteResult = await env.DB.prepare(
       "DELETE FROM push_logs WHERE post_id NOT IN (SELECT id FROM posts)"
     ).run()
-    console.log(`🧹 Cleaned up orphan push_logs: ${logDeleteResult.meta.changes || 0} rows deleted`)
+    log.info(`🧹 Cleaned up orphan push_logs: ${logDeleteResult.meta.changes || 0} rows deleted`)
   } catch (e) {
-    console.error('D1 cleanup failed:', e)
+    log.error('D1 cleanup failed:', e)
   }
 }
 
@@ -65,22 +84,25 @@ async function scheduled(event, env, ctx) {
 // 2. Queue 消费者 (核心处理)
 // ==========================================
 async function queue(batch, env, ctx) {
-  console.log(`📦 Queue batch processing: ${batch.messages.length} messages`)
+  const log = createLogger(env);
+  log.info(`📦 Queue batch processing: ${batch.messages.length} messages`)
 
   for (const message of batch.messages) {
     try {
       await processSingleChannel(message.body, env)
       message.ack() // 确认完成
     } catch (e) {
-      console.error(`❌ Task failed for channel ${message.body.channel}:`, e)
+      log.error(`❌ Task failed for channel ${message.body.channel}:`, e)
       // 不 ack，等待重试或进入死信队列
     }
   }
 }
 
 async function processSingleChannel(task, env) {
+  const logger = createLogger(env);
   const { channel } = task
-  console.log(`🚀 Processing channel: ${channel}`)
+  
+  logger.info(`🚀 Processing channel: ${channel}`)
 
   // 1. 获取上次抓取进度
   const meta = await env.DB.prepare("SELECT last_msg_id FROM channel_meta WHERE channel = ?").bind(channel).first()
@@ -95,11 +117,11 @@ async function processSingleChannel(task, env) {
   const channelInfo = result.info
   
   if (posts.length === 0) {
-    console.log(`ℹ️ No new posts for ${channel}`)
+    logger.info(`ℹ️ No new posts for ${channel}`)
     // 注意：即使没有新帖子，我们也不能直接 return，因为还需要更新 channel_meta 中的 title 和 avatar
   }
 
-  console.log(`📦 Parsed ${posts.length} posts for ${channel}`)
+  logger.info(`📦 Parsed ${posts.length} posts for ${channel}`)
 
   // 3. 区分新消息、更新消息、无变化消息
   const postsToSave = []
@@ -112,7 +134,7 @@ async function processSingleChannel(task, env) {
       if (existing && post.datetime > existing.published_at) {
         // 消息被编辑过，需要更新
         postsToSave.push(post)
-        console.log(`📝 Updated post: ${post.id} (edited)`)
+        logger.info(`📝 Updated post: ${post.id} (edited)`)
         
         // 同步更新 Telegram 推送消息
         try {
@@ -120,28 +142,28 @@ async function processSingleChannel(task, env) {
           const channelId = env.TELEGRAM_PUSH_CHANNEL_ID
           
           if (botToken && channelId) {
-             const log = await env.DB.prepare("SELECT tg_message_id FROM push_logs WHERE post_id = ?").bind(post.id).first()
+             const pushLog = await env.DB.prepare("SELECT tg_message_id FROM push_logs WHERE post_id = ?").bind(post.id).first()
              
-              if (log?.tg_message_id) {
+              if (pushLog?.tg_message_id) {
                  const imageUrl = extractFirstImage(post.content || '')
                  const { text } = await createPushContent(post, env)
                  
                  if (imageUrl) {
                     await $fetch(`https://api.telegram.org/bot${botToken}/editMessageCaption`, {
                        method: 'POST',
-                       body: { chat_id: channelId, message_id: log.tg_message_id, caption: text, parse_mode: 'HTML' }
+                       body: { chat_id: channelId, message_id: pushLog.tg_message_id, caption: text, parse_mode: 'HTML' }
                     })
                  } else {
                     await $fetch(`https://api.telegram.org/bot${botToken}/editMessageText`, {
                        method: 'POST',
-                       body: { chat_id: channelId, message_id: log.tg_message_id, text: text, parse_mode: 'HTML' }
+                       body: { chat_id: channelId, message_id: pushLog.tg_message_id, text: text, parse_mode: 'HTML' }
                     })
                  }
-                console.log(`✏️ Synced TG edit for ${post.id}`)
-             }
+                logger.info(`✏️ Synced TG edit for ${post.id}`)
+              }
           }
         } catch (e) {
-           console.warn(`TG Sync Edit failed for ${post.id}: ${e.message}`)
+           logger.error(`TG Sync Edit failed for ${post.id}: ${e.message}`)
         }
       }
     } else {
@@ -179,18 +201,18 @@ async function processSingleChannel(task, env) {
   const newPosts = posts.filter(p => !lastMsgId || parseInt(p.id.split('/').pop()) > parseInt(lastMsgId))
   
   if (isFirstRun) {
-    console.log(`ℹ️ First run for ${channel}, skipping push notifications.`)
+    logger.info(`ℹ️ First run for ${channel}, skipping push notifications.`)
   } else {
     if (newPosts.length > 0) {
       await triggerPush(newPosts, env)
     }
     const updatedCount = postsToSave.length - newPosts.length
     if (updatedCount > 0) {
-      console.log(`🔕 Skipped push for ${updatedCount} updated posts (no notification)`)
+      logger.info(`🔕 Skipped push for ${updatedCount} updated posts (no notification)`)
     }
   }
   
-  console.log(`✅ Finished channel: ${channel}`)
+  logger.info(`✅ Finished channel: ${channel}`)
 }
 
 // ==========================================
@@ -226,12 +248,13 @@ function processMediaUrls(html, workerUrl) {
 }
 
 async function fetchAndParse(channel, env, lastMsgId) {
+  const logger = createLogger(env);
   const hosts = (env.TELEGRAM_HOST || 't.me').split(',').map(h => h.trim()).filter(Boolean)
   const workerUrl = env.WORKER_URL || '' 
   
   // 接力模式：按顺序尝试 Host，直到成功
   for (const host of hosts) {
-    console.log(`🔄 Trying host: ${host} for channel ${channel}`)
+    logger.info(`🔄 Trying host: ${host} for channel ${channel}`)
     
     try {
       const url = `https://${host}/s/${channel}`
@@ -242,10 +265,10 @@ async function fetchAndParse(channel, env, lastMsgId) {
       }
       
       const html = await $fetch(url, { headers, retry: 1, retryDelay: 1000 })
-      console.log(`✅ Successfully fetched from ${host}`)
+      logger.info(`✅ Successfully fetched from ${host}`)
       return parsePosts(html, channel, lastMsgId, workerUrl)
     } catch (e) {
-      console.warn(`❌ Host ${host} failed: ${e.message}. Trying next host...`)
+      logger.error(`❌ Host ${host} failed: ${e.message}. Trying next host...`)
       // 继续循环尝试下一个
     }
   }
@@ -440,6 +463,7 @@ async function createPushContent(post, env) {
 // 推送服务 (D1 修复版 & 图文优化)
 // ==========================================
 async function triggerPush(posts, env) {
+  const logger = createLogger(env);
   if (env.TELEGRAM_PUSH_ENABLED !== 'true') return
   if (!posts || posts.length === 0) return
 
@@ -449,8 +473,8 @@ async function triggerPush(posts, env) {
 
   for (const post of posts) {
     // 1. 检查 D1 推送日志 (防止重复推送)
-    const log = await env.DB.prepare("SELECT tg_message_id FROM push_logs WHERE post_id = ?").bind(post.id).first()
-    if (log?.tg_message_id) continue
+    const pushLog = await env.DB.prepare("SELECT tg_message_id FROM push_logs WHERE post_id = ?").bind(post.id).first()
+    if (pushLog?.tg_message_id) continue
 
     try {
       // 2. 提取首图 (只提取一次)
@@ -490,9 +514,9 @@ async function triggerPush(posts, env) {
         await env.DB.prepare("INSERT OR REPLACE INTO push_logs (post_id, tg_message_id) VALUES (?, ?)")
           .bind(post.id, tgMsgId).run()
       }
-      console.log(`📩 Pushed: ${post.id} (TG ID: ${tgMsgId})`)
+      logger.info(`📩 Pushed: ${post.id} (TG ID: ${tgMsgId})`)
     } catch (e) {
-      console.warn(`Push failed for ${post.id}: ${e.message}`)
+      logger.error(`Push failed for ${post.id}: ${e.message}`)
     }
     
     await randomDelay(1000, 2000)
@@ -553,6 +577,7 @@ function escapeHtml(text) {
 // ==========================================
 export default {
   async fetch(request, env, ctx) {
+    const logger = createLogger(env);
     const url = new URL(request.url)
     
     // CORS Headers
@@ -598,7 +623,7 @@ export default {
             const channelInfo = result.info
             
             if (posts.length === 0) {
-              console.log(`ℹ️ No posts to regrab for ${ch}`)
+              logger.info(`ℹ️ No posts to regrab for ${ch}`)
               continue
             }
 
@@ -869,7 +894,7 @@ export default {
         if (loggingEnabled) {
           const realUserIP = request.headers.get('x-real-user-ip') || request.headers.get('cf-connecting-ip');
           
-          console.log('API Debug:', {
+          logger.info('API Debug:', {
             timestamp: new Date().toISOString(),
             path: url.pathname,
             method: request.method,
@@ -935,7 +960,7 @@ export default {
         if (loggingEnabled) {
           const realUserIP = request.headers.get('x-real-user-ip') || request.headers.get('cf-connecting-ip');
           
-          console.log('API Debug:', {
+          logger.info('API Debug:', {
             timestamp: new Date().toISOString(),
             path: url.pathname,
             method: request.method,
