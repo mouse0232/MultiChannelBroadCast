@@ -33,7 +33,7 @@ binding = "TASK_QUEUE"
 # 4. 绑定 Queue (消费者：负责干活)
 [[queues.consumers]]
 queue = "scraping-tasks"
-max_batch_size = 10       # 每次最多处理 10 个任务
+max_batch_size = 5       # 每次最多处理 5 个任务 (防止 CPU 超限)
 max_retries = 2          # 失败重试次数
 
 # 5. 绑定 Workers AI
