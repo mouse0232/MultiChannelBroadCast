@@ -289,6 +289,9 @@ function parsePosts(html, channel, lastMsgId, workerUrl) {
     
     // 修改：还原原项目逻辑，拼接原始 HTML，利用 CSS 原生样式
     const replyEl = $item.find('.tgme_widget_message_reply');
+    if (replyEl.length > 0) {
+      replyEl.wrapInner('<small></small>').wrapInner('<blockquote></blockquote>');
+    }
     
     // 获取正文：找到所有文本块，排除掉属于引用块的文本
     const contentEl = $item.find('.tgme_widget_message_text').filter((_, el) => {
