@@ -470,23 +470,51 @@ async function triggerPush(posts, env) {
     }
 
     try {
-      // 3. 发送消息
+      // 3. 发送消息 (尝试 HTML，失败则降级为纯文本)
       const imageUrl = extractFirstImage(post.content || '')
       const { text } = await createPushContent(post, env)
       
       let response
-      if (imageUrl) {
-        response = await $fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
-          method: 'POST',
-          body: { chat_id: channelId, photo: imageUrl, caption: text, parse_mode: 'HTML' },
-          timeout: 10000
-        })
-      } else {
-        response = await $fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-          method: 'POST',
-          body: { chat_id: channelId, text: text, parse_mode: 'HTML', disable_web_page_preview: false },
-          timeout: 10000
-        })
+      
+      try {
+         // 第一次尝试：使用 HTML 模式
+         if (imageUrl) {
+            response = await $fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
+              method: 'POST',
+              body: { chat_id: channelId, photo: imageUrl, caption: text, parse_mode: 'HTML' },
+              timeout: 10000
+            })
+         } else {
+            response = await $fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+              method: 'POST',
+              body: { chat_id: channelId, text: text, parse_mode: 'HTML', disable_web_page_preview: false },
+              timeout: 10000
+            })
+         }
+      } catch (htmlErr) {
+         // 如果是 400 错误 (通常是 HTML 格式问题)，尝试纯文本模式重试
+         if (htmlErr.message.includes('400') || htmlErr.message.includes('Bad Request')) {
+            console.warn(`⚠️ HTML push failed for ${post.id}, retrying as plain text...`)
+            
+            // 移除所有 HTML 标签
+            const plainText = text.replace(/<[^>]+>/g, '')
+            
+            if (imageUrl) {
+               response = await $fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
+                 method: 'POST',
+                 body: { chat_id: channelId, photo: imageUrl, caption: plainText },
+                 timeout: 10000
+               })
+            } else {
+               response = await $fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+                 method: 'POST',
+                 body: { chat_id: channelId, text: plainText, disable_web_page_preview: false },
+                 timeout: 10000
+               })
+            }
+         } else {
+            throw htmlErr // 非 400 错误直接抛出
+         }
       }
       
       // 4. 记录日志
