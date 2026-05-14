@@ -178,15 +178,16 @@ async function processSingleChannel(task, env) {
   // 重要：如果是首次运行 (初始化数据)，只存入数据库，不进行推送，防止消息轰炸
   const newPosts = posts.filter(p => !lastMsgId || parseInt(p.id.split('/').pop()) > parseInt(lastMsgId))
   
+  console.log(`📊 [${channel}] lastMsgId: ${lastMsgId}, newPosts: ${newPosts.length}, isFirstRun: ${isFirstRun}`)
+  
   if (isFirstRun) {
     console.log(`ℹ️ First run for ${channel}, skipping push notifications.`)
   } else {
     if (newPosts.length > 0) {
+      console.log(`🚀 Triggering push for ${newPosts.length} new posts...`)
       await triggerPush(newPosts, env)
-    }
-    const updatedCount = postsToSave.length - newPosts.length
-    if (updatedCount > 0) {
-      console.log(`🔕 Skipped push for ${updatedCount} updated posts (no notification)`)
+    } else {
+      console.log(`🔕 No new posts to push (all fetched posts are older or equal to lastMsgId)`)
     }
   }
   
@@ -440,66 +441,72 @@ async function createPushContent(post, env) {
 // 推送服务 (D1 修复版 & 图文优化)
 // ==========================================
 async function triggerPush(posts, env) {
-  if (env.TELEGRAM_PUSH_ENABLED !== 'true') return
-  if (!posts || posts.length === 0) return
-
+  const pushEnabled = env.TELEGRAM_PUSH_ENABLED
   const botToken = env.TELEGRAM_BOT_TOKEN
   const channelId = env.TELEGRAM_PUSH_CHANNEL_ID
-  if (!botToken || !channelId) return
+
+  // 1. 检查配置
+  if (pushEnabled !== 'true') {
+    console.warn(`🚫 Push SKIPPED: TELEGRAM_PUSH_ENABLED is '${pushEnabled}' (expected 'true')`)
+    return
+  }
+  if (!botToken || !channelId) {
+    console.error(`🚫 Push SKIPPED: Missing TELEGRAM_BOT_TOKEN or TELEGRAM_PUSH_CHANNEL_ID`)
+    return
+  }
+  if (!posts || posts.length === 0) return
+
+  console.log(`✅ Push Config OK. Token: ${botToken.substring(0,5)}..., Channel: ${channelId}`)
+
+  let skippedCount = 0
+  let pushedCount = 0
 
   for (const post of posts) {
-    // 1. 检查 D1 推送日志 (防止重复推送)
+    // 2. 检查 D1 推送日志 (防止重复推送)
     const log = await env.DB.prepare("SELECT tg_message_id FROM push_logs WHERE post_id = ?").bind(post.id).first()
-    if (log?.tg_message_id) continue
+    if (log?.tg_message_id) {
+      skippedCount++
+      continue
+    }
 
     try {
-      // 2. 提取首图 (只提取一次)
+      // 3. 发送消息
       const imageUrl = extractFirstImage(post.content || '')
       const { text } = await createPushContent(post, env)
       
       let response
       if (imageUrl) {
-        // 发送图文
         response = await $fetch(`https://api.telegram.org/bot${botToken}/sendPhoto`, {
           method: 'POST',
-          body: {
-            chat_id: channelId,
-            photo: imageUrl,
-            caption: text,
-            parse_mode: 'HTML'
-          },
+          body: { chat_id: channelId, photo: imageUrl, caption: text, parse_mode: 'HTML' },
           timeout: 10000
         })
       } else {
-        // 发送纯文本
         response = await $fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
           method: 'POST',
-          body: {
-            chat_id: channelId,
-            text: text,
-            parse_mode: 'HTML',
-            disable_web_page_preview: false
-          },
+          body: { chat_id: channelId, text: text, parse_mode: 'HTML', disable_web_page_preview: false },
           timeout: 10000
         })
       }
       
-      // 3. 记录日志 (保存 Telegram 消息 ID 以便后续编辑)
+      // 4. 记录日志
       const tgMsgId = response.result?.message_id
       if (tgMsgId) {
         await env.DB.prepare("INSERT OR REPLACE INTO push_logs (post_id, tg_message_id) VALUES (?, ?)")
           .bind(post.id, tgMsgId).run()
+        pushedCount++
+        console.log(`📩 Pushed: ${post.id} (TG ID: ${tgMsgId})`)
       } else {
-        // 如果 TG 返回成功但没有 message_id，打印强警告日志
-        console.warn(`⚠️ TG returned success but missing message_id for ${post.id}. Response: ${JSON.stringify(response.result)}`)
+        console.error(`⚠️ Push FAILED: ${post.id} - API returned OK but missing message_id!`)
       }
-      console.log(`📩 Pushed: ${post.id} (TG ID: ${tgMsgId})`)
     } catch (e) {
-      console.warn(`Push failed for ${post.id}: ${e.message}`)
+      console.error(`🔴 Push FAILED: ${post.id} - ${e.message}`)
     }
     
     await randomDelay(1000, 2000)
   }
+  
+  console.log(`🏁 Push Summary: Total ${posts.length}, Pushed ${pushedCount}, Skipped (Duplicate) ${skippedCount}`)
 }
 
 // ==========================================
