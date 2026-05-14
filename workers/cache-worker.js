@@ -489,6 +489,9 @@ async function triggerPush(posts, env) {
       if (tgMsgId) {
         await env.DB.prepare("INSERT OR REPLACE INTO push_logs (post_id, tg_message_id) VALUES (?, ?)")
           .bind(post.id, tgMsgId).run()
+      } else {
+        // 如果 TG 返回成功但没有 message_id，打印强警告日志
+        console.warn(`⚠️ TG returned success but missing message_id for ${post.id}. Response: ${JSON.stringify(response.result)}`)
       }
       console.log(`📩 Pushed: ${post.id} (TG ID: ${tgMsgId})`)
     } catch (e) {
