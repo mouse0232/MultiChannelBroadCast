@@ -4,6 +4,13 @@
 
 推送通知模块集成在 `workers/cache-worker.js` 中，负责在新帖子写入 D1 后自动推送到 Telegram 频道。
 
+## 架构位置
+
+- **部署平台**：Cloudflare Workers
+- **触发时机**：Queue 消费完成后，新帖子写入 D1 时
+- **推送目标**：Telegram Bot API
+- **去重存储**：D1 push_logs 表
+
 ## 推送流程
 
 ```

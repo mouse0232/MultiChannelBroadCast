@@ -7,6 +7,7 @@
 - Node.js >= 20.0.0
 - pnpm >= 9.9.0
 - Wrangler CLI（用于本地测试 Worker）
+- Docker（可选，用于本地一体化开发）
 
 ### 前端开发
 
@@ -44,6 +45,21 @@ wrangler dev
 wrangler deploy
 ```
 
+### Docker 开发（一体化）
+
+```bash
+# 构建并运行
+docker-compose up --build
+
+# 后台运行
+docker-compose up -d
+
+# 查看日志
+docker-compose logs -f
+```
+
+访问 `http://localhost:4321` 查看效果。
+
 ## 项目结构
 
 ```
@@ -71,7 +87,9 @@ wrangler deploy
 ├── workers/                    # Worker 后端
 │   └── cache-worker.js         # Worker 入口（抓取/队列/API/推送）
 ├── wrangler.toml               # Cloudflare 配置
-├── astro.config.mjs            # Astro 配置
+├── astro.config.mjs            # Astro 配置（SSR / 多平台适配）
+├── docker-compose.yml          # Docker 编排配置
+├── Dockerfile                  # Docker 镜像构建
 └── package.json                # 项目依赖
 ```
 
@@ -123,6 +141,48 @@ CHANNELS=channel1,channel2,new_channel
 - `global.css` - 全局样式
 - 各页面 `.astro` 文件内也有 `<style>` 块
 
+### 6. 代码高亮
+
+项目集成了 Prism.js + Flourite 实现自动代码语言检测和高亮：
+
+- 配置文件：`src/lib/prism.js`、`src/lib/code-highlight.js`
+- 自动检测代码块语言
+- 支持多种编程语言高亮
+- 按需加载语言组件（优化体积）
+
+## Docker 部署
+
+项目提供完整的 Docker 支持，适合本地开发和私有化部署。
+
+### 构建镜像
+
+```bash
+docker build -t multi-channel-broadcast .
+```
+
+### 使用 docker-compose
+
+```bash
+# 启动服务
+docker-compose up -d
+
+# 停止服务
+docker-compose down
+
+# 查看日志
+docker-compose logs -f
+```
+
+### 环境变量配置
+
+在 `docker-compose.yml` 或 `.env` 文件中配置：
+
+```env
+WORKER_URL=http://localhost:8000
+CHANNELS=channel1,channel2
+SITE_NAME=My Blog
+```
+
 ## 数据库管理
 
 ### 查看数据库
@@ -159,12 +219,29 @@ pnpm test -- --watch
 
 ## 部署
 
-### 前端（Cloudflare Pages）
+### 前端（Cloudflare Pages / Vercel / Netlify）
+
+#### Cloudflare Pages（推荐）
 
 1. 连接 GitHub 仓库到 Cloudflare Pages
 2. 构建命令：`pnpm build`
 3. 输出目录：`dist`
 4. 配置环境变量
+5. 设置 `SERVER_ADAPTER=cloudflare_pages`
+
+#### Vercel
+
+1. 连接 GitHub 仓库到 Vercel
+2. 构建命令：`pnpm build`
+3. 输出目录：`dist`
+4. 设置 `SERVER_ADAPTER=vercel`
+
+#### Netlify
+
+1. 连接 GitHub 仓库到 Netlify
+2. 构建命令：`pnpm build`
+3. 输出目录：`dist`
+4. 设置 `SERVER_ADAPTER=netlify`
 
 ### 后端（Cloudflare Workers）
 
@@ -175,6 +252,21 @@ wrangler deploy
 # 部署时绑定资源（在 wrangler.toml 中配置）
 wrangler deploy
 ```
+
+### Docker 部署（一体化）
+
+```bash
+# 构建镜像
+docker build -t multi-channel-broadcast .
+
+# 运行容器
+docker-compose up -d
+
+# 查看日志
+docker-compose logs -f
+```
+
+配置环境变量在 `.env` 或 `docker-compose.yml` 中。
 
 ### 配置 Cron 触发器
 
@@ -217,22 +309,48 @@ wrangler d1 execute multi-channel-db --file=schema.sql
 ### Worker 日志
 
 ```bash
+# 实时查看 Worker 日志
 wrangler tail
+
+# 查看特定环境的日志
+wrangler tail --env production
 ```
 
 ### 前端调试
 
 ```bash
+# 启动开发服务器
 pnpm dev
 ```
 
 访问 `http://localhost:4321`，查看浏览器控制台和 Network 面板。
+
+### SSR 调试
+
+由于 Astro 使用 SSR 模式，注意：
+- 环境变量在服务端读取，确保 `.env` 文件正确配置
+- 使用 `console.log()` 在服务端输出日志
+- 前端调试使用浏览器 DevTools
+
+### Docker 调试
+
+```bash
+# 查看容器日志
+docker-compose logs -f
+
+# 进入容器内部
+docker-compose exec app /bin/bash
+
+# 重启服务
+docker-compose restart
+```
 
 ### 检查 Worker API
 
 直接访问：
 - `https://your-worker.workers.dev/api/channels`
 - `https://your-worker.workers.dev/api/posts?channel=all&limit=5`
+- `https://your-worker.workers.dev/health`（健康检查，如已实现）
 
 ## 常见问题
 
@@ -281,6 +399,20 @@ A: 检查：
 1. `/static/` 路由是否在 Worker 中正确处理
 2. Range 请求头是否正确透传
 3. Content-Range 响应头是否正确返回
+
+### Q: 本地开发时跨域问题？
+
+A: 确保：
+1. `WORKER_URL` 指向正确的 Worker 地址（本地或远程）
+2. Worker 配置了正确的 CORS 头部
+3. 开发服务器配置了代理（参考 `vite.config.js` 或 `astro.config.mjs`）
+
+### Q: Docker 部署后无法访问？
+
+A: 检查：
+1. 端口映射是否正确（默认 4321）
+2. 环境变量是否正确传递到容器
+3. 容器日志：`docker-compose logs -f`
 
 ## 贡献指南
 

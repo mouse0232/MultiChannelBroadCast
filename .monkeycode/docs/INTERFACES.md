@@ -238,10 +238,11 @@ HEADER_INJECT=                       # 头部注入 HTML
 FOOTER_INJECT=                       # 尾部注入 HTML
 TAGS=true                            # 显示标签页
 LINKS=true                           # 显示链接页
-NAVS=标题,链接;标题,链接              # 自定义导航（分号分隔）
+NAVS=标题，链接;标题，链接              # 自定义导航（分号分隔）
 TELEGRAM=username                    # Telegram 链接
 TWITTER=username                     # Twitter 链接
 GITHUB=username                      # GitHub 链接
+SERVER_ADAPTER=cloudflare_pages      # 适配器类型（vercel/cloudflare_pages/netlify/node）
 ```
 
 ### Worker 环境变量
@@ -315,6 +316,28 @@ INSERT OR REPLACE INTO posts
 
 ## 错误类型
 
+### API 错误响应格式
+
+所有 API 错误统一返回格式：
+
+```json
+{
+  "error": {
+    "code": "ERROR_CODE",
+    "message": "人类可读的错误描述"
+  }
+}
+```
+
+常见错误码：
+
+| 错误码 | HTTP 状态码 | 说明 |
+|--------|-----------|------|
+| `NOT_FOUND` | 404 | 资源不存在（如帖子 ID 无效） |
+| `INVALID_PARAM` | 400 | 参数格式错误 |
+| `RATE_LIMITED` | 429 | 请求频率超限（如已实现速率限制） |
+| `INTERNAL_ERROR` | 500 | 服务器内部错误 |
+
 ### API 错误
 
 ```typescript
@@ -322,6 +345,8 @@ type APIError =
   | 'Post not found'               // 帖子不存在（404）
   | 'Failed to fetch posts'        // 获取帖子失败
   | 'Failed to fetch channels'     // 获取频道失败
+  | 'Invalid channel parameter'    // 频道参数无效
+  | 'Invalid cursor format'        // 游标格式错误
 ```
 
 ### Worker 错误
@@ -332,4 +357,12 @@ type WorkerError =
   | 'Queue send failed'            // 队列发送失败
   | 'D1 cleanup failed'            // 数据清理失败
   | 'Push failed'                  // 推送失败
+  | 'Database write error'         // 数据库写入错误
 ```
+
+### 错误处理最佳实践
+
+1. **参数化查询**：所有 SQL 查询使用 `prepare().bind()` 防止注入
+2. **输入验证**：检查 post ID、cursor 等参数格式
+3. **错误日志**：使用 `console.error()` 记录详细错误，但返回通用错误信息
+4. **SQL 通配符转义**：搜索接口对 `_` 和 `%` 进行转义

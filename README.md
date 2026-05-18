@@ -7,23 +7,23 @@ English|[简体中文](./README.zh-cn.md)
 
 This project uses a **frontend-backend separated architecture**:
 
-- **Frontend**: Astro static site generation, deployed on Cloudflare Pages
+- **Frontend**: Astro SSR (Server Output), deployed on Cloudflare Pages / Vercel / Netlify
 - **Backend**: Cloudflare Worker with D1 database for async content crawling
-- **Caching**: D1 persistent storage (no LRU cache needed)
+- **Caching**: D1 persistent storage + Cloudflare Cache API (optional)
 - **Queue**: Cloudflare Queues for parallel channel processing
 
 ```
 ┌─────────────┐     ┌──────────────────┐     ┌──────────────────┐
-│  Astro Pages │────>│  Cloudflare      │────>│  D1 Database     │
-│  (Frontend)  │     │  Worker (API)    │     │  (SQLite)        │
+│  Astro SSR  │────>│  Cloudflare      │────>│  D1 Database     │
+│  (Frontend) │     │  Worker (API)    │     │  (SQLite)        │
 └─────────────┘     └──────────────────┘     └──────────────────┘
-                           │
-                           │ Cron + Queue
-                           ▼
-                    ┌──────────────────┐
-                    │  Telegram Crawler │
-                    │  (Async/Parallel) │
-                    └──────────────────┘
+                            │
+                            │ Cron + Queue
+                            ▼
+                     ┌──────────────────┐
+                     │  Telegram Crawler │
+                     │  (Async/Parallel) │
+                     └──────────────────┘
 ```
 
 ## Features
@@ -40,12 +40,13 @@ This project uses a **frontend-backend separated architecture**:
 
 ## Tech Stack
 
-- **Frontend**: [Astro](https://astro.build/) v4.15+
+- **Frontend**: [Astro](https://astro.build/) v4.15+ (SSR / Server Output)
 - **Backend**: Cloudflare Workers
 - **Database**: Cloudflare D1 (SQLite)
 - **Queue**: Cloudflare Queues
+- **Cache**: Cloudflare Cache API (optional)
 - **Parser**: Cheerio
-- **Image Proxy**: wsrv.nl
+- **Image Proxy**: wsrv.nl / R2 (optional)
 - **Video Proxy**: Worker local proxy (with Range support)
 
 ## Quick Start
@@ -91,6 +92,18 @@ Set environment variables:
 
 Visit your site URL to see the result.
 
+### 3. Docker Deployment (Alternative)
+
+```bash
+# Build Docker image
+docker build -t multi-channel-broadcast .
+
+# Run with docker-compose
+docker-compose up -d
+```
+
+Configure environment variables in `.env` or `docker-compose.yml`.
+
 ### Local Development
 
 ```bash
@@ -108,6 +121,18 @@ pnpm dev
 
 Visit `http://localhost:4321` to see the result.
 
+### Local Development with Docker
+
+```bash
+# Build and run
+docker-compose up --build
+
+# Or run in background
+docker-compose up -d
+```
+
+Visit `http://localhost:4321` to see the result.
+
 ## Configuration
 
 ### Core Configuration
@@ -120,6 +145,7 @@ Visit `http://localhost:4321` to see the result.
 | `SITE_AVATAR` | Pages | Site avatar URL |
 | `LOCALE` | Pages | Language code (default: zh-cn) |
 | `TIMEZONE` | Pages | Timezone (default: Asia/Shanghai) |
+| `SERVER_ADAPTER` | Pages | Adapter provider (vercel/cloudflare_pages/netlify/node) |
 
 ### Push Notifications
 
@@ -139,6 +165,13 @@ Visit `http://localhost:4321` to see the result.
 | `HEADER_INJECT` | Pages | HTML injection in head |
 | `FOOTER_INJECT` | Pages | HTML injection in footer |
 | `NAVS` | Pages | Custom navigation links |
+| `RSS_PREFIX` | Pages | RSS URL prefix |
+| `RSS_URL` | Pages | Full RSS feed URL |
+| `TAGS` | Pages | Enable tags feature |
+| `LINKS` | Pages | Enable links feature |
+| `TELEGRAM` | Pages | Telegram username link |
+| `TWITTER` | Pages | Twitter username link |
+| `GITHUB` | Pages | GitHub username link |
 
 ## Worker API
 
@@ -154,10 +187,20 @@ Visit `http://localhost:4321` to see the result.
 
 ## Media Proxy
 
-| Type | Method | URL Pattern |
-|------|--------|-------------|
-| Images | wsrv.nl CDN | `https://wsrv.nl/?url={encoded}` |
-| Video/Audio | Worker proxy | `/static/{host}/{path}` |
+### Image Proxy
+
+| Method | URL Pattern | Description |
+|--------|-------------|-------------|
+| wsrv.nl CDN | `https://wsrv.nl/?url={encoded}` | Default, with CDN cache |
+| R2 Storage | `/r2/{key}` | Optional, persistent storage |
+
+### Video/Audio Proxy
+
+| Method | URL Pattern | Description |
+|--------|-------------|-------------|
+| Worker proxy | `/static/{host}/{path}` | With Range request support |
+
+**Note**: wsrv.nl is recommended for images as it provides free CDN and cache. R2 can be used for better control and compliance.
 
 ## Pagination
 
@@ -180,6 +223,39 @@ By default, Cloudflare Cron triggers every 5 minutes. You can adjust the cron sc
 ### Why can't I see images in posts?
 
 Old posts may have been crawled before the image extraction feature was added. Visit `/api/regrab` to re-crawl and update existing posts.
+
+### Why does the homepage only show one channel's content?
+
+Check:
+1. Worker environment variable `CHANNELS` is configured with multiple channels
+2. Frontend `WORKER_URL` points to the correct Worker address
+3. D1 database actually contains data from multiple channels
+
+### Why are pagination links returning 404?
+
+Ensure:
+1. `before/[cursor].astro` and `after/[cursor].astro` exist
+2. Pagination cursors are encoded with `encodeURIComponent()`
+3. Pagination uses `published_at` field instead of `id` (to avoid slash issues)
+
+### Why can't videos play or seek?
+
+Check:
+1. `/static/` route is correctly handled in Worker
+2. Range request headers are properly forwarded
+3. Content-Range response headers are correctly returned
+
+### How to disable push notifications?
+
+Set `TELEGRAM_PUSH_ENABLED=false` or remove this environment variable.
+
+### Cron is not triggering scraping?
+
+Check:
+1. Cron trigger is correctly configured in `wrangler.toml`
+2. Worker is deployed
+3. Queue is correctly bound
+4. Check Worker logs: `wrangler tail`
 
 ## Project Docs
 

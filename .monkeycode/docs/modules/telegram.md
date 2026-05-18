@@ -4,6 +4,13 @@
 
 `workers/cache-worker.js` 中的抓取模块负责从 Telegram 频道获取和解析内容。
 
+## 架构位置
+
+- **部署平台**：Cloudflare Workers
+- **触发方式**：Cron 定时触发 + Queue 异步消费
+- **数据存储**：Cloudflare D1 数据库
+- **依赖服务**：Telegram t.me/s/{channel} 公开频道页面
+
 ## 主要功能
 
 ### 1. 定时抓取
@@ -43,7 +50,7 @@ Queue 消费者并行处理多个频道：
 
 ### 4. 多媒体处理
 
-#### 图片代理（wsrv.nl）
+#### 方案 1：图片代理（wsrv.nl，默认）
 
 ```javascript
 // 照片背景图
@@ -55,6 +62,19 @@ background-image:url('https://cdn5.telesco.pe/file/...')
 - 所有图片使用 `https://wsrv.nl/?url={encoded_url}` 代理
 - 确保国内可访问
 - wsrv.nl 自带 CDN 缓存
+
+#### 方案 2：图片代理（R2 存储，可选）
+
+```javascript
+// 上传到 R2
+await env.R2.put(key, imageBuffer)
+// 访问 URL
+<img src="/r2/{key}" />
+```
+
+- 图片持久化存储在 Cloudflare R2
+- 完全可控，符合数据合规要求
+- 占用 R2 存储配额
 
 #### 视频/音频代理（Worker 本地）
 
@@ -185,3 +205,5 @@ INSERT OR REPLACE INTO channel_meta
 - 增量抓取（只获取新消息）
 - 批量写入 D1（`env.DB.batch()`）
 - 随机延迟避免触发 Telegram 风控
+- Cache API 缓存响应（可选，降低 D1 读取）
+- 基于 published_at 索引优化查询

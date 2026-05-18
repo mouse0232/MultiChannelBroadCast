@@ -2,7 +2,7 @@
 
 ## 架构概览
 
-Multi-Channel Broadcast 采用**前后端分离架构**，前端使用 Astro 静态站点生成，后端使用 Cloudflare Workers + D1 数据库实现异步内容抓取和存储。
+Multi-Channel Broadcast 采用**前后端分离架构**，前端使用 Astro SSR（Server Output），后端使用 Cloudflare Workers + D1 数据库实现异步内容抓取和存储。
 
 ```mermaid
 graph TB
@@ -46,13 +46,14 @@ graph TB
 
 ## 分层架构
 
-### 1. 前端层 (Astro Pages)
+### 1. 前端层 (Astro SSR)
 
 位于 `src/pages/`，负责:
 - URL 路由匹配
 - 页面布局和模板
 - 调用 Worker API 获取数据
-- 渲染静态 HTML
+- SSR 动态渲染（Astro Server Output 模式）
+- 支持多平台部署（Cloudflare Pages / Vercel / Netlify / Node.js）
 
 ### 2. 后端层 (Cloudflare Worker)
 
@@ -132,23 +133,36 @@ Cloudflare D1 (SQLite)，包含:
 ### 架构级缓存
 
 - **D1 数据库**：持久化存储，无需额外缓存
-- **Cloudflare CDN**：Astro 静态页面自动缓存
-- **图片代理**：wsrv.nl 自带 CDN 缓存
+- **Cloudflare CDN**：Astro SSR 页面自动缓存
+- **Cloudflare Cache API**：可选，用于缓存 API 响应（降低 D1 读取次数）
+- **图片代理**：wsrv.nl 自带 CDN 缓存 / R2 持久化存储（可选）
 
 ### 缓存失效
 
 - 新帖子通过 Cron 定时抓取自动更新
 - 页面缓存通过 Cloudflare 自动管理
+- Cache API 缓存可通过清除操作手动失效（抓取新内容后）
 
 ## 图片代理架构
 
-### 图片代理（wsrv.nl）
+### 方案 1：wsrv.nl CDN 代理（默认）
 
 ```
 Telegram CDN → wsrv.nl → 用户
 ```
 
 所有图片使用 `https://wsrv.nl/?url={encoded_url}` 代理，确保国内可访问。
+
+### 方案 2：R2 持久化代理（可选）
+
+```
+Telegram CDN → Worker 下载 → R2 存储 → 用户
+```
+
+- 图片上传至 Cloudflare R2 存储桶
+- 提供 `/r2/{key}` 访问路径
+- 优势：完全可控，符合数据合规要求
+- 劣势：占用 R2 存储配额
 
 ### 视频/音频代理（Worker 本地）
 
@@ -225,11 +239,16 @@ Telegram CDN → Worker /static/ → 用户
 
 ## 部署架构
 
-### 前端
+### 前端（Astro SSR）
 
-- **平台**：Cloudflare Pages
-- **构建**：Astro SSG
-- **部署**：Git 推送自动触发
+- **平台支持**：
+  - Cloudflare Pages（推荐）
+  - Vercel（通过 @astrojs/vercel 适配器）
+  - Netlify（通过 @astrojs/netlify 适配器）
+  - Node.js 独立部署（通过 @astrojs/node 适配器）
+- **构建模式**：SSR / Server Output
+- **部署方式**：Git 推送自动触发或手动构建
+- **环境变量**：`SERVER_ADAPTER` 控制适配器类型
 
 ### 后端
 
@@ -237,6 +256,12 @@ Telegram CDN → Worker /static/ → 用户
 - **数据库**：Cloudflare D1
 - **队列**：Cloudflare Queues
 - **定时**：Cloudflare Cron Triggers
+
+### Docker 部署（一体化）
+
+- **适用场景**：本地开发、私有化部署
+- **配置**：通过 `docker-compose.yml` 编排前后端
+- **环境变量**：通过 `.env` 文件或 docker-compose 配置
 
 ## 错误处理策略
 
@@ -260,12 +285,26 @@ Telegram CDN → Worker /static/ → 用户
 - 用户输入转义
 - HTML 内容使用 Cheerio 安全解析
 - 推送消息使用 `escapeHtml` 函数
+- SSR 模式下 Astro 自动转义输出
+
+### CORS 配置
+
+- Worker API 设置合理的 CORS 策略
+- 生产环境建议限制为实际部署域名
+- 开发环境可使用 `Access-Control-Allow-Origin: *`
+
+### 速率限制（建议实施）
+
+- 为公开 API 添加速率限制
+- 使用 Cloudflare Workers Cache API 实现
+- 防止 D1 配额滥用
 
 ### 凭据安全
 
 - Bot Token 存储在 Cloudflare 环境变量
 - 不在日志中输出敏感信息
 - .netrc 文件权限 600（Go mod 凭据）
+- `.env` 文件加入 `.gitignore`
 
 ## 性能优化
 
@@ -275,7 +314,13 @@ Telegram CDN → Worker /static/ → 用户
 - 前端只读 D1，无外部 HTTP 请求
 - 页面加载 < 50ms（D1 本地读取）
 
-### 分页优化
+### 缓存优化
+
+- **Cloudflare Cache API**：缓存 API 响应，降低 D1 读取次数（可选）
+- **ISR 静态化**：Astro revalidate 配置，定时刷新边缘页面（可选）
+- **D1 查询优化**：基于 published_at 的索引查询
+
+### 分页策略
 
 - 基于 published_at 的游标分页
 - 每页 20 条记录
@@ -284,5 +329,11 @@ Telegram CDN → Worker /static/ → 用户
 ### 媒体优化
 
 - 图片使用 `loading="lazy"`
-- 图片使用 wsrv.nl CDN 缓存
+- 图片使用 wsrv.nl CDN 缓存 / R2 持久化
 - 视频支持 Range 请求（按需加载）
+
+### 代码优化
+
+- Prism.js 代码高亮 + Flourite 语言检测
+- CSS 压缩（cssnano）
+- 前端资源按需加载
