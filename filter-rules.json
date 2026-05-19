@@ -1,0 +1,7 @@
+{
+  "global": {
+    "mode": "blacklist",
+    "rules": []
+  },
+  "channels": {}
+}

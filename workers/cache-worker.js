@@ -1,5 +1,12 @@
 import { $fetch } from 'ofetch'
 import * as cheerio from 'cheerio'
+import { KeywordFilter, RuleLoader, safeLoadFilterRules } from '../src/lib/KeywordFilter.js'
+
+// ==========================================
+// 关键词过滤配置 (带容错处理)
+// ==========================================
+const filterRules = safeLoadFilterRules()
+const ruleLoader = new RuleLoader(filterRules)
 
 // ==========================================
 // 反风控配置 (UA 池 & Host 池)
@@ -101,10 +108,49 @@ async function processSingleChannel(task, env) {
 
   console.log(`📦 Parsed ${posts.length} posts for ${channel}`)
 
-  // 3. 区分新消息、更新消息、无变化消息
+  // ==========================================
+  // 关键词过滤 (带开关控制)
+  // ==========================================
+  const filterEnabled = env.FILTER_ENABLED === 'true'
+  let filteredPosts = posts
+  let blockedPosts = []
+
+  if (filterEnabled) {
+    const ruleConfig = ruleLoader.loadRules(channel)
+    const filter = new KeywordFilter(ruleConfig)
+
+    filteredPosts = []
+    blockedPosts = []
+
+    for (const post of posts) {
+      const filterResult = filter.filter(post)
+      
+      if (filterResult.passed) {
+        filteredPosts.push(post)
+      } else {
+        blockedPosts.push({
+          post,
+          reason: filterResult.matchedRules.map(r => r.pattern).join(', '),
+          mode: filterResult.mode
+        })
+      }
+    }
+
+    if (blockedPosts.length > 0) {
+      console.log(`🚫 Blocked ${blockedPosts.length} posts for ${channel}:`)
+      blockedPosts.forEach(bp => {
+        console.log(`   - ${bp.post.id}: ${bp.reason} (${bp.mode})`)
+      })
+    }
+  } else {
+    console.log(`ℹ️ Filter disabled for ${channel}`)
+  }
+  // ==========================================
+
+  // 3. 区分新消息、更新消息、无变化消息 (使用过滤后的帖子)
   const postsToSave = []
   
-  for (const post of posts) {
+  for (const post of filteredPosts) {
     const rawId = post.id.split('/').pop()
     if (lastMsgId && parseInt(rawId) <= parseInt(lastMsgId)) {
       // 旧消息：检查是否需要更新（通过时间比对）
@@ -176,7 +222,7 @@ async function processSingleChannel(task, env) {
 
   // 5. 触发推送（只推送新消息，不推送更新的消息）
   // 重要：如果是首次运行 (初始化数据)，只存入数据库，不进行推送，防止消息轰炸
-  const newPosts = posts.filter(p => !lastMsgId || parseInt(p.id.split('/').pop()) > parseInt(lastMsgId))
+  const newPosts = filteredPosts.filter(p => !lastMsgId || parseInt(p.id.split('/').pop()) > parseInt(lastMsgId))
   
   console.log(`📊 [${channel}] lastMsgId: ${lastMsgId}, newPosts: ${newPosts.length}, isFirstRun: ${isFirstRun}`)
   
