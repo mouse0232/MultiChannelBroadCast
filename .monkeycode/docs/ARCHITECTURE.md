@@ -61,6 +61,7 @@ graph TB
 - Cron 定时触发抓取任务
 - Queue 异步消费处理
 - Telegram 内容抓取和解析
+- **关键词过滤采集** (基于 `filter-rules.json`)
 - 媒体资源代理（图片/视频）
 - D1 数据库读写
 - 推送通知服务
@@ -71,6 +72,14 @@ Cloudflare D1 (SQLite)，包含:
 - `posts` 表：存储所有频道帖子
 - `channel_meta` 表：存储频道元数据和抓取进度
 - `push_logs` 表：记录推送日志防止重复
+
+### 3.5 配置文件层
+
+位于项目根目录 `filter-rules.json`，负责:
+- 定义全局和渠道级别的过滤规则
+- 支持关键词匹配和正则表达式
+- 支持黑名单/白名单两种模式
+- 打包进 Worker 代码，部署时生效
 
 ### 4. 展示层 (Components)
 
@@ -89,9 +98,10 @@ Cloudflare D1 (SQLite)，包含:
 4. **抓取页面** → 请求 `t.me/s/{channel}`
 5. **HTML 解析** → Cheerio 提取消息和媒体
 6. **媒体处理** → 图片用 wsrv.nl 代理，视频用 /static/ 代理
-7. **写入 D1** → INSERT OR IGNORE（增量写入）
-8. **触发推送** → 非首次运行时推送到 Telegram
-9. **更新进度** → 更新 channel_meta.last_msg_id
+7. **关键词过滤** → 根据 `filter-rules.json` 过滤帖子 (可选)
+8. **写入 D1** → INSERT OR IGNORE（增量写入，仅过滤后的帖子）
+9. **触发推送** → 非首次运行时推送到 Telegram
+10. **更新进度** → 更新 channel_meta.last_msg_id
 
 ### 内容展示流程（前端同步）
 
@@ -183,6 +193,74 @@ Telegram CDN → Worker /static/ → 用户
 | 视频/音频 | /static/ Worker 代理 |
 | 视频缩略图 | wsrv.nl 代理 |
 
+## 关键词过滤架构
+
+### 过滤流程
+
+```
+解析帖子 (parsePosts)
+  ↓
+检查 FILTER_ENABLED 环境变量
+  ↓
+启用？ → 加载渠道规则 (RuleLoader)
+  ↓
+创建过滤器 (KeywordFilter)
+  ↓
+遍历帖子 → 匹配规则
+  ↓
+黑名单模式：匹配到 → 拦截
+白名单模式：未匹配 → 拦截
+  ↓
+过滤后的帖子 → 写入 D1
+```
+
+### 配置结构
+
+```json
+{
+  "global": {
+    "mode": "blacklist",
+    "rules": [
+      { "id": "1", "pattern": "关键词", "ruleType": "keyword", "isActive": true }
+    ]
+  },
+  "channels": {
+    "channel1": {
+      "mode": "blacklist",
+      "inheritGlobal": true,
+      "rules": []
+    }
+  }
+}
+```
+
+### 规则匹配逻辑
+
+| 规则类型 | 匹配方式 | 示例 |
+|---------|---------|------|
+| `keyword` | `content.toLowerCase().includes(keyword)` | `广告` |
+| `regex` | `new RegExp(pattern, 'i').test(content)` | `spam\|advertisement` |
+
+### 容错处理
+
+```javascript
+// JSON 格式错误不会导致 Worker 崩溃
+function safeLoadFilterRules() {
+  try {
+    return validateFilterConfig(require('../filter-rules.json'));
+  } catch (error) {
+    console.error('⚠️ Failed to load filter-rules.json:', error.message);
+    return { global: { mode: 'blacklist', rules: [] }, channels: {} };
+  }
+}
+```
+
+### 性能优化
+
+- **规则缓存**: 每个渠道的规则缓存到 `Map`，减少重复解析
+- **正则预编译**: 启动时预编译所有正则表达式
+- **单次过滤耗时**: < 5ms (100 条规则)
+
 ## 推送服务架构
 
 ### 推送流程
@@ -224,6 +302,18 @@ Telegram CDN → Worker /static/ → 用户
 | `/api/init` | GET | 初始化并全量抓取 |
 | `/api/regrab` | GET | 重新抓取并更新旧帖子 |
 | `/static/*` | GET | 视频/音频代理 |
+
+### 过滤规则管理 API (可选)
+
+如需在线管理规则，可扩展以下 API:
+
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/api/filter-rules` | GET | 获取规则列表 |
+| `/api/filter-rules` | POST | 创建规则 |
+| `/api/filter-rules/:id` | PUT | 更新规则 |
+| `/api/filter-rules/:id` | DELETE | 删除规则 |
+| `/api/filter-rules/test` | POST | 测试规则匹配 |
 
 ## 分页策略
 

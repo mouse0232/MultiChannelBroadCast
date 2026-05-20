@@ -33,6 +33,7 @@ This project uses a **frontend-backend separated architecture**:
 - Rich media support (images via wsrv.nl, video/audio via Worker proxy)
 - Telegram push notifications (with image support)
 - Anti-rate-limiting (UA pool, host rotation, random delays)
+- Keyword filtering (regex support, blacklist/whitelist modes)
 - Full-text search
 - RSS feed
 - Mobile responsive design
@@ -78,6 +79,7 @@ Set environment variables in Cloudflare Dashboard:
 - `TELEGRAM_BOT_TOKEN` - for push notifications
 - `TELEGRAM_PUSH_CHANNEL_ID` - target channel for push
 - `TELEGRAM_PUSH_ENABLED` - set to `true` to enable push
+- `FILTER_ENABLED` - set to `true` to enable keyword filtering (optional)
 
 ### 2. Deploy Pages (Frontend)
 
@@ -160,6 +162,7 @@ Visit `http://localhost:4321` to see the result.
 | Variable | Platform | Description |
 |----------|----------|-------------|
 | `TELEGRAM_HOST` | Worker | Telegram host (supports rotation) |
+| `FILTER_ENABLED` | Worker | Set `true` to enable keyword filtering |
 | `COMMENTS` | Pages | Enable Telegram comments |
 | `GOOGLE_SEARCH_SITE` | Pages | Google search site |
 | `HEADER_INJECT` | Pages | HTML injection in head |
@@ -209,6 +212,73 @@ Cursor-based pagination using `published_at`:
 - **Homepage**: `ORDER BY published_at DESC LIMIT 20`
 - **Older**: `published_at < {cursor}`
 - **Newer**: `published_at > {cursor}`
+
+## Keyword Filtering
+
+### Enable Filtering
+
+1. Edit `filter-rules.json` configuration file
+2. Set environment variable `FILTER_ENABLED=true`
+3. Redeploy Worker
+
+### Configuration Format
+
+```json
+{
+  "global": {
+    "mode": "blacklist",
+    "rules": [
+      {
+        "id": "1",
+        "pattern": "spam",
+        "ruleType": "keyword",
+        "isActive": true,
+        "description": "Filter spam content"
+      },
+      {
+        "id": "2",
+        "pattern": "spam|advertisement",
+        "ruleType": "regex",
+        "isActive": true,
+        "description": "Filter ads with regex"
+      }
+    ]
+  },
+  "channels": {
+    "channel1": {
+      "mode": "blacklist",
+      "inheritGlobal": true,
+      "rules": []
+    }
+  }
+}
+```
+
+### Filter Modes
+
+| Mode | Description |
+|------|-------------|
+| `blacklist` | Block posts matching any rule |
+| `whitelist` | Only allow posts matching at least one rule |
+
+### Rule Types
+
+| Type | Description | Example |
+|------|-------------|---------|
+| `keyword` | Case-insensitive substring match | `advertisement` |
+| `regex` | Regular expression match | `spam\|advertisement` |
+
+### Channel Inheritance
+
+- Channels without explicit rules inherit global rules automatically
+- Set `inheritGlobal: false` to disable inheritance
+- Channel-specific rules merge with inherited rules
+
+### Fault Tolerance
+
+- JSON format errors won't crash the Worker
+- Config load failures fallback to "no-filter" mode
+- Invalid regex patterns are skipped with error logging
 
 ## FAQ
 

@@ -33,6 +33,7 @@
 - 丰富的媒体支持（图片 wsrv.nl 代理，视频/音频 Worker 代理）
 - Telegram 推送通知（支持图文）
 - 防风控（UA 池、Host 轮询、随机延迟）
+- 关键词过滤采集（支持正则表达式、黑白名单模式）
 - 全文搜索
 - RSS 订阅
 - 移动端响应式设计
@@ -78,6 +79,7 @@ wrangler deploy
 - `TELEGRAM_BOT_TOKEN` - 用于推送通知
 - `TELEGRAM_PUSH_CHANNEL_ID` - 推送目标频道
 - `TELEGRAM_PUSH_ENABLED` - 设为 `true` 启用推送
+- `FILTER_ENABLED` - 设为 `true` 启用关键词过滤（可选）
 
 ### 2. 部署 Pages（前端）
 
@@ -160,6 +162,7 @@ docker-compose up -d
 | 变量 | 平台 | 说明 |
 |------|------|------|
 | `TELEGRAM_HOST` | Worker | Telegram 主机（支持轮询） |
+| `FILTER_ENABLED` | Worker | 设为 `true` 启用关键词过滤 |
 | `COMMENTS` | Pages | 启用 Telegram 评论 |
 | `GOOGLE_SEARCH_SITE` | Pages | Google 搜索站点 |
 | `HEADER_INJECT` | Pages | 头部 HTML 注入 |
@@ -209,6 +212,73 @@ docker-compose up -d
 - **首页**：`ORDER BY published_at DESC LIMIT 20`
 - **更早**：`published_at < {cursor}`
 - **更新**：`published_at > {cursor}`
+
+## 关键词过滤
+
+### 启用过滤
+
+1. 编辑 `filter-rules.json` 配置文件
+2. 设置环境变量 `FILTER_ENABLED=true`
+3. 重新部署 Worker
+
+### 配置格式
+
+```json
+{
+  "global": {
+    "mode": "blacklist",
+    "rules": [
+      {
+        "id": "1",
+        "pattern": "垃圾广告",
+        "ruleType": "keyword",
+        "isActive": true,
+        "description": "过滤垃圾广告"
+      },
+      {
+        "id": "2",
+        "pattern": "spam|advertisement",
+        "ruleType": "regex",
+        "isActive": true,
+        "description": "过滤英文广告"
+      }
+    ]
+  },
+  "channels": {
+    "channel1": {
+      "mode": "blacklist",
+      "inheritGlobal": true,
+      "rules": []
+    }
+  }
+}
+```
+
+### 过滤模式
+
+| 模式 | 说明 |
+|------|------|
+| `blacklist` | 黑名单：匹配到的帖子被拦截 |
+| `whitelist` | 白名单：仅匹配到的帖子被采集 |
+
+### 规则类型
+
+| 类型 | 说明 | 示例 |
+|------|------|------|
+| `keyword` | 关键词匹配（不区分大小写） | `广告` |
+| `regex` | 正则表达式匹配 | `spam\|advertisement` |
+
+### 渠道继承
+
+- 未配置规则的渠道自动继承全局规则
+- 设置 `inheritGlobal: false` 可关闭继承
+- 渠道特有规则与继承规则合并后统一匹配
+
+### 容错处理
+
+- JSON 格式错误不会导致 Worker 崩溃
+- 配置文件加载失败时降级为"不过滤"模式
+- 无效正则表达式会被跳过并记录日志
 
 ## 常见问题
 
