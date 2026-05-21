@@ -89,10 +89,15 @@ export function validateFilterConfig(rawConfig) {
  * 安全加载配置文件
  * JSON 解析失败时返回空配置，不影响主流程
  */
-export function safeLoadFilterRules() {
+export async function safeLoadFilterRules() {
   try {
-    const rawConfig = require('../filter-rules.json');
-    const config = validateFilterConfig(rawConfig);
+    // 使用动态 import 兼容 ESM
+    const { readFileSync } = await import('fs')
+    const { join } = await import('path')
+    const filterRulesPath = join(process.cwd(), 'filter-rules.json')
+    const content = readFileSync(filterRulesPath, 'utf-8')
+    const rawConfig = JSON.parse(content)
+    const config = validateFilterConfig(rawConfig)
 
     const globalRuleCount = config.global.rules.length;
     const channelCount = Object.keys(config.channels).length;
@@ -106,7 +111,7 @@ export function safeLoadFilterRules() {
     return {
       global: { mode: 'blacklist', rules: [] },
       channels: {}
-    };
+    }
   }
 }
 

@@ -4,22 +4,54 @@ services:
   app:
     build:
       context: .
-      # 国内用户推荐使用 Dockerfile.cn (淘宝npm镜像,更快更稳定)
-      dockerfile: Dockerfile.cn
-      # dockerfile: Dockerfile
+      dockerfile: Dockerfile
     image: multi-channel-broadcast:latest
     container_name: multi-channel-broadcast
+    
     ports:
       - "4321:4321"
+    
     env_file:
       - .env
     environment:
       - NODE_ENV=production
       - HOST=0.0.0.0
       - PORT=4321
+      - DATA_DIR=/app/data
+      - CACHE_DIR=/app/cache
+      - QUEUE_MEMORY_MODE=true
+    
+    volumes:
+      - app-data:/app/data
+      - app-cache:/app/cache
+    
+    restart: unless-stopped
+    
+    networks:
+      - app-network
+    
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:4321/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  redis:
+    image: redis:7-alpine
+    container_name: multi-channel-redis
     restart: unless-stopped
     networks:
       - app-network
+    volumes:
+      - redis-data:/data
+    profiles:
+      - redis
+
+volumes:
+  app-data:
+  app-cache:
+  redis-data:
 
 networks:
   app-network:

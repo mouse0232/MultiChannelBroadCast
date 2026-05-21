@@ -1,10 +1,11 @@
 FROM node:22-alpine AS base
 WORKDIR /app
 
-# 安装pnpm
-RUN npm install -g pnpm@9.9.0
+# 安装 pnpm 和构建依赖
+RUN npm install -g pnpm@9.9.0 && \
+    apk add --no-cache python3 make g++
 
-# 安装所有依赖(包括开发依赖,用于构建)
+# 安装所有依赖
 FROM base AS deps
 COPY package.json pnpm-lock.yaml* ./
 RUN pnpm install --frozen-lockfile
@@ -16,32 +17,41 @@ COPY . .
 ENV DOCKER=true
 RUN pnpm run build
 
-# 仅安装生产依赖并清理缓存
+# 仅安装生产依赖
 FROM base AS prod-deps
 COPY package.json pnpm-lock.yaml* ./
-RUN pnpm install --prod --frozen-lockfile \
-    && pnpm store prune \
-    && rm -rf ~/.pnpm-store ~/.npm ~/.cache
+RUN pnpm install --prod --frozen-lockfile
 
-# 生产运行 - 使用最小化的镜像
+# 生产运行
 FROM node:22-alpine AS runtime
 WORKDIR /app
+
+# 安装 SQLite 运行时依赖
+RUN apk add --no-cache sqlite-libs
 
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=4321
 
-# 清理不必要的包管理工具,减小镜像体积
-RUN rm -rf /usr/local/lib/node_modules/npm \
-    && rm -rf /usr/local/lib/node_modules/corepack \
-    && rm -rf /tmp/* \
-    && rm -rf /var/cache/apk/*
+# 创建数据目录和缓存目录
+RUN mkdir -p /app/data /app/cache/images && \
+    chown -R node:node /app
 
-# 只复制必要的文件
+# 清理不必要的工具
+RUN rm -rf /usr/local/lib/node_modules/npm && \
+    rm -rf /tmp/* /var/cache/apk/*
+
+# 复制文件
 COPY --from=build /app/dist ./dist
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY package.json ./
+COPY src/worker-mock ./src/worker-mock
+COPY src/lib ./src/lib
+COPY filter-rules.json ./
+
+USER node
 
 EXPOSE 4321
 
-CMD ["node", "./dist/server/entry.mjs"]
+# 启动命令
+CMD ["node", "--experimental-vm-modules", "src/worker-mock/index.js"]
