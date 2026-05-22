@@ -3,6 +3,54 @@ English|[简体中文](./README.zh-cn.md)
 
 **Aggregate multiple Telegram channels into a single microblog** - inspired by [BroadcastChannel](https://github.com/ccbikai/BroadcastChannel).
 
+[![Build](https://github.com/mouse0232/MultiChannelBroadCast/actions/workflows/docker-build.yml/badge.svg)](https://github.com/mouse0232/MultiChannelBroadCast/actions)
+[![Docker](https://ghcr-badge.egpl.dev/mouse0232/MultiChannelBroadCast/latest_tag?label=docker)](https://github.com/mouse0232/MultiChannelBroadCast/pkgs/container/MultiChannelBroadCast)
+[![License](https://img.shields.io/github/license/mouse0232/MultiChannelBroadCast)](https://github.com/mouse0232/MultiChannelBroadCast/blob/main/LICENSE)
+
+## Quick Start
+
+### 🐳 Docker Deployment (Recommended for Beginners)
+
+One-click installation for non-technical users:
+
+```bash
+# Download installation script
+curl -fsSL https://raw.githubusercontent.com/mouse0232/MultiChannelBroadCast/main/install.sh -o install.sh
+
+# Run installation
+chmod +x install.sh
+./install.sh
+```
+
+The script will:
+- ✅ Check Docker environment
+- ✅ Download configuration files
+- ✅ Guide you to configure environment variables
+- ✅ Pull Docker image from GHCR
+- ✅ Start the service automatically
+
+**Manual Installation**:
+
+```bash
+# Create working directory
+mkdir -p ~/multi-channel-broadcast
+cd ~/multi-channel-broadcast
+
+# Download configuration files
+curl -LO https://raw.githubusercontent.com/mouse0232/MultiChannelBroadCast/main/docker-compose.yml
+curl -LO https://raw.githubusercontent.com/mouse0232/MultiChannelBroadCast/main/.env.example
+
+# Configure environment variables
+cp .env.example .env
+vim .env  # Edit CHANNELS, API_SECRET_KEY, etc.
+
+# Pull and start
+docker pull ghcr.io/mouse0232/MultiChannelBroadCast:latest
+docker-compose up -d
+```
+
+📖 **Full Documentation**: [DOCKER_DEPLOYMENT.md](.monkeycode/docs/DOCKER_DEPLOYMENT.md)
+
 ## Architecture
 
 This project uses a **frontend-backend separated architecture**:
@@ -52,7 +100,49 @@ This project uses a **frontend-backend separated architecture**:
 
 ## Quick Start
 
-### 1. Deploy Worker (Backend)
+### 🐳 Docker Deployment (Recommended for Beginners)
+
+One-click installation for non-technical users:
+
+```bash
+# Download installation script
+curl -fsSL https://raw.githubusercontent.com/mouse0232/MultiChannelBroadCast/main/install.sh -o install.sh
+
+# Run installation
+chmod +x install.sh
+./install.sh
+```
+
+The script will:
+- ✅ Check Docker environment
+- ✅ Download configuration files
+- ✅ Guide you to configure environment variables
+- ✅ Pull Docker image from GHCR
+- ✅ Start the service automatically
+
+**Manual Installation**:
+
+```bash
+# Create working directory
+mkdir -p ~/multi-channel-broadcast
+cd ~/multi-channel-broadcast
+
+# Download configuration files
+curl -LO https://raw.githubusercontent.com/mouse0232/MultiChannelBroadCast/main/docker-compose.yml
+curl -LO https://raw.githubusercontent.com/mouse0232/MultiChannelBroadCast/main/.env.example
+
+# Configure environment variables
+cp .env.example .env
+vim .env  # Edit CHANNELS, API_SECRET_KEY, etc.
+
+# Pull and start
+docker pull ghcr.io/mouse0232/MultiChannelBroadCast:latest
+docker-compose up -d
+```
+
+📖 **Full Documentation**: [DOCKER_DEPLOYMENT.md](.monkeycode/docs/DOCKER_DEPLOYMENT.md)
+
+### ☁️ Cloudflare Deployment (Advanced Users)
 
 ```bash
 # Clone the project
@@ -81,7 +171,7 @@ Set environment variables in Cloudflare Dashboard:
 - `TELEGRAM_PUSH_ENABLED` - set to `true` to enable push
 - `FILTER_ENABLED` - set to `true` to enable keyword filtering (optional)
 
-### 2. Deploy Pages (Frontend)
+**2. Deploy Pages (Frontend)**
 
 Connect the GitHub repository to Cloudflare Pages:
 - **Build command**: `pnpm build`
@@ -94,19 +184,9 @@ Set environment variables:
 
 Visit your site URL to see the result.
 
-### 3. Docker Deployment (Alternative)
+**3. Local Development**
 
-```bash
-# Build Docker image
-docker build -t multi-channel-broadcast .
-
-# Run with docker-compose
-docker-compose up -d
-```
-
-Configure environment variables in `.env` or `docker-compose.yml`.
-
-### Local Development
+pnpm install
 
 ```bash
 # Install dependencies
@@ -134,6 +214,11 @@ docker-compose up -d
 ```
 
 Visit `http://localhost:4321` to see the result.
+
+📖 **More Docker Documentation**:
+- [Deployment Guide](.monkeycode/docs/DOCKER_DEPLOYMENT.md)
+- [Testing Guide](DOCKER_TESTING_GUIDE.md)
+- [GitHub Actions](.github/workflows/README_DOCKER_RELEASE.md)
 
 ## Configuration
 
@@ -330,9 +415,16 @@ Check:
 ## Project Docs
 
 Detailed documentation is available at `.monkeycode/docs/`:
+
+**Core Documentation**:
 - [Architecture](./.monkeycode/docs/ARCHITECTURE.md)
 - [Interfaces](./.monkeycode/docs/INTERFACES.md)
 - [Developer Guide](./.monkeycode/docs/DEVELOPER_GUIDE.md)
+
+**Docker Deployment**:
+- [Deployment Guide](.monkeycode/docs/DOCKER_DEPLOYMENT.md) - Complete Docker deployment tutorial
+- [Testing Guide](DOCKER_TESTING_GUIDE.md) - Docker testing guide
+- [Docker Release](.github/workflows/README_DOCKER_RELEASE.md) - GitHub Actions auto-build guide
 
 ## Contributing
 
