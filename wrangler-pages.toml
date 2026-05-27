@@ -1,0 +1,5 @@
+# mcb-crawler Worker Service Binding
+# 让 Pages Functions 能够免费调用 mcb-crawler Worker 的 API
+[[services]]
+binding = "MCB_CRAWLER"
+service = "mcb-crawler"
