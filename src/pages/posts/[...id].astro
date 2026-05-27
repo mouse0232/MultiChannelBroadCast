@@ -1,7 +1,7 @@
 ---
 import List from '../../components/list.astro'
 import { getEnv } from '../../lib/env'
-import { callWorkerApi } from '../../lib/d1-client'
+import { getWorkerBaseUrl } from '../../lib/d1-client'
 
 const { id } = Astro.params
 // id 是 URL 编码的完整 ID，如 "yunyoocc%2F12345" -> "yunyoocc/12345"
@@ -13,8 +13,10 @@ let channelUsername = ''
 let channelTitle = ''
 
 try {
+  const baseUrl = getWorkerBaseUrl(Astro)
   const secret = Astro.locals?.runtime?.env?.API_SECRET_KEY || import.meta.env.PUBLIC_API_SECRET_KEY || '';
-  const res = await callWorkerApi(`/api/post/${encodeURIComponent(decodedId)}`, Astro, {
+  // 使用完整 ID 精确查询
+  const res = await fetch(`${baseUrl}/api/post/${encodeURIComponent(decodedId)}`, {
     headers: { 'X-API-Secret': secret }
   })
   if (res.ok) {

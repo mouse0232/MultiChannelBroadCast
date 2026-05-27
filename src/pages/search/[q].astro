@@ -1,7 +1,7 @@
 ---
 import List from '../../components/list.astro'
 import { getEnv } from '../../lib/env'
-import { callWorkerApi } from '../../lib/d1-client'
+import { getWorkerBaseUrl } from '../../lib/d1-client'
 
 // 支持两种搜索方式: /search/关键词 或 /search/result?q=关键词
 const q = Astro.url.searchParams.get('q') || Astro.params.q
@@ -13,8 +13,9 @@ const channelName = scope === 'channel' ? requestedChannel : 'all'
 
 let posts = []
 try {
+  const baseUrl = getWorkerBaseUrl(Astro)
   const secret = Astro.locals?.runtime?.env?.API_SECRET_KEY || import.meta.env.PUBLIC_API_SECRET_KEY || '';
-  const res = await callWorkerApi(`/api/posts/search?q=${encodeURIComponent(q)}&channel=${channelName}`, Astro, {
+  const res = await fetch(`${baseUrl}/api/posts/search?q=${encodeURIComponent(q)}&channel=${channelName}`, {
     headers: { 'X-API-Secret': secret }
   })
   if (res.ok) {

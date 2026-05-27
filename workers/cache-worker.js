@@ -955,13 +955,11 @@ export default {
         const loggingEnabled = env.API_LOGGING_ENABLED === 'true';
         if (loggingEnabled) {
           const realUserIP = request.headers.get('x-real-user-ip') || request.headers.get('cf-connecting-ip');
-          const requestSource = request.headers.get('x-request-source') || 'direct';
           
           console.log('API Debug:', {
             timestamp: new Date().toISOString(),
             path: url.pathname,
             method: request.method,
-            source: requestSource,
             realUserIP: realUserIP,
             params: {
               q: url.searchParams.get('q'),
@@ -1023,13 +1021,11 @@ export default {
         const loggingEnabled = env.API_LOGGING_ENABLED === 'true';
         if (loggingEnabled) {
           const realUserIP = request.headers.get('x-real-user-ip') || request.headers.get('cf-connecting-ip');
-          const requestSource = request.headers.get('x-request-source') || 'direct';
           
           console.log('API Debug:', {
             timestamp: new Date().toISOString(),
             path: url.pathname,
             method: request.method,
-            source: requestSource,
             realUserIP: realUserIP,
             params: {
               channel: url.searchParams.get('channel'),
