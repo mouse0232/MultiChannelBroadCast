@@ -11,7 +11,7 @@
   "scripts": {
     "dev": "astro dev",
     "start": "astro dev",
-    "build": "[ -f wrangler.toml ] && mv wrangler.toml wrangler.toml.bak; SERVER_ADAPTER=cloudflare_pages astro build; [ -f wrangler.toml.bak ] && mv wrangler.toml.bak wrangler.toml",
+    "build": "[ -f wrangler.toml ] && mv wrangler.toml wrangler.toml.bak && SERVER_ADAPTER=cloudflare_pages astro build && mv wrangler.toml.bak wrangler.toml",
     "build:node": "astro build",
     "preview": "astro preview",
     "astro": "astro",

@@ -16,7 +16,7 @@ const providers = {
     functionPerRoute: false,
     imageService: true,
     devImageService: 'sharp',
-    runtime: 'nodejs20.x',
+    runtime: 'nodejs22.x',
   }),
   cloudflare_pages: cloudflare({
     mode: 'directory',
