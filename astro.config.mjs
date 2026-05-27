@@ -1,6 +1,6 @@
 import process from 'node:process'
 import { defineConfig } from 'astro/config'
-import vercel from '@astrojs/vercel/serverless'
+import vercel from '@astrojs/vercel'
 import cloudflare from '@astrojs/cloudflare'
 import netlify from '@astrojs/netlify'
 import node from '@astrojs/node'
