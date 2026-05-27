@@ -1,6 +1,6 @@
 import process from 'node:process'
 import { defineConfig } from 'astro/config'
-import vercel from '@astrojs/vercel'
+import vercel from '@astrojs/vercel/serverless'
 import cloudflare from '@astrojs/cloudflare'
 import netlify from '@astrojs/netlify'
 import node from '@astrojs/node'
@@ -16,7 +16,7 @@ const providers = {
     functionPerRoute: false,
     imageService: true,
     devImageService: 'sharp',
-    runtime: 'nodejs22.x',
+    runtime: 'nodejs20.x',
   }),
   cloudflare_pages: cloudflare({
     mode: 'directory',

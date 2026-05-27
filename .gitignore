@@ -49,4 +49,4 @@ vercel.json.bak
 package-lock.json
 
 #
-.wrangler/
+*.png
