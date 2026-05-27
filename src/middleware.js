@@ -34,14 +34,7 @@ export async function onRequest(context, next) {
     context.locals.RSS_PREFIX = `${tag} | `
   }
 
-  let response;
-  try {
-    response = await next()
-  } catch (error) {
-    console.error('SSR Render Error:', error)
-    console.error('Stack:', error?.stack)
-    throw error
-  }
+  const response = await next()
 
   if (!response.bodyUsed) {
     if (response.headers.get('Content-type') === 'text/html') {
