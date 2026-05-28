@@ -802,12 +802,30 @@ export default {
 
       // ==========================================
       // 图片代理逻辑 (R2 持久化缓存 Demo)
-      // URL 格式: /img-proxy?url=https://cdnX.telesco.pe/file/...
+      // URL 格式：/img-proxy?url=https://cdnX.telesco.pe/file/...
       // ==========================================
       if (url.pathname === '/img-proxy') {
         try {
           const targetUrl = url.searchParams.get('url');
           if (!targetUrl) return new Response('Missing url parameter', { status: 400, headers: corsHeaders });
+
+          // 处理 Data URL (如 base64 编码的 SVG 头像)
+          if (targetUrl.startsWith('data:image/')) {
+            const commaIndex = targetUrl.indexOf(',');
+            const mimeTypePart = targetUrl.substring(5, commaIndex);
+            // 提取 MIME 类型，去掉 ;base64 后缀
+            const mimeType = mimeTypePart.split(';')[0];
+            const base64Data = targetUrl.substring(commaIndex + 1);
+            const binaryData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+            
+            return new Response(binaryData, {
+              headers: {
+                'Content-Type': mimeType,
+                'Cache-Control': 'public, max-age=31536000',
+                'Access-Control-Allow-Origin': '*'
+              }
+            });
+          }
 
           // 严格安全校验：防止被当作开放代理 (Open Proxy)
           try {
@@ -817,6 +835,9 @@ export default {
             if (!isTelegram) {
               return new Response('Forbidden: Only Telegram CDN images are allowed', { status: 403, headers: corsHeaders });
             }
+          } catch (e) {
+            return new Response('Invalid URL format', { status: 400, headers: corsHeaders });
+          }
           } catch (e) {
             return new Response('Invalid URL format', { status: 400, headers: corsHeaders });
           }
