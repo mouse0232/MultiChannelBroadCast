@@ -1,0 +1,48 @@
+---
+// 测试 Service Binding 是否能获取到
+const env = Astro.locals?.runtime?.env || {}
+
+let bindingStatus = '未检测到'
+let bindingType = 'N/A'
+
+if (env.MCB_CRAWLER) {
+  bindingStatus = '✓ 已获取'
+  bindingType = typeof env.MCB_CRAWLER
+  
+  // 尝试调用
+  try {
+    const res = await env.MCB_CRAWLER.fetch('https://mcb-crawler.internal/api/test-binding')
+    bindingStatus = res.ok ? '✓ 调用成功' : `✗ 调用失败：${res.status}`
+  } catch (e) {
+    bindingStatus = `✗ 调用错误：${e.message}`
+  }
+} else {
+  // 列出 env 中所有的 key
+  const envKeys = Object.keys(env).filter(k => !k.includes('SECRET'))
+  console.log('env 中的 keys:', envKeys)
+}
+---
+
+<html>
+  <head>
+    <title>Service Binding 测试</title>
+  </head>
+  <body>
+    <h1>Service Binding 测试结果</h1>
+    
+    <h2>MCB_CRAWLER Binding</h2>
+    <ul>
+      <li>状态：{bindingStatus}</li>
+      <li>类型：{bindingType}</li>
+    </ul>
+    
+    <h2>环境变量列表</h2>
+    <ul>
+      {Object.keys(env).filter(k => !k.includes('SECRET')).map(key => (
+        <li>{key}: {typeof env[key]}</li>
+      ))}
+    </ul>
+    
+    <p>检查 Cloudflare Pages Logs 查看详细输出</p>
+  </body>
+</html>

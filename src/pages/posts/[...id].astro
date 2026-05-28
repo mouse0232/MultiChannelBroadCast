@@ -4,17 +4,17 @@ import { getEnv } from '../../lib/env'
 import { callWorkerApi } from '../../lib/d1-client'
 
 const { id } = Astro.params
-// id 是 URL 编码的完整 ID，如 "yunyoocc%2F12345" -> "yunyoocc/12345"
 const decodedId = decodeURIComponent(id)
 
-// 从 D1 获取帖子
+const env = Astro.locals?.runtime?.env || {}
+
 let post = null
 let channelUsername = ''
 let channelTitle = ''
 
 try {
-  const secret = Astro.locals?.runtime?.env?.API_SECRET_KEY || import.meta.env.PUBLIC_API_SECRET_KEY || '';
-  const res = await callWorkerApi(`/api/post/${encodeURIComponent(decodedId)}`, Astro, {
+  const secret = env.API_SECRET_KEY || import.meta.env.PUBLIC_API_SECRET_KEY || ''
+  const res = await callWorkerApi(`/api/post/${encodeURIComponent(decodedId)}`, env, {
     headers: { 'X-API-Secret': secret }
   })
   if (res.ok) {

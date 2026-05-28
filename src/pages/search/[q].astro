@@ -3,7 +3,6 @@ import List from '../../components/list.astro'
 import { getEnv } from '../../lib/env'
 import { callWorkerApi } from '../../lib/d1-client'
 
-// 支持两种搜索方式: /search/关键词 或 /search/result?q=关键词
 const q = Astro.url.searchParams.get('q') || Astro.params.q
 const scopeParam = Astro.url.searchParams.get('scope') || 'all'
 const requestedChannel = Astro.url.searchParams.get('channel') || ''
@@ -11,16 +10,21 @@ const requestedChannel = Astro.url.searchParams.get('channel') || ''
 const scope = scopeParam === 'channel' && requestedChannel ? 'channel' : 'all'
 const channelName = scope === 'channel' ? requestedChannel : 'all'
 
+const env = Astro.locals?.runtime?.env || {}
+
 let posts = []
 try {
-  const secret = Astro.locals?.runtime?.env?.API_SECRET_KEY || import.meta.env.PUBLIC_API_SECRET_KEY || '';
-  const res = await callWorkerApi(`/api/posts/search?q=${encodeURIComponent(q)}&channel=${channelName}`, Astro, {
+  const secret = env.API_SECRET_KEY || import.meta.env.PUBLIC_API_SECRET_KEY || ''
+  const res = await callWorkerApi(`/api/posts/search?q=${encodeURIComponent(q)}&channel=${channelName}`, env, {
     headers: { 'X-API-Secret': secret }
   })
   if (res.ok) {
     const data = await res.json()
     posts = data.posts
   }
+} catch (e) {
+  console.error('Search failed:', e)
+}
 } catch (e) {
   console.error('Search failed:', e)
 }
