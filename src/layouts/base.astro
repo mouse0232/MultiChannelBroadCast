@@ -309,7 +309,15 @@ const showSearchScope = !GOOGLE_SEARCH_SITE && hasChannelScope
         </div>
       </footer>
     )}
-    <script type="module" src="/code-highlight-client.js"></script>
+    <script type="module">
+      import { initCodeHighlighting } from '../src/lib/code-highlight-client.js';
+      // Auto-init on page load
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initCodeHighlighting);
+      } else {
+        initCodeHighlighting();
+      }
+    </script>
   </body>
 </html>
 
