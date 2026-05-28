@@ -1087,6 +1087,32 @@ export default {
             })
           }
 
+          // 添加增强调试日志
+          const loggingEnabled = env.API_LOGGING_ENABLED === 'true';
+          if (loggingEnabled) {
+            const realUserIP = request.headers.get('x-real-user-ip') || request.headers.get('cf-connecting-ip');
+            
+            console.log('API Debug:', {
+              timestamp: new Date().toISOString(),
+              path: url.pathname,
+              method: request.method,
+              realUserIP: realUserIP,
+              params: {
+                q: url.searchParams.get('q'),
+                channel: url.searchParams.get('channel'),
+                limit: url.searchParams.get('limit')
+              },
+              headers: {
+                userAgent: request.headers.get('user-agent'),
+                referer: request.headers.get('referer'),
+                origin: request.headers.get('origin'),
+                cfConnectingIP: request.headers.get('cf-connecting-ip'),
+                cfRay: request.headers.get('cf-ray'),
+                accept: request.headers.get('accept')
+              }
+            });
+          }
+          
           const q = url.searchParams.get('q')
           const channel = url.searchParams.get('channel') || 'all'
           const limit = Math.min(parseInt(url.searchParams.get('limit') || '20'), 100)
@@ -1134,7 +1160,27 @@ export default {
           const loggingEnabled = env.API_LOGGING_ENABLED === 'true';
           if (loggingEnabled) {
             const realUserIP = request.headers.get('x-real-user-ip') || request.headers.get('cf-connecting-ip');
-            console.log('API Debug:', { timestamp: new Date().toISOString(), path: 'posts', method: 'GET' });
+            
+            console.log('API Debug:', {
+              timestamp: new Date().toISOString(),
+              path: url.pathname,
+              method: request.method,
+              realUserIP: realUserIP,
+              params: {
+                channel: url.searchParams.get('channel'),
+                limit: url.searchParams.get('limit'),
+                before: url.searchParams.get('before'),
+                after: url.searchParams.get('after')
+              },
+              headers: {
+                userAgent: request.headers.get('user-agent'),
+                referer: request.headers.get('referer'),
+                origin: request.headers.get('origin'),
+                cfConnectingIP: request.headers.get('cf-connecting-ip'),
+                cfRay: request.headers.get('cf-ray'),
+                accept: request.headers.get('accept')
+              }
+            });
           }
           
           const channel = url.searchParams.get('channel') || 'all'
