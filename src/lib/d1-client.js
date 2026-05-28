@@ -5,26 +5,31 @@ import { getEnv } from './env'
  * 优先使用 Service Binding（免费），降级为 HTTP 公网请求（兼容模式）
  * 
  * @param {string} pathname  - API 路径，如 '/api/channels'、'/api/posts?q=test'
- * @param {object} env       - 运行环境 env（从 context.locals.runtime.env 或 Astro.locals.runtime.env 传入）
+ * @param {object} env       - 运行环境 env（从 Astro.locals.runtime.env 传入）
  * @param {object} options   - 可选配置
  * @param {object} options.headers - 额外请求头
  * @returns {Promise<Response>} fetch Response
  */
 export async function callWorkerApi(pathname, env, { headers = {} } = {}) {
-  const binding = env?.MCB_CRAWLER ?? null
-
-  if (binding) {
+  // 1. Service Binding（免费）
+  if (env?.MCB_CRAWLER) {
     const req = new Request(`https://mcb-crawler.internal${pathname}`, {
       headers: {
         ...headers,
         'X-Request-Source': 'service-binding',
       },
     })
-    return binding.fetch(req)
+    return env.MCB_CRAWLER.fetch(req)
   }
 
-  // 临时屏蔽降级：直接报错，方便验证 Service Binding 是否生效
-  throw new Error('MCB_CRAWLER Service Binding 未配置 - 请检查 Dashboard Bindings 设置')
+  // 2. HTTP 降级（兼容模式）
+  const baseUrl = env?.WORKER_URL || 'https://mcb-crawler.mouse0232.workers.dev'
+  return fetch(`${baseUrl}${pathname}`, {
+    headers: {
+      ...headers,
+      'X-Request-Source': 'http',
+    },
+  })
 }
 
 /**
@@ -43,8 +48,6 @@ export async function getChannels(Astro) {
 
 /**
  * 从 D1 获取帖子列表
- * @param {object} Astro - Astro context
- * @param {object} options - 选项 { channel, limit, before, after }
  */
 export async function getPosts(Astro, { channel = 'all', limit = 20, before = '', after = '' } = {}) {
   const env = Astro.locals?.runtime?.env || {}
