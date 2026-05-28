@@ -1,7 +1,6 @@
 export async function onRequest(context, next) {
-  // 确保 SITE_URL 正确生成,优先使用 context.url.origin
-  // 修复Cloudflare Pages默认域名和预览域名的处理问题
-  const siteBase = import.meta.env.SITE || context.url.origin;
+  // 确保 SITE_URL 正确生成，优先使用环境变量 SITE_URL
+  const siteBase = import.meta.env.SITE_URL || import.meta.env.SITE || context.url.origin;
   const baseUrl = import.meta.env.BASE_URL || '/';
 
   // 确保SITE_URL格式正确
