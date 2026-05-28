@@ -2,7 +2,7 @@ import { getEnv } from './env'
 
 /**
  * 统一调用 Worker API
- * 优先使用 Service Binding（免费），降级为 HTTP 公网请求（兼容模式）
+ * 仅使用 Service Binding（内部调用，不暴露公网）
  * 
  * @param {string} pathname  - API 路径，如 '/api/channels'、'/api/posts?q=test'
  * @param {object} env       - 运行环境 env（从 Astro.locals.runtime.env 传入）
@@ -11,25 +11,18 @@ import { getEnv } from './env'
  * @returns {Promise<Response>} fetch Response
  */
 export async function callWorkerApi(pathname, env, { headers = {} } = {}) {
-  // 1. Service Binding（免费）
-  if (env?.MCB_CRAWLER) {
-    const req = new Request(`https://mcb-crawler.internal${pathname}`, {
-      headers: {
-        ...headers,
-        'X-Request-Source': 'service-binding',
-      },
-    })
-    return env.MCB_CRAWLER.fetch(req)
+  // 强制使用 Service Binding
+  if (!env?.MCB_CRAWLER) {
+    throw new Error('MCB_CRAWLER Service Binding 未配置 - 请在 Cloudflare Dashboard 中配置')
   }
 
-  // 2. HTTP 降级（兼容模式）
-  const baseUrl = env?.WORKER_URL || 'https://mcb-crawler.mouse0232.workers.dev'
-  return fetch(`${baseUrl}${pathname}`, {
+  const req = new Request(`https://mcb-crawler.internal${pathname}`, {
     headers: {
       ...headers,
-      'X-Request-Source': 'http',
+      'X-Request-Source': 'service-binding',
     },
   })
+  return env.MCB_CRAWLER.fetch(req)
 }
 
 /**
