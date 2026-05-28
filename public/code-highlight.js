@@ -1,3 +1,4 @@
+// DEPLOY_CHECK: 2026-05-28T05:45:00Z
 // Code highlighting with PrismJS from CDN
 // 使用 jsDelivr CDN 加载 PrismJS，避免裸包名解析问题
 
