@@ -677,7 +677,8 @@ if (import.meta.env.DEV && isItem) {
 
   // 显示用户反馈
   function showFeedback(message, isError = false) {
-    const feedback = document.getElementById(`feedback-${postId}`);
+    const escapedId = CSS.escape(postId);
+    const feedback = document.getElementById(`feedback-${escapedId}`);
     if (!feedback) return;
 
     feedback.textContent = message;
@@ -691,7 +692,8 @@ if (import.meta.env.DEV && isItem) {
 
   // 获取用户偏好的复制格式
   function getCopyFormat() {
-    const selector = document.getElementById(`format-${postId}`);
+    const escapedId = CSS.escape(postId);
+    const selector = document.getElementById(`format-${escapedId}`);
     if (selector) {
       return selector.value;
     }
@@ -723,7 +725,8 @@ if (import.meta.env.DEV && isItem) {
   // 复制按钮处理
   async function handleCopy() {
     try {
-      const contentEl = document.querySelector(`#post-${postId} .content`);
+      const escapedId = CSS.escape(postId);
+      const contentEl = document.querySelector(`#post-${escapedId} .content`);
       if (!contentEl) {
         showFeedback('未找到消息内容', true);
         return;
@@ -783,8 +786,9 @@ if (import.meta.env.DEV && isItem) {
 
   // 事件绑定（使用事件委托）
   document.addEventListener('click', function(e) {
-    const copyBtn = e.target.closest(`#post-${postId} .copy-btn`);
-    const shareBtn = e.target.closest(`#post-${postId} .share-btn`);
+    const escapedId = CSS.escape(postId);
+    const copyBtn = e.target.closest(`#post-${escapedId} .copy-btn`);
+    const shareBtn = e.target.closest(`#post-${escapedId} .share-btn`);
 
     if (copyBtn) {
       e.preventDefault();
@@ -798,15 +802,13 @@ if (import.meta.env.DEV && isItem) {
   // 初始化：恢复用户偏好的格式
   (function initFormatSelector() {
     try {
-      const savedFormat = localStorage.getItem('copy-format-preference');
-      if (savedFormat) {
-        const selector = document.getElementById(`format-${postId}`);
-        if (selector) {
-          selector.value = savedFormat;
-        }
+      const escapedId = CSS.escape(postId);
+      const selector = document.getElementById(`format-${escapedId}`);
+      if (selector) {
+        selector.value = savedFormat;
       }
     } catch (e) {
-      // localStorage不可用，使用默认值
+      // localStorage 不可用，使用默认值
     }
   })();
 })();
