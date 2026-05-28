@@ -838,9 +838,6 @@ export default {
           } catch (e) {
             return new Response('Invalid URL format', { status: 400, headers: corsHeaders });
           }
-          } catch (e) {
-            return new Response('Invalid URL format', { status: 400, headers: corsHeaders });
-          }
 
           // 生成 R2 Key (SHA-256 哈希保证唯一且安全)
           const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(targetUrl));
