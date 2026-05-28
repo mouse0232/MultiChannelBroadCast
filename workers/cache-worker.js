@@ -312,9 +312,12 @@ function parsePosts(html, channel, lastMsgId, workerUrl) {
   
   // 代理头像
   if (avatar) {
-    const imgProxyPrefix = workerUrl ? `${workerUrl}/img-proxy?url=` : 'https://wsrv.nl/?url=';
-    if (!avatar.startsWith(imgProxyPrefix)) {
-      avatar = `${imgProxyPrefix}${encodeURIComponent(avatar)}`;
+    // 跳过 Data URL 和已经代理过的 URL
+    if (!avatar.startsWith('data:') && !avatar.startsWith('http')) {
+      const imgProxyPrefix = workerUrl ? `${workerUrl}/img-proxy?url=` : 'https://wsrv.nl/?url=';
+      if (!avatar.startsWith(imgProxyPrefix)) {
+        avatar = `${imgProxyPrefix}${encodeURIComponent(avatar)}`;
+      }
     }
   }
   
@@ -379,14 +382,22 @@ function parsePosts(html, channel, lastMsgId, workerUrl) {
     // 照片
     $item.find('.tgme_widget_message_photo_wrap').each((_, el) => {
       const style = $(el).attr('style') || ''
-      // 匹配单引号或双引号: background-image:url('...') 或 background-image:url("...")
+      // 匹配单引号或双引号：background-image:url('...') 或 background-image:url("...")
       const bgMatch = style.match(/background-image:url\(['"]?([^'")]+)['"]?\)/)
       if (bgMatch) {
         let imgUrl = bgMatch[1]
-        // 代理图片
-        const imgProxyPrefix = workerUrl ? `${workerUrl}/img-proxy?url=` : 'https://wsrv.nl/?url=';
-        imgUrl = `${imgProxyPrefix}${encodeURIComponent(imgUrl)}`
-        mediaElements.push(`<img src="${imgUrl}" alt="Photo" loading="lazy" />`)
+        // 跳过 Data URL 和已经代理过的 URL
+        if (!imgUrl.startsWith('data:') && !imgUrl.startsWith('http')) {
+          const imgProxyPrefix = workerUrl ? `${workerUrl}/img-proxy?url=` : 'https://wsrv.nl/?url=';
+          imgUrl = `${imgProxyPrefix}${encodeURIComponent(imgUrl)}`
+          mediaElements.push(`<img src="${imgUrl}" alt="Photo" loading="lazy" />`)
+        } else if (!imgUrl.startsWith('data:')) {
+          // http/https 链接直接保留
+          mediaElements.push(`<img src="${imgUrl}" alt="Photo" loading="lazy" />`)
+        } else {
+          // Data URL 直接使用
+          mediaElements.push(`<img src="${imgUrl}" alt="Photo" loading="lazy" />`)
+        }
       }
     })
     
@@ -396,9 +407,18 @@ function parsePosts(html, channel, lastMsgId, workerUrl) {
       if (img.length > 0) {
         let imgUrl = img.attr('src')
         if (imgUrl) {
-          const imgProxyPrefix = workerUrl ? `${workerUrl}/img-proxy?url=` : 'https://wsrv.nl/?url=';
-          imgUrl = `${imgProxyPrefix}${encodeURIComponent(imgUrl)}`
-          mediaElements.push(`<img src="${imgUrl}" alt="Link Preview" loading="lazy" />`)
+          // 跳过 Data URL 和已经代理过的 URL
+          if (!imgUrl.startsWith('data:') && !imgUrl.startsWith('http')) {
+            const imgProxyPrefix = workerUrl ? `${workerUrl}/img-proxy?url=` : 'https://wsrv.nl/?url=';
+            imgUrl = `${imgProxyPrefix}${encodeURIComponent(imgUrl)}`
+            mediaElements.push(`<img src="${imgUrl}" alt="Link Preview" loading="lazy" />`)
+          } else if (!imgUrl.startsWith('data:')) {
+            // http/https 链接直接保留
+            mediaElements.push(`<img src="${imgUrl}" alt="Link Preview" loading="lazy" />`)
+          } else {
+            // Data URL 直接使用
+            mediaElements.push(`<img src="${imgUrl}" alt="Link Preview" loading="lazy" />`)
+          }
         }
       }
     })
@@ -415,9 +435,14 @@ function parsePosts(html, channel, lastMsgId, workerUrl) {
         if (thumb.length > 0) {
           const thumbUrl = thumb.attr('src')
           if (thumbUrl) {
-            const imgProxyPrefix = workerUrl ? `${workerUrl}/img-proxy?url=` : 'https://wsrv.nl/?url=';
-            const proxiedUrl = `${imgProxyPrefix}${encodeURIComponent(thumbUrl)}`
-            mediaElements.push(`<img src="${proxiedUrl}" alt="Video Thumbnail" loading="lazy" />`)
+            // 跳过 Data URL 和已经代理过的 URL
+            if (!thumbUrl.startsWith('data:') && !thumbUrl.startsWith('http')) {
+              const imgProxyPrefix = workerUrl ? `${workerUrl}/img-proxy?url=` : 'https://wsrv.nl/?url=';
+              const proxiedUrl = `${imgProxyPrefix}${encodeURIComponent(thumbUrl)}`
+              mediaElements.push(`<img src="${proxiedUrl}" alt="Video Thumbnail" loading="lazy" />`)
+            } else {
+              mediaElements.push(`<img src="${thumbUrl}" alt="Video Thumbnail" loading="lazy" />`)
+            }
           }
         }
       }
