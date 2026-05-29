@@ -78,8 +78,9 @@ function getVersionedKey(urlObj, versions) {
   // 规范化 URL
   const normalized = normalizeUrl(urlObj, urlObj.origin + urlObj.pathname);
   
-  // 虚拟 Key 结构：版本号-NormalizedURL
-  return `${ver}-${normalized}`;
+  // 虚拟 Key 结构：将版本号作为 query 参数拼入 URL，确保 URL 合法性
+  const separator = normalized.includes('?') ? '&' : '?';
+  return `${normalized}${separator}_cv=${ver}`;
 }
 
 // ==========================================
@@ -125,8 +126,13 @@ async function handleCachedRequest(request, env, ctx, getResponseFunc, isVersion
   
   console.log(`[API Cache] STORE - ${method} ${cleanPath} (Time: ${elapsed}ms)`);
   
-  // 4. 存入缓存 (使用 clone 确保原始响应仍可被返回)
-  if (typeof caches !== 'undefined' && caches.default) {
+  // 4. 存入缓存 (加门禁：仅缓存 GET 请求的成功响应)
+  if (
+    request.method === 'GET' &&
+    response.ok &&
+    typeof caches !== 'undefined' &&
+    caches.default
+  ) {
     try {
       const responseToCache = response.clone();
       // 异步存入，不阻塞返回
@@ -1046,16 +1052,16 @@ export default {
       // API: 获取单个帖子
       // 策略：基于 URL 的 TTL 缓存 (Short TTL Strategy)
       if (url.pathname.startsWith('/api/post/')) {
-        return handleCachedRequest(request, env, ctx, async () => {
-          // Secret 验证
-          const providedSecret = request.headers.get('X-API-Secret') || ''
-          if (env.API_SECRET_KEY && providedSecret !== env.API_SECRET_KEY) {
-            return new Response(JSON.stringify({ error: 'Unauthorized' }), { 
-              status: 403, 
-              headers: corsHeaders 
-            })
-          }
+        // Secret 验证 (移到缓存之前，防止绕过)
+        const providedSecret = request.headers.get('X-API-Secret') || ''
+        if (env.API_SECRET_KEY && providedSecret !== env.API_SECRET_KEY) {
+          return new Response(JSON.stringify({ error: 'Unauthorized' }), { 
+            status: 403, 
+            headers: corsHeaders 
+          })
+        }
 
+        return handleCachedRequest(request, env, ctx, async () => {
           const rawId = decodeURIComponent(url.pathname.split('/api/post/').pop())
           
           // 校验 ID 格式：必须包含斜杠 (channel/id)
@@ -1085,16 +1091,16 @@ export default {
       // API: 搜索帖子
       // 策略：基于 URL 的 TTL 缓存 (Short TTL Strategy)
       if (url.pathname === '/api/posts/search') {
-        return handleCachedRequest(request, env, ctx, async () => {
-          // Secret 验证
-          const providedSecret = request.headers.get('X-API-Secret') || ''
-          if (env.API_SECRET_KEY && providedSecret !== env.API_SECRET_KEY) {
-            return new Response(JSON.stringify({ error: 'Unauthorized' }), { 
-              status: 403, 
-              headers: corsHeaders 
-            })
-          }
+        // Secret 验证 (移到缓存之前，防止绕过)
+        const providedSecret = request.headers.get('X-API-Secret') || ''
+        if (env.API_SECRET_KEY && providedSecret !== env.API_SECRET_KEY) {
+          return new Response(JSON.stringify({ error: 'Unauthorized' }), { 
+            status: 403, 
+            headers: corsHeaders 
+          })
+        }
 
+        return handleCachedRequest(request, env, ctx, async () => {
           // 添加增强调试日志
           const loggingEnabled = env.API_LOGGING_ENABLED === 'true';
           if (loggingEnabled) {
@@ -1154,16 +1160,16 @@ export default {
       // API: 获取帖子列表
       // 策略：使用版本号 Key (Version Key) 以支持实时失效
       if (url.pathname.startsWith('/api/posts') && !url.pathname.includes('/search')) {
-        return handleCachedRequest(request, env, ctx, async () => {
-          // Secret 验证
-          const providedSecret = request.headers.get('X-API-Secret') || ''
-          if (env.API_SECRET_KEY && providedSecret !== env.API_SECRET_KEY) {
-            return new Response(JSON.stringify({ error: 'Unauthorized' }), { 
-              status: 403, 
-              headers: corsHeaders 
-            })
-          }
+        // Secret 验证 (移到缓存之前，防止绕过)
+        const providedSecret = request.headers.get('X-API-Secret') || ''
+        if (env.API_SECRET_KEY && providedSecret !== env.API_SECRET_KEY) {
+          return new Response(JSON.stringify({ error: 'Unauthorized' }), { 
+            status: 403, 
+            headers: corsHeaders 
+          })
+        }
 
+        return handleCachedRequest(request, env, ctx, async () => {
           // 添加增强调试日志 (仅 MISS 时可见，HIT 时不会执行)
           const loggingEnabled = env.API_LOGGING_ENABLED === 'true';
           if (loggingEnabled) {
@@ -1241,15 +1247,16 @@ export default {
       // API: 获取频道信息 (从 channel_meta 提取)
       // 策略：使用版本号 Key (Version Key) 以支持实时失效
       if (url.pathname.startsWith('/api/channels')) {
+        // Secret 验证 (移到缓存之前，防止绕过)
+        const providedSecret = request.headers.get('X-API-Secret') || ''
+        if (env.API_SECRET_KEY && providedSecret !== env.API_SECRET_KEY) {
+          return new Response(JSON.stringify({ error: 'Unauthorized' }), { 
+            status: 403, 
+            headers: corsHeaders 
+          })
+        }
+
         return handleCachedRequest(request, env, ctx, async () => {
-          // Secret 验证
-          const providedSecret = request.headers.get('X-API-Secret') || ''
-          if (env.API_SECRET_KEY && providedSecret !== env.API_SECRET_KEY) {
-            return new Response(JSON.stringify({ error: 'Unauthorized' }), { 
-              status: 403, 
-              headers: corsHeaders 
-            })
-          }
 
           const { results } = await env.DB.prepare("SELECT channel, last_msg_id, title, avatar FROM channel_meta").all()
           
