@@ -50,5 +50,3 @@ bucket_name = "tg-image-cache"
 # [vars]
 # SITE_URL = "https://your-domain.pages.dev/"
 
-[env.preview]
-name = "mcb-crawler-preview"
