@@ -116,7 +116,7 @@ async function handleCachedRequest(request, env, ctx, getResponseFunc, isVersion
       console.log(`[API Cache] HIT - ${method} ${cleanPath} (Time: ${elapsed}ms)`);
       return cachedResponse;
     }
-    console.log(`[API Cache] MISS - ${method} ${cleanPath}`);
+    console。log(`[API Cache] MISS - ${method} ${cleanPath}`);
   }
   
   // 3. 执行原始逻辑
@@ -1028,10 +1028,10 @@ export default {
         // 转发响应头
         const responseHeaders = new Headers();
         if (response.status === 206) {
-        responseHeaders.set('content-range', response.headers.get('content-range'));
+        responseHeaders。set('content-range', response.headers.get('content-range'));
         responseHeaders.set('accept-ranges', 'bytes');
         // 添加 CORS 支持 (允许跨域加载媒体)
-        responseHeaders。set('Access-Control-Allow-Origin', '*');
+        responseHeaders.set('Access-Control-Allow-Origin', '*');
       }
         if (response.headers.has('content-type')) {
           responseHeaders.set('content-type', response.headers.get('content-type'));
