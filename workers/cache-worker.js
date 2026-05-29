@@ -746,8 +746,7 @@ function stripHtml(html) {
 async function summarizeWithAI(text, env) {
   if (!env.AI) return null
   try {
-    const prompt = `请总结以下内容为一段不超过 150 字的摘要，提取关键信息，保持客观。
-格式要求：如果摘要中包含链接，必须确保链接前后与中文之间保留一个空格（例如：“...测试flight.apple.com/join/xxx 处获取...”），绝对禁止将链接与中文连在一起。：\n${text}`
+    const prompt = `请总结以下内容为一段不超过 150 字的摘要，提取关键信息，保持客观。格式要求：如果摘要中包含链接，必须确保链接前后与中文之间保留一个空格（例如：“...测试flight.apple.com/join/xxx 处获取...”），绝对禁止将链接与中文连在一起。：\n${text}`
     const response = await env.AI.run("@cf/meta/llama-3.2-3b-instruct", {
       messages: [{ role: "user", content: prompt }],
       max_tokens: 200
@@ -1032,7 +1031,7 @@ export default {
         responseHeaders.set('content-range', response.headers.get('content-range'));
         responseHeaders.set('accept-ranges', 'bytes');
         // 添加 CORS 支持 (允许跨域加载媒体)
-        responseHeaders.set('Access-Control-Allow-Origin', '*');
+        responseHeaders。set('Access-Control-Allow-Origin', '*');
       }
         if (response.headers.has('content-type')) {
           responseHeaders.set('content-type', response.headers.get('content-type'));
