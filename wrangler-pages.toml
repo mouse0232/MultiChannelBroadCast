@@ -1,7 +1,10 @@
 name = "multichannelbroadcast"
 pages_build_output_dir = "./dist"
-compatibility_date = "2024-05-01"
-compatibility_flags = ["nodejs_compat"]
 
-[vars]
-PAGES_TEST_VAR = "ONLY_PAGES_HAS_ME"
+[[services]]
+binding = "MCB_CRAWLER"
+service = "mcb-crawler"
+
+[[env.preview.services]]
+binding = "MCB_CRAWLER"
+service = "mcb-crawler-preview"
