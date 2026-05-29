@@ -1,3 +1,4 @@
+name = "multichannelbroadcast"
 pages_build_output_dir = "./dist"
 compatibility_date = "2024-05-01"
 compatibility_flags = ["nodejs_compat"]
