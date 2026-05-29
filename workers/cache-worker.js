@@ -746,7 +746,8 @@ function stripHtml(html) {
 async function summarizeWithAI(text, env) {
   if (!env.AI) return null
   try {
-    const prompt = `请总结以下内容为一段不超过 150 字的摘要，提取关键信息，保持客观：\n${text}`
+    const prompt = `请总结以下内容为一段不超过 150 字的摘要，提取关键信息，保持客观。
+格式要求：如果摘要中包含链接，必须确保链接前后与中文之间保留一个空格（例如：“...测试flight.apple.com/join/xxx 处获取...”），绝对禁止将链接与中文连在一起。：\n${text}`
     const response = await env.AI.run("@cf/meta/llama-3.2-3b-instruct", {
       messages: [{ role: "user", content: prompt }],
       max_tokens: 200
@@ -1140,7 +1141,7 @@ export default {
 
           if (channel !== 'all') {
             query += ` AND channel = ?`
-            bindings.push(channel)
+            bindings。push(channel)
           }
 
           query += ` ORDER BY id DESC LIMIT ?`
@@ -1159,7 +1160,7 @@ export default {
 
       // API: 获取帖子列表
       // 策略：使用版本号 Key (Version Key) 以支持实时失效
-      if (url.pathname.startsWith('/api/posts') && !url.pathname.includes('/search')) {
+      if (url。pathname.startsWith('/api/posts') && !url.pathname.includes('/search')) {
         // Secret 验证 (移到缓存之前，防止绕过)
         const providedSecret = request.headers.get('X-API-Secret') || ''
         if (env.API_SECRET_KEY && providedSecret !== env.API_SECRET_KEY) {
@@ -1175,7 +1176,7 @@ export default {
           if (loggingEnabled) {
             const realUserIP = request.headers.get('x-real-user-ip') || request.headers.get('cf-connecting-ip');
             
-            console.log('API Debug:', {
+            console。log('API Debug:', {
               timestamp: new Date().toISOString(),
               path: url.pathname,
               method: request.method,
