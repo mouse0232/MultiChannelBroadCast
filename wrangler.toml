@@ -49,3 +49,4 @@ bucket_name = "tg-image-cache"
 # 如果需要在本地定义变量，取消注释下方的 [vars] 部分并修改值
 # [vars]
 # SITE_URL = "https://your-domain.pages.dev/"
+

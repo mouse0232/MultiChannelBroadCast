@@ -1,0 +1,11 @@
+# 使用需要pnpm install && cp wrangler-pages.toml wrangler.toml && pnpm build
+# name = "multichannelbroadcast"
+# pages_build_output_dir = "./dist"
+
+# [[services]]
+# binding = "MCB_CRAWLER"
+# service = "mcb-crawler"
+
+# [[env.preview.services]]
+# binding = "MCB_CRAWLER"
+# service = "mcb-crawler-preview"
