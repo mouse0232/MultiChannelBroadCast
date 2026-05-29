@@ -57,7 +57,7 @@ function normalizeUrl(urlObj, baseUrl) {
   const params = new URLSearchParams(urlObj.search);
   
   // 剔除干扰参数
-  ['_t', '_bust', 'utm_source', 'utm_medium'].forEach(k => params.delete(k));
+  ['_t', '_bust', 'utm_source', 'utm_medium', 'ref'].forEach(k => params.delete(k));
 
   // 参数排序
   const sorted = new URLSearchParams([...params.entries()].sort());
@@ -98,16 +98,24 @@ async function handleCachedRequest(request, env, ctx, getResponseFunc, isVersion
     cacheKey = normalizeUrl(url, url.origin + url.pathname);
   }
 
+  // 获取干净的日志路径，不包含 http://local 等内部构造的域名
+  const cleanPath = url.pathname + url.search;
+
   const fakeRequest = new Request(cacheKey, { headers: { 'Accept': 'application/json' } });
   
+  // 记录开始时间
+  const startTime = Date.now();
+  const method = request.method;
+
   // 2. 检查缓存 (仅在 Worker 环境下)
   if (typeof caches !== 'undefined' && caches.default) {
     const cachedResponse = await caches.default.match(fakeRequest);
     if (cachedResponse) {
-      console.log(`[API Cache] HIT - ${cacheKey}`);
+      const elapsed = Date.now() - startTime;
+      console.log(`[API Cache] HIT - ${method} ${cleanPath} (Time: ${elapsed}ms)`);
       return cachedResponse;
     }
-    console.log(`[API Cache] MISS - ${cacheKey}`);
+    console.log(`[API Cache] MISS - ${method} ${cleanPath}`);
   }
   
   // 3. 执行原始逻辑
@@ -115,7 +123,7 @@ async function handleCachedRequest(request, env, ctx, getResponseFunc, isVersion
   const response = await getResponseFunc();
   const elapsed = Date.now() - start;
   
-  console.log(`[API Cache] STORE - ${cacheKey} (Took ${elapsed}ms)`);
+  console.log(`[API Cache] STORE - ${method} ${cleanPath} (Time: ${elapsed}ms)`);
   
   // 4. 存入缓存 (使用 clone 确保原始响应仍可被返回)
   if (typeof caches !== 'undefined' && caches.default) {
@@ -1068,7 +1076,7 @@ export default {
           return new Response(JSON.stringify({ post: results.results[0] }), { 
             headers: { 
               ...corsHeaders, 
-              'Cache-Control': 'public, max-age=300, stale-while-revalidate=600' 
+              'Cache-Control': 'public, max-age=600, stale-while-revalidate=3600' 
             } 
           })
         }, false); // false = URL based TTL key
@@ -1137,7 +1145,7 @@ export default {
           return new Response(JSON.stringify({ posts: results }), { 
             headers: { 
               ...corsHeaders, 
-              'Cache-Control': 'public, max-age=1800, stale-while-revalidate=3600' 
+              'Cache-Control': 'public, max-age=600, stale-while-revalidate=1200' 
             } 
           })
         }, false); // false = URL based TTL key
@@ -1224,7 +1232,7 @@ export default {
           return new Response(JSON.stringify({ posts: results }), { 
             headers: { 
               ...corsHeaders, 
-              'Cache-Control': 'public, max-age=1800, stale-while-revalidate=3600' 
+              'Cache-Control': 'public, max-age=300, stale-while-revalidate=600' 
             } 
           })
         }, true); // true = Versioned Key
@@ -1259,7 +1267,7 @@ export default {
           return new Response(JSON.stringify({ channels: allChannels }), { 
             headers: { 
               ...corsHeaders, 
-              'Cache-Control': 'public, max-age=300, stale-while-revalidate=600' 
+              'Cache-Control': 'public, max-age=7200, stale-while-revalidate=7200' 
             } 
           })
         }, true); // true = Versioned Key
