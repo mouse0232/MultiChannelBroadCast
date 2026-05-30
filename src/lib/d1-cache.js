@@ -60,12 +60,11 @@ function getVersionedKey(options, versions) {
     const ver = versions['__ALL__'] || '0'
     return `https://cache.internal/api/channels?_cv=${ver}`
   }
-  
+
   // 适配帖子列表缓存 Key
-  const channel = options.channel || 'all'
-  const ver = channel === 'all'
+  const ver = (options.channel || 'all') === 'all'
     ? (versions['__ALL__'] || '0')
-    : (versions[channel] || versions['__ALL__'] || '0')
+    : (versions[options.channel] || versions['__ALL__'] || '0')
 
   const params = new URLSearchParams({
     channel: options.channel || 'all',
@@ -75,14 +74,14 @@ function getVersionedKey(options, versions) {
   })
 
   // Key 规范化：去除干扰项 & 排序 (对齐 Worker normalizeUrl)
-  ['_t', '_bust', 'utm_source', 'utm_medium', 'ref', '_cv'].forEach(k => params.delete(k))
-  const sorted = new URLSearchParams([...params.entries()].sort())
-
-  const channel = options.channel || 'all'
-  const ver = channel === 'all'
-    ? (versions['__ALL__'] || '0')
-    : (versions[channel] || versions['__ALL__'] || '0')
-
+  const cleanParams = new URLSearchParams()
+  for (const [key, value] of params.entries()) {
+    if (!['_t', '_bust', 'utm_source', 'utm_medium', 'ref', '_cv'].includes(key)) {
+      cleanParams.append(key, value)
+    }
+  }
+  const sorted = new URLSearchParams([...cleanParams.entries()].sort())
+  
   const separator = sorted.toString() ? '&' : '?'
   return `https://cache.internal/posts${separator}${sorted.toString()}_cv=${ver}`
 }
