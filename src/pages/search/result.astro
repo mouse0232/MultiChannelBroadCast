@@ -1,7 +1,7 @@
 ---
 import List from '../../components/list.astro'
 import { getEnv } from '../../lib/env'
-import { callWorkerApi } from '../../lib/d1-client'
+import { searchPosts } from '../../lib/d1-client'
 
 const q = Astro.url.searchParams.get('q') || ''
 const scopeParam = Astro.url.searchParams.get('scope') || 'all'
@@ -10,23 +10,15 @@ const requestedChannel = Astro.url.searchParams.get('channel') || ''
 const scope = scopeParam === 'channel' && requestedChannel ? 'channel' : 'all'
 const channelName = scope === 'channel' ? requestedChannel : 'all'
 
-const env = Astro.locals?.runtime?.env || {}
+const siteName = getEnv(import.meta.env, Astro, 'SITE_NAME') || 'Multi-Channel Broadcast'
 
 let posts = []
 try {
-  const secret = env.API_SECRET_KEY || import.meta.env.PUBLIC_API_SECRET_KEY || ''
-  const res = await callWorkerApi(`/api/posts/search?q=${encodeURIComponent(q)}&channel=${encodeURIComponent(channelName)}`, env, {
-    headers: { 'X-API-Secret': secret }
-  })
-  if (res.ok) {
-    const data = await res.json()
-    posts = data.posts || []
-  }
+  // 直连 D1 搜索帖子
+  posts = await searchPosts(Astro, q, { channel: channelName, limit: 50 }) || []
 } catch (e) {
   console.error('Search failed:', e)
 }
-
-const siteName = getEnv(import.meta.env, Astro, 'SITE_NAME') || 'Multi-Channel Broadcast'
 
 const channelData = {
   username: scope === 'channel' ? requestedChannel : '',
