@@ -34,6 +34,7 @@ function logQuery(Astro, options, type = 'query') {
 /**
  * 从 D1 获取频道列表
  * 设计文档 Section 2.1: getChannels
+ * 策略：接入 Versioned Key 缓存 & TTL 7200s
  */
 export async function getChannels(Astro) {
   const env = Astro.locals?.runtime?.env || {}
@@ -44,16 +45,34 @@ export async function getChannels(Astro) {
     throw new Error('D1 Database 未配置')
   }
 
-  const result = await db.prepare(
-    "SELECT channel, last_msg_id, title, avatar FROM channel_meta"
-  ).all()
+  // 接入 handleCachedQuery 缓存层
+  const response = await handleCachedQuery(db, { type: 'channels' }, async () => {
+    const result = await db.prepare(
+      "SELECT channel, last_msg_id, title, avatar FROM channel_meta"
+    ).all()
+    return result.results || []
+  }, true, ctx)
 
-  const results = result.results || []
+  let results = response.data || []
 
-  // 异步上报日志，参数将全部暴露在 URL 中以便监控
+  // 补充 env.CHANNELS 中配置但未抓取过的频道 (合并逻辑)
+  const configuredChannelsStr = env.CHANNELS || ''
+  const configuredChannels = configuredChannelsStr.split(',').map(c => c.trim()).filter(Boolean)
+  
+  const existingChannels = new Set(results.map(r => r.channel))
+  
+  // 注意：不覆盖已有的 title 和 avatar
+  configuredChannels.forEach(ch => {
+    if (!existingChannels.has(ch)) {
+      results.push({ channel: ch, last_msg_id: null, title: ch, avatar: null })
+    }
+  })
+
+  // 异步上报日志
   reportTraceLog(ctx, env, {
     path: '/api/channels',
-    resultCount: results.length
+    resultCount: results.length,
+    status: response.status
   }, 'getChannels')
 
   return results

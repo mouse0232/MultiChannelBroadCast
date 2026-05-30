@@ -55,6 +55,13 @@ export function invalidateVersionCache() {
 // ==========================================
 // 设计文档 Section 2.1: getVersionedKey 基于 options 对象
 function getVersionedKey(options, versions) {
+  // 适配频道列表缓存 Key
+  if (options.type === 'channels') {
+    const ver = versions['__ALL__'] || '0'
+    return `https://cache.internal/api/channels?_cv=${ver}`
+  }
+  
+  // 适配帖子列表缓存 Key
   const channel = options.channel || 'all'
   const ver = channel === 'all'
     ? (versions['__ALL__'] || '0')
@@ -108,7 +115,7 @@ export async function handleCachedQuery(db, options, queryFunc, isVersioned = tr
     headers: { 'Accept': 'application/json' }
   })
 
-    // 确定 TTL (Table 1.2: Channels=7200s, ID/Search=600s, Posts=300s)
+  // 确定 TTL (Table 1.2: Channels=7200s, ID/Search=600s, Posts=300s)
   let ttl = 300
   if (options.type === 'channels') ttl = 7200
   else if (options.id || options.q) ttl = 600
@@ -136,7 +143,7 @@ export async function handleCachedQuery(db, options, queryFunc, isVersioned = tr
   const response = new Response(JSON.stringify(results), {
     headers: {
       'Content-Type': 'application/json',
-      'Cache-Control': 'public, max-age=300, stale-while-revalidate=600'
+      'Cache-Control': `public, max-age=${ttl}, stale-while-revalidate=${ttl / 2}`
     }
   })
 
