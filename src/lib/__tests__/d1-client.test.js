@@ -3,8 +3,8 @@ import { getChannels, getPosts, getPostById, searchPosts, callWorkerApi } from '
 import * as d1Cache from '../../lib/d1-cache'
 
 vi.mock('../../lib/d1-cache', () => ({
-  handleCachedQuery: vi.fn((db, options, queryFunc, isVersioned, ctx) => {
-    return queryFunc()
+  handleCachedQuery: vi.fn(async (db, options, queryFunc, isVersioned, ctx) => {
+    return { data: await queryFunc(), status: 'STORE' }
   }),
   invalidateVersionCache: vi.fn()
 }))

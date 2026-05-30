@@ -1257,16 +1257,16 @@ export default {
         const path = url.searchParams.get('path') || '/'
         const count = url.searchParams.get('count') || '0'
 
-        // 提取并展示具体的查询参数
-        const queryParams = new URLSearchParams(url.searchParams)
-        queryParams.delete('secret')
-        queryParams.delete('type') 
-        queryParams.delete('path') 
-        queryParams.delete('count')
+        // 提取所有其他参数，因为客户端已经过滤了空值，这里可以直接拼接
+        const cleanParams = []
+        for (const [key, value] of url.searchParams.entries()) {
+          if (!['type', 'path', 'count', 'secret'].includes(key)) {
+            cleanParams.push(`${key}=${value}`)
+          }
+        }
         
-        const qStr = queryParams.toString() ? ` (${queryParams.toString()})` : ''
-
-        console.log(`[Pages Trace] ${type} -> ${path}${qStr} | Count: ${count}`)
+        const paramsStr = cleanParams.length ? ` | ${cleanParams.join(', ')}` : ''
+        console.info(`[Direct D1] ${type} -> ${path} | Count: ${count}${paramsStr}`)
         
         return new Response('OK')
       }

@@ -76,7 +76,7 @@ export async function getPosts(Astro, { channel = 'all', limit = 20, before = ''
   // 硬编码上限（Section 6.1）
   const safeLimit = Math.min(parseInt(limit) || 20, 100)
 
-  const posts = await handleCachedQuery(db, { channel, limit: safeLimit, before, after }, async () => {
+  const response = await handleCachedQuery(db, { channel, limit: safeLimit, before, after }, async () => {
     let query = `SELECT * FROM posts WHERE 1=1`
     const bindings = []
 
@@ -108,11 +108,14 @@ export async function getPosts(Astro, { channel = 'all', limit = 20, before = ''
     return results
   }, true, ctx)
 
-  // 异步上报日志，参数将全部暴露在 URL 中以便监控
+  const posts = response.data;
+
+  // 异步上报日志
   reportTraceLog(ctx, env, {
     path: '/api/posts',
     params: { channel, limit: safeLimit, before, after },
-    resultCount: posts?.length || 0
+    resultCount: posts?.length || 0,
+    status: response.status
   }, 'getPosts')
 
   return posts
@@ -166,7 +169,7 @@ export async function searchPosts(Astro, q, { channel = 'all', limit = 20 } = {}
 
   const safeLimit = Math.min(limit, 100)
 
-  const results = await handleCachedQuery(db, { q, channel, limit: safeLimit }, async () => {
+  const response = await handleCachedQuery(db, { q, channel, limit: safeLimit }, async () => {
     let query = `SELECT * FROM posts WHERE (title LIKE ? OR content LIKE ?)`
     const bindings = [`%${q}%`, `%${q}%`]
 
@@ -183,11 +186,14 @@ export async function searchPosts(Astro, q, { channel = 'all', limit = 20 } = {}
     return results
   }, false, ctx)
 
-  // 异步上报日志，参数将全部暴露在 URL 中以便监控
+  const results = response.data;
+
+  // 异步上报日志
   reportTraceLog(ctx, env, {
     path: '/api/posts/search',
     params: { q, channel, limit: safeLimit },
-    resultCount: results?.length || 0
+    resultCount: results?.length || 0,
+    status: response.status
   }, 'searchPosts')
 
   return results
@@ -208,10 +214,24 @@ async function reportTraceLog(ctx, env, logData, type = 'query') {
     type: type,
     path: logData.path || '/',
     count: String(logData.resultCount || 0),
+    status: logData.status || 'UNKNOWN',
     ...(logData.params || {})
   }
-  
-  const queryString = new URLSearchParams(paramsObj).toString()
+
+  // 过滤空参数
+  const cleanParams = {}
+  Object.entries(paramsObj).forEach(([key, value]) => {
+    if (value !== '' && value !== null && value !== undefined) {
+      cleanParams[key] = value
+    }
+  })
+
+  // 如果有错误信息，附加上去
+  if (logData.error) {
+    cleanParams['error'] = logData.error
+  }
+
+  const queryString = new URLSearchParams(cleanParams).toString()
   const logUrl = `https://trace.internal/api/trace-log?${queryString}`
 
   // 使用 waitUntil 异步发送，不阻塞页面渲染

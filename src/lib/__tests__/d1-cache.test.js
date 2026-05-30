@@ -38,7 +38,7 @@ describe('d1-cache Module', () => {
       const results = await handleCachedQuery(mockDb, options, queryFunc, true)
 
       expect(queryFunc).toHaveBeenCalled()
-      expect(results).toEqual([{ id: 1, title: 'Test' }])
+      expect(results).toEqual({ data: [{ id: 1, title: 'Test' }], status: 'STORE' })
 
       globalThis.caches = originalCaches
     })
@@ -59,7 +59,7 @@ describe('d1-cache Module', () => {
       expect(queryFunc).toHaveBeenCalled()
       expect(mockCache.match).toHaveBeenCalled()
       expect(mockCache.put).toHaveBeenCalled()
-      expect(results).toEqual([{ id: 1 }])
+      expect(results).toEqual({ data: [{ id: 1 }], status: 'STORE' })
 
       globalThis.caches = originalCaches
     })
@@ -81,7 +81,7 @@ describe('d1-cache Module', () => {
 
       expect(queryFunc).not.toHaveBeenCalled()
       expect(mockCache.match).toHaveBeenCalled()
-      expect(results).toEqual(cachedData)
+      expect(results).toEqual({ data: cachedData, status: 'HIT' })
 
       globalThis.caches = originalCaches
     })

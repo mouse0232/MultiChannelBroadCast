@@ -109,7 +109,8 @@ export async function handleCachedQuery(db, options, queryFunc, isVersioned = tr
     if (cachedResponse) {
       const elapsed = Date.now() - startTime
       console.log(`[Cache HIT] ${cacheKey} (${elapsed}ms)`)
-      return await cachedResponse.json()
+      // 返回状态 'HIT'
+      return { data: await cachedResponse.json(), status: 'HIT' }
     }
   }
 
@@ -141,5 +142,6 @@ export async function handleCachedQuery(db, options, queryFunc, isVersioned = tr
     }
   }
 
-  return results
+  // 返回状态 'STORE'
+  return { data: results, status: 'STORE' }
 }
