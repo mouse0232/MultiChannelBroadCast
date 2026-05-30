@@ -123,10 +123,11 @@ export async function getPosts(Astro, { channel = 'all', limit = 20, before = ''
 
 /**
  * 根据 ID 获取单个帖子
- * 设计文档 Section 6.2: ID 格式校验
+ * 设计文档 Section 6.2: ID 格式校验 & 1.3: 缓存策略
  */
 export async function getPostById(Astro, id) {
   const env = Astro.locals?.runtime?.env || {}
+  const ctx = Astro.locals?.runtime?.ctx || null
   const db = getDatabase(env)
 
   if (!db) {
@@ -140,12 +141,24 @@ export async function getPostById(Astro, id) {
 
   logQuery(Astro, { id }, 'getPostById')
 
-  // 精确查询（命中主键索引）
-  const result = await db.prepare(
-    "SELECT * FROM posts WHERE id = ? LIMIT 1"
-  ).bind(id).first()
+  // 接入缓存逻辑：不随版本号失效，仅靠 TTL (URL Key)
+  const response = await handleCachedQuery(db, { id }, async () => {
+    // 精确查询（命中主键索引）
+    const result = await db.prepare(
+      "SELECT * FROM posts WHERE id = ? LIMIT 1"
+    ).bind(id).first()
 
-  return result
+    return result
+  }, false, ctx)
+
+  // 异步上报日志，加入状态标识
+  reportTraceLog(ctx, env, {
+    path: `/api/posts/${id}`,
+    resultCount: response.data ? 1 : 0,
+    status: response.status
+  }, 'getPostById')
+
+  return response.data
 }
 
 /**

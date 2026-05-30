@@ -73,6 +73,11 @@ function getVersionedKey(options, versions) {
 
 // 设计文档 Section 2.1: normalizeUrl 基于 options 对象
 function normalizeUrl(options) {
+  // 针对单条帖子详情（不随版本号失效，仅靠 TTL）
+  if (options.id) {
+    return `https://cache.internal/posts/${options.id}`
+  }
+
   const params = new URLSearchParams({
     q: options.q || '',
     channel: options.channel || 'all',
@@ -103,6 +108,11 @@ export async function handleCachedQuery(db, options, queryFunc, isVersioned = tr
     headers: { 'Accept': 'application/json' }
   })
 
+    // 确定 TTL (Table 1.2: Channels=7200s, ID/Search=600s, Posts=300s)
+  let ttl = 300
+  if (options.type === 'channels') ttl = 7200
+  else if (options.id || options.q) ttl = 600
+  
   // 检查缓存 (带环境检查)
   if (typeof caches !== 'undefined' && caches.default) {
     const cachedResponse = await caches.default.match(fakeRequest)
