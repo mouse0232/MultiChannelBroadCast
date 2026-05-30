@@ -1,24 +1,11 @@
-# Pages 本地开发配置
-# 构建/启动前需执行: cp wrangler-pages.toml wrangler.toml
+# 使用需要pnpm install && cp wrangler-pages.toml wrangler.toml && pnpm build
+# name = "multichannelbroadcast"
+# pages_build_output_dir = "./dist"
 
-name = "multichannelbroadcast"
-pages_build_output_dir = "./dist"
+# [[services]]
+# binding = "MCB_CRAWLER"
+# service = "mcb-crawler"
 
-# 1. 绑定 D1 数据库 (本地使用 --d1=DB=xxx 参数会自动覆盖此配置)
-[[d1_databases]]
-binding = "DB"
-database_name = "multi-channel-db"
-database_id = "70ca97b0-ef88-4893-abaf-dffa4d2e4d86"
-
-# 2. 绑定 Service (用于直连降级调用 Worker)
-[[services]]
-binding = "MCB_CRAWLER"
-service = "mcb-crawler"
-environment = "production"
-
-# 注意：Pages 本地开发时，KV/R2/Queue 如果不需要，可注释掉以加快启动
-# 如果需要测试缓存，可解除下方注释
-
-# [[kv_namespaces]]
-# binding = "CHANNEL_CACHE"
-# id = "a6d1d728072648e3859d380f506e86a0"
+# [[env.preview.services]]
+# binding = "MCB_CRAWLER"
+# service = "mcb-crawler-preview"
