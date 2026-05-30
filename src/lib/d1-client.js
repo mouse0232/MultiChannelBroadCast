@@ -214,7 +214,7 @@ async function reportTraceLog(ctx, env, logData, type = 'query') {
     type: type,
     path: logData.path || '/',
     count: String(logData.resultCount || 0),
-    status: logData.status || 'UNKNOWN',
+    status: logData.status || 'DB_QUERY',
     ...(logData.params || {})
   }
 
