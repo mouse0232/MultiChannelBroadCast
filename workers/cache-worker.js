@@ -1245,28 +1245,28 @@ export default {
         }, true); // true = Versioned Key
       }
 
-      // API: Pages 直连 D1 架构下的日志异步上报接口
-      // 仅用于接收 Pages 的查询日志，方便在 Workers 后台监控
-      if (url.pathname === '/api/trace-log' && request.method === 'POST') {
-        const providedSecret = request.headers.get('X-API-Secret') || ''
+      // API: Pages 直连 D1 架构下的日志异步上报接口 (GET 参数模式)
+      if (url.pathname === '/api/trace-log') {
+        // 优先从 Header 取密钥，如果没带则尝试 URL 参数 (兼容旧版)
+        const providedSecret = request.headers.get('X-API-Secret') || url.searchParams.get('secret') || ''
         if (env.API_SECRET_KEY && providedSecret !== env.API_SECRET_KEY) {
            return new Response('Unauthorized', { status: 403 })
         }
         
-        // 只要请求到了，先打印一条确认日志（确保能在后台看到活物）
-        console.log('[Worker] Trace Log Request Received')
+        const type = url.searchParams.get('type') || 'unknown'
+        const path = url.searchParams.get('path') || '/'
+        const count = url.searchParams.get('count') || '0'
 
-        try {
-           const traceData = await request.json();
-           if (traceData && traceData.path) {
-              // 格式：[Pages Trace] /api/posts | getPosts | Count: 20
-              console.log(`[Pages Trace] ${traceData.path} | ${traceData.type} | Count: ${traceData.resultCount}`);
-           } else {
-             console.log('[Worker] Trace Log Payload missing path');
-           }
-        } catch (e) {
-           console.error('[Worker] Trace Log JSON parse failed:', e.message);
-        }
+        // 提取并展示具体的查询参数
+        const queryParams = new URLSearchParams(url.searchParams)
+        queryParams.delete('secret')
+        queryParams.delete('type') 
+        queryParams.delete('path') 
+        queryParams.delete('count')
+        
+        const qStr = queryParams.toString() ? ` (${queryParams.toString()})` : ''
+
+        console.log(`[Pages Trace] ${type} -> ${path}${qStr} | Count: ${count}`)
         
         return new Response('OK')
       }

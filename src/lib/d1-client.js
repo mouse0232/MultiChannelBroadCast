@@ -32,39 +32,6 @@ function logQuery(Astro, options, type = 'query') {
 }
 
 /**
- * 异步上报日志到 Worker (方案 A)
- * 即使直连 D1，日志依然通过 Worker 记录，保持控制台监控能力
- */
-async function reportTraceLog(ctx, env, logData, type = 'query') {
-  // 仅当 Worker 可用且有密钥时执行
-  if (!env?.MCB_CRAWLER) return
-  const secret = env.API_SECRET_KEY || import.meta.env.PUBLIC_API_SECRET_KEY || ''
-  if (!secret) return
-
-  const payload = {
-    type,
-    timestamp: new Date().toISOString(),
-    ...logData
-  }
-
-  // 使用 waitUntil 异步发送，不阻塞页面渲染
-  if (ctx && typeof ctx.waitUntil === 'function') {
-    ctx.waitUntil(
-      env.MCB_CRAWLER.fetch(
-        new Request('https://trace.internal/api/trace-log', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-API-Secret': secret
-          },
-          body: JSON.stringify(payload)
-        })
-      ).catch(err => console.error('Trace log failed:', err))
-    )
-  }
-}
-
-/**
  * 从 D1 获取频道列表
  * 设计文档 Section 2.1: getChannels
  */
@@ -83,10 +50,9 @@ export async function getChannels(Astro) {
 
   const results = result.results || []
 
-  // 异步上报日志到 Worker
+  // 异步上报日志，参数将全部暴露在 URL 中以便监控
   reportTraceLog(ctx, env, {
     path: '/api/channels',
-    method: 'GET',
     resultCount: results.length
   }, 'getChannels')
 
@@ -142,10 +108,9 @@ export async function getPosts(Astro, { channel = 'all', limit = 20, before = ''
     return results
   }, true, ctx)
 
-  // 异步上报日志到 Worker
+  // 异步上报日志，参数将全部暴露在 URL 中以便监控
   reportTraceLog(ctx, env, {
     path: '/api/posts',
-    method: 'GET',
     params: { channel, limit: safeLimit, before, after },
     resultCount: posts?.length || 0
   }, 'getPosts')
@@ -194,8 +159,8 @@ export async function searchPosts(Astro, q, { channel = 'all', limit = 20 } = {}
   }
 
   if (!q || q.length < 2) {
-    // 空查询也记录日志
-    reportTraceLog(ctx, env, { path: '/api/posts/search', method: 'GET', params: { q, channel }, resultCount: 0 }, 'searchPosts')
+  // 空查询也记录日志
+  reportTraceLog(ctx, env, { path: '/api/posts/search', params: { q, channel }, resultCount: 0 }, 'searchPosts')
     return []
   }
 
@@ -218,15 +183,48 @@ export async function searchPosts(Astro, q, { channel = 'all', limit = 20 } = {}
     return results
   }, false, ctx)
 
-  // 异步上报日志到 Worker
+  // 异步上报日志，参数将全部暴露在 URL 中以便监控
   reportTraceLog(ctx, env, {
     path: '/api/posts/search',
-    method: 'GET',
     params: { q, channel, limit: safeLimit },
     resultCount: results?.length || 0
   }, 'searchPosts')
 
   return results
+}
+
+/**
+ * 异步上报日志到 Worker (方案 A)
+ * 改用 GET 请求并将所有业务参数拼接到 URL 中，确保 CF 日志面板直接可见
+ */
+async function reportTraceLog(ctx, env, logData, type = 'query') {
+  // 仅当 Worker 可用且有密钥时执行
+  if (!env?.MCB_CRAWLER) return
+  const secret = env.API_SECRET_KEY || import.meta.env.PUBLIC_API_SECRET_KEY || ''
+  if (!secret) return
+
+  // 将数据结构化为 GET 参数
+  const paramsObj = {
+    type: type,
+    path: logData.path || '/',
+    count: String(logData.resultCount || 0),
+    ...(logData.params || {})
+  }
+  
+  const queryString = new URLSearchParams(paramsObj).toString()
+  const logUrl = `https://trace.internal/api/trace-log?${queryString}`
+
+  // 使用 waitUntil 异步发送，不阻塞页面渲染
+  if (ctx && typeof ctx.waitUntil === 'function') {
+    ctx.waitUntil(
+      env.MCB_CRAWLER.fetch(
+        new Request(logUrl, {
+          method: 'GET',
+          headers: { 'X-API-Secret': secret }
+        })
+      ).catch(err => console.error('Trace log failed:', err))
+    )
+  }
 }
 
 /**
