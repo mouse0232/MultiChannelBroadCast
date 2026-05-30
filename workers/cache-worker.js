@@ -1252,11 +1252,22 @@ export default {
         if (env.API_SECRET_KEY && providedSecret !== env.API_SECRET_KEY) {
            return new Response('Unauthorized', { status: 403 })
         }
+        
+        // 只要请求到了，先打印一条确认日志（确保能在后台看到活物）
+        console.log('[Worker] Trace Log Request Received')
 
-        const traceData = await request.json().catch(() => null)
-        if (traceData) {
-           console.log(`[Pages Trace] ${traceData.path}`, traceData)
+        try {
+           const traceData = await request.json();
+           if (traceData && traceData.path) {
+              // 格式：[Pages Trace] /api/posts | getPosts | Count: 20
+              console.log(`[Pages Trace] ${traceData.path} | ${traceData.type} | Count: ${traceData.resultCount}`);
+           } else {
+             console.log('[Worker] Trace Log Payload missing path');
+           }
+        } catch (e) {
+           console.error('[Worker] Trace Log JSON parse failed:', e.message);
         }
+        
         return new Response('OK')
       }
 
