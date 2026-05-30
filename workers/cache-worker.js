@@ -1245,6 +1245,21 @@ export default {
         }, true); // true = Versioned Key
       }
 
+      // API: Pages 直连 D1 架构下的日志异步上报接口
+      // 仅用于接收 Pages 的查询日志，方便在 Workers 后台监控
+      if (url.pathname === '/api/trace-log' && request.method === 'POST') {
+        const providedSecret = request.headers.get('X-API-Secret') || ''
+        if (env.API_SECRET_KEY && providedSecret !== env.API_SECRET_KEY) {
+           return new Response('Unauthorized', { status: 403 })
+        }
+
+        const traceData = await request.json().catch(() => null)
+        if (traceData) {
+           console.log(`[Pages Trace] ${traceData.path}`, traceData)
+        }
+        return new Response('OK')
+      }
+
       // API: 获取频道信息 (从 channel_meta 提取)
       // 策略：使用版本号 Key (Version Key) 以支持实时失效
       if (url.pathname.startsWith('/api/channels')) {

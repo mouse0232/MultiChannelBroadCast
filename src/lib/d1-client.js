@@ -32,23 +32,63 @@ function logQuery(Astro, options, type = 'query') {
 }
 
 /**
+ * 异步上报日志到 Worker (方案 A)
+ * 即使直连 D1，日志依然通过 Worker 记录，保持控制台监控能力
+ */
+async function reportTraceLog(ctx, env, logData, type = 'query') {
+  // 仅当 Worker 可用且有密钥时执行
+  if (!env?.MCB_CRAWLER) return
+  const secret = env.API_SECRET_KEY || import.meta.env.PUBLIC_API_SECRET_KEY || ''
+  if (!secret) return
+
+  const payload = {
+    type,
+    timestamp: new Date().toISOString(),
+    ...logData
+  }
+
+  // 使用 waitUntil 异步发送，不阻塞页面渲染
+  if (ctx && typeof ctx.waitUntil === 'function') {
+    ctx.waitUntil(
+      env.MCB_CRAWLER.fetch(
+        new Request('https://trace.internal/api/trace-log', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-API-Secret': secret
+          },
+          body: JSON.stringify(payload)
+        })
+      ).catch(err => console.error('Trace log failed:', err))
+    )
+  }
+}
+
+/**
  * 从 D1 获取频道列表
  * 设计文档 Section 2.1: getChannels
  */
 export async function getChannels(Astro) {
   const env = Astro.locals?.runtime?.env || {}
+  const ctx = Astro.locals?.runtime?.ctx || null
   const db = getDatabase(env)
 
   if (!db) {
     throw new Error('D1 Database 未配置')
   }
 
-  logQuery(Astro, {}, 'getChannels')
-
-  // 直接从 D1 读取已抓取的频道（不需要 env.CHANNELS）
-  const { results } = await db.prepare(
+  const result = await db.prepare(
     "SELECT channel, last_msg_id, title, avatar FROM channel_meta"
   ).all()
+
+  const results = result.results || []
+
+  // 异步上报日志到 Worker
+  reportTraceLog(ctx, env, {
+    path: '/api/channels',
+    method: 'GET',
+    resultCount: results.length
+  }, 'getChannels')
 
   return results
 }
@@ -70,9 +110,7 @@ export async function getPosts(Astro, { channel = 'all', limit = 20, before = ''
   // 硬编码上限（Section 6.1）
   const safeLimit = Math.min(parseInt(limit) || 20, 100)
 
-  logQuery(Astro, { channel, limit: safeLimit, before, after }, 'getPosts')
-
-  return handleCachedQuery(db, { channel, limit: safeLimit, before, after }, async () => {
+  const posts = await handleCachedQuery(db, { channel, limit: safeLimit, before, after }, async () => {
     let query = `SELECT * FROM posts WHERE 1=1`
     const bindings = []
 
@@ -103,6 +141,16 @@ export async function getPosts(Astro, { channel = 'all', limit = 20, before = ''
 
     return results
   }, true, ctx)
+
+  // 异步上报日志到 Worker
+  reportTraceLog(ctx, env, {
+    path: '/api/posts',
+    method: 'GET',
+    params: { channel, limit: safeLimit, before, after },
+    resultCount: posts?.length || 0
+  }, 'getPosts')
+
+  return posts
 }
 
 /**
@@ -146,29 +194,39 @@ export async function searchPosts(Astro, q, { channel = 'all', limit = 20 } = {}
   }
 
   if (!q || q.length < 2) {
-    return []  // 空查询或单字查询返回空
+    // 空查询也记录日志
+    reportTraceLog(ctx, env, { path: '/api/posts/search', method: 'GET', params: { q, channel }, resultCount: 0 }, 'searchPosts')
+    return []
   }
 
   const safeLimit = Math.min(limit, 100)
 
-  logQuery(Astro, { q, channel, limit: safeLimit }, 'searchPosts')
+  const results = await handleCachedQuery(db, { q, channel, limit: safeLimit }, async () => {
+    let query = `SELECT * FROM posts WHERE (title LIKE ? OR content LIKE ?)`
+    const bindings = [`%${q}%`, `%${q}%`]
 
-  return handleCachedQuery(db, { q, channel, limit: safeLimit }, async () => {
-        let query = `SELECT * FROM posts WHERE (title LIKE ? OR content LIKE ?)`
-        const bindings = [`%${q}%`, `%${q}%`]
+    // 强制频道过滤（减少扫描范围）
+    if (channel !== 'all') {
+      query += ` AND channel = ?`
+      bindings.push(channel)
+    }
 
-        // 强制频道过滤（减少扫描范围）
-        if (channel !== 'all') {
-          query += ` AND channel = ?`
-          bindings.push(channel)
-        }
-
-        query += ` ORDER BY id DESC LIMIT ?`
-        bindings.push(safeLimit)
+    query += ` ORDER BY id DESC LIMIT ?`
+    bindings.push(safeLimit)
 
     const { results } = await db.prepare(query).bind(...bindings).all()
     return results
-  }, false, ctx)  // 搜索使用 URL-based 缓存 Key
+  }, false, ctx)
+
+  // 异步上报日志到 Worker
+  reportTraceLog(ctx, env, {
+    path: '/api/posts/search',
+    method: 'GET',
+    params: { q, channel, limit: safeLimit },
+    resultCount: results?.length || 0
+  }, 'searchPosts')
+
+  return results
 }
 
 /**
