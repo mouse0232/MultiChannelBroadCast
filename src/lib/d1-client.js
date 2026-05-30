@@ -238,7 +238,7 @@ export async function searchPosts(Astro, q, { channel = 'all', limit = 20 } = {}
  * 异步上报日志到 Worker (方案 A)
  * 改用 GET 请求并将所有业务参数拼接到 URL 中，确保 CF 日志面板直接可见
  */
-async function reportTraceLog(ctx, env, logData, type = 'query') {
+export async function reportTraceLog(ctx, env, logData, type = 'query') {
   // 仅当 Worker 可用且有密钥时执行
   if (!env?.MCB_CRAWLER) return
   const secret = env.API_SECRET_KEY || import.meta.env.PUBLIC_API_SECRET_KEY || ''
@@ -250,6 +250,8 @@ async function reportTraceLog(ctx, env, logData, type = 'query') {
     path: logData.path || '/',
     count: String(logData.resultCount || 0),
     status: logData.status || 'DB_QUERY',
+    consoleLog: logData.consoleLog || '',  // 支持 Pages console.log
+    elapsed: logData.elapsed || '',
     ...(logData.params || {})
   }
 

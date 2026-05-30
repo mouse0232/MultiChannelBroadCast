@@ -1256,11 +1256,17 @@ export default {
         const type = url.searchParams.get('type') || 'unknown'
         const path = url.searchParams.get('path') || '/'
         const count = url.searchParams.get('count') || '0'
+        const consoleLog = url.searchParams.get('consoleLog') || ''
+
+        // 打印 Pages console.log（持久化到 Worker 日志）
+        if (consoleLog) {
+          console.log(consoleLog)
+        }
 
         // 提取所有其他参数，因为客户端已经过滤了空值，这里可以直接拼接
         const cleanParams = []
         for (const [key, value] of url.searchParams.entries()) {
-          if (!['type', 'path', 'count', 'secret'].includes(key)) {
+          if (!['type', 'path', 'count', 'secret', 'consoleLog', 'elapsed'].includes(key)) {
             cleanParams.push(`${key}=${value}`)
           }
         }

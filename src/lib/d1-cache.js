@@ -136,19 +136,52 @@ export async function handleCachedQuery(db, options, queryFunc, isVersioned = tr
     const cachedResponse = await caches.default.match(fakeRequest)
     if (cachedResponse) {
       const elapsed = Date.now() - startTime
-      console.log(`[Cache HIT] ${cacheKey} (${elapsed}ms)`)
+      const logMsg = `[Cache HIT] ${cacheKey} (${elapsed}ms)`
+      console.log(logMsg)
+      
+      // 异步上报 console.log 到 Worker（持久化）
+      import('./d1-client').then(({ reportTraceLog }) => {
+        reportTraceLog(ctx, getEnv(), { 
+          path: cacheKey, 
+          consoleLog: logMsg,
+          status: 'HIT',
+          elapsed: String(elapsed)
+        }, 'cache')
+      })
+      
       // 返回状态 'HIT'
       return { data: await cachedResponse.json(), status: 'HIT' }
     }
   }
 
-  console.log(`[Cache MISS] ${cacheKey}`)
+  const logMsgMiss = `[Cache MISS] ${cacheKey}`
+  console.log(logMsgMiss)
+  
+  // 异步上报 console.log 到 Worker（持久化）
+  import('./d1-client').then(({ reportTraceLog }) => {
+    reportTraceLog(ctx, getEnv(), { 
+      path: cacheKey, 
+      consoleLog: logMsgMiss,
+      status: 'MISS'
+    }, 'cache')
+  })
 
   // 执行查询
   const start = Date.now()
   const results = await queryFunc()
   const elapsed = Date.now() - start
-  console.log(`[Cache STORE] ${cacheKey} (Query: ${elapsed}ms)`)
+  const logMsgStore = `[Cache STORE] ${cacheKey} (Query: ${elapsed}ms)`
+  console.log(logMsgStore)
+  
+  // 异步上报 console.log 到 Worker（持久化）
+  import('./d1-client').then(({ reportTraceLog }) => {
+    reportTraceLog(ctx, getEnv(), { 
+      path: cacheKey, 
+      consoleLog: logMsgStore,
+      status: 'STORE',
+      elapsed: String(elapsed)
+    }, 'cache')
+  })
 
   // 写入缓存 (带 TTL 控制)
   const response = new Response(JSON.stringify(results), {
