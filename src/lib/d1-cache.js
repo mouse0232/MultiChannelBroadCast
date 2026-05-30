@@ -74,8 +74,17 @@ function getVersionedKey(options, versions) {
     after: options.after || ''
   })
 
-  const separator = params.toString() ? '&' : '?'
-  return `https://cache.internal/posts?${params.toString()}${separator}_cv=${ver}`
+  // Key 规范化：去除干扰项 & 排序 (对齐 Worker normalizeUrl)
+  ['_t', '_bust', 'utm_source', 'utm_medium', 'ref', '_cv'].forEach(k => params.delete(k))
+  const sorted = new URLSearchParams([...params.entries()].sort())
+
+  const channel = options.channel || 'all'
+  const ver = channel === 'all'
+    ? (versions['__ALL__'] || '0')
+    : (versions[channel] || versions['__ALL__'] || '0')
+
+  const separator = sorted.toString() ? '&' : '?'
+  return `https://cache.internal/posts${separator}${sorted.toString()}_cv=${ver}`
 }
 
 // 设计文档 Section 2.1: normalizeUrl 基于 options 对象
@@ -90,7 +99,10 @@ function normalizeUrl(options) {
     channel: options.channel || 'all',
     limit: String(options.limit || 20)
   })
-  return `https://cache.internal/search?${params.toString()}`
+
+  // Key 规范化：排序 & 清杂质 (对齐 Worker normalizeUrl)
+  const sorted = new URLSearchParams([...params.entries()].sort())
+  return `https://cache.internal/search?${sorted.toString()}`
 }
 
 // ==========================================

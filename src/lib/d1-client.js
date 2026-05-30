@@ -283,6 +283,52 @@ async function reportTraceLog(ctx, env, logData, type = 'query') {
  * 降级：调用 Worker API（当 D1 不可用时使用）
  * 设计文档 Section 11.3: 混合模式降级
  */
+/**
+ * Pages 直连模式下的统一 API 路由入口 (替代 callWorkerApi)
+ * 自动分发到直连函数，并返回 Response 对象以保持页面代码零修改
+ */
+export async function fetchLocalApi(context, pathName, options = {}) {
+  const url = new URL(pathName, 'https://local')
+  const pathname = url.pathname
+
+  // 路由分发
+  try {
+    if (pathname === '/api/posts/search') {
+      const res = await searchPosts(context, url.searchParams.get('q'), {
+        channel: url.searchParams.get('channel') || 'all'
+      })
+      // Worker 返回格式: { posts: [...] }
+      return new Response(JSON.stringify({ posts: res }))
+      
+    } else if (pathname.startsWith('/api/post/')) {
+      const id = decodeURIComponent(pathName.replace('/api/post/', ''))
+      const res = await getPostById(context, id)
+      // Worker 返回格式: { post: {...} }
+      return new Response(JSON.stringify({ post: res }))
+
+    } else if (pathname === '/api/posts') {
+      const res = await getPosts(context, {
+        channel: url.searchParams.get('channel') || 'all',
+        limit: parseInt(url.searchParams.get('limit')) || 20,
+        before: url.searchParams.get('before'),
+        after: url.searchParams.get('after')
+      })
+      // Worker 返回格式: { posts: [...] }
+      return new Response(JSON.stringify({ posts: res }))
+
+    } else if (pathname === '/api/channels') {
+      const res = await getChannels(context)
+      // Worker 返回格式: { channels: [...] }
+      return new Response(JSON.stringify({ channels: res }))
+      
+    } else {
+      throw new Error(`Unknown path: ${pathName}`)
+    }
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), { status: 500 })
+  }
+}
+
 export async function callWorkerApi(pathname, env, { headers = {} } = {}) {
   if (!env?.MCB_CRAWLER) {
     throw new Error('MCB_CRAWLER Service Binding 未配置 - 降级方案不可用')
