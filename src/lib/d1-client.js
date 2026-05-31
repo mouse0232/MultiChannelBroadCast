@@ -254,7 +254,7 @@ export async function reportTraceLog(ctx, env, logData, type = 'query') {
     path: logData.path || '/',
     count: String(logData.resultCount || 0),
     status: logData.status || 'DB_QUERY',
-    consoleLog: logData.consoleLog || '',  // 支持 Pages console.log
+    consoleLog: logData.consoleLog || '',
     elapsed: logData.elapsed || '',
     ...(logData.params || {})
   }

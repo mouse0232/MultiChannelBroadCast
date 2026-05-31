@@ -1256,24 +1256,14 @@ export default {
         const type = url.searchParams.get('type') || 'unknown'
         const path = url.searchParams.get('path') || '/'
         const count = url.searchParams.get('count') || '0'
-        const consoleLog = url.searchParams.get('consoleLog') || ''
+        const status = url.searchParams.get('status') || 'QUERY'
+        const elapsed = url.searchParams.get('elapsed') || ''
 
-        // 打印 Pages console.log（持久化到 Worker 日志）
-        if (consoleLog) {
-          console.log(consoleLog)
-        }
+        // Worker 自己拼接简洁日志
+        const elapsedStr = elapsed ? ` (${elapsed}ms)` : ''
+        const countStr = count !== '0' ? ` | Count: ${count}` : ''
+        console.log(`[Direct D1] ${type} ${status}${elapsedStr}${countStr}`)
 
-        // 提取所有其他参数，因为客户端已经过滤了空值，这里可以直接拼接
-        const cleanParams = []
-        for (const [key, value] of url.searchParams.entries()) {
-          if (!['type', 'path', 'count', 'secret', 'consoleLog', 'elapsed'].includes(key)) {
-            cleanParams.push(`${key}=${value}`)
-          }
-        }
-        
-        const paramsStr = cleanParams.length ? ` | ${cleanParams.join(', ')}` : ''
-        console.info(`[Direct D1] ${type} -> ${path} | Count: ${count}${paramsStr}`)
-        
         return new Response('OK')
       }
 
