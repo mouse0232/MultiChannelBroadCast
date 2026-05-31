@@ -782,8 +782,8 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url)
     
-    // 总入口日志：判断是否收到请求
-    console.log(`[ENTRY] ${request.method} ${url.pathname}`)
+    // 总入口 error 日志：判断是否收到请求
+    console.error(`[ENTRY] ${request.method} ${url.pathname}`)
 
     // CORS Headers
     const corsHeaders = {
@@ -1250,32 +1250,32 @@ export default {
 
       // API: Pages 直连 D1 架构下的日志异步上报接口 (GET 参数模式)
       if (url.pathname === '/api/trace-log') {
-        console.log('[Step 1] Matched /api/trace-log')
+        console.error('[Step 1] Matched /api/trace-log')
         
         // 优先从 Header 取密钥，如果没带则尝试 URL 参数 (兼容旧版)
         const providedSecret = request.headers.get('X-API-Secret') || url.searchParams.get('secret') || ''
         if (env.API_SECRET_KEY && providedSecret !== env.API_SECRET_KEY) {
-           console.log('[Step 2] Secret verification FAILED')
+           console.error('[Step 2] Secret verification FAILED')
            return new Response('Unauthorized', { status: 403 })
         }
-        console.log('[Step 2] Secret verification PASSED')
+        console.error('[Step 2] Secret verification PASSED')
         
         const type = url.searchParams.get('type') || 'unknown'
         const path = url.searchParams.get('path') || '/'
         const count = url.searchParams.get('count') || '0'
         const status = url.searchParams.get('status') || 'QUERY'
         const elapsed = url.searchParams.get('elapsed') || ''
-        console.log('[Step 3] Params extracted:', type, status, elapsed, count)
+        console.error('[Step 3] Params extracted:', type, status, elapsed, count)
 
         // Worker 自己拼接简洁日志
         const elapsedStr = elapsed ? ` (${elapsed}ms)` : ''
         const countStr = count !== '0' ? ` | Count: ${count}` : ''
         const logLine = `[Direct D1] ${type} ${status}${elapsedStr}${countStr}`
-        console.log('[Step 4] Before console.info')
+        console.error('[Step 4] Before console.info')
         console.info(logLine)
-        console.log('[Step 5] Before console.error')
+        console.error('[Step 5] Before console.error')
         console.error(logLine)
-        console.log('[Step 6] Before return OK')
+        console.error('[Step 6] Before return OK')
 
         return new Response("VER: 03720e8")
       }
