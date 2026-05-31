@@ -3,6 +3,7 @@
 // 严格按照 design.md Section 2.1 / 6.4 实现，增强 ctx.waitUntil 和性能日志
 
 import { getEnv } from './env'
+import { reportTraceLog } from './d1-client'
 
 // ==========================================
 // 1. Globals & Version Cache (Memory Strategy)
@@ -140,14 +141,14 @@ export async function handleCachedQuery(db, options, queryFunc, isVersioned = tr
       console.log(logMsg)
       
       // 异步上报 console.log 到 Worker（持久化）
-      import('./d1-client').then(({ reportTraceLog }) => {
-        reportTraceLog(ctx, getEnv(), { 
+      if (ctx && typeof ctx.waitUntil === 'function') {
+        ctx.waitUntil(reportTraceLog(ctx, getEnv(), { 
           path: cacheKey, 
           consoleLog: logMsg,
           status: 'HIT',
           elapsed: String(elapsed)
-        }, 'cache')
-      })
+        }, 'cache'))
+      }
       
       // 返回状态 'HIT'
       return { data: await cachedResponse.json(), status: 'HIT' }
@@ -158,13 +159,13 @@ export async function handleCachedQuery(db, options, queryFunc, isVersioned = tr
   console.log(logMsgMiss)
   
   // 异步上报 console.log 到 Worker（持久化）
-  import('./d1-client').then(({ reportTraceLog }) => {
-    reportTraceLog(ctx, getEnv(), { 
+  if (ctx && typeof ctx.waitUntil === 'function') {
+    ctx.waitUntil(reportTraceLog(ctx, getEnv(), { 
       path: cacheKey, 
       consoleLog: logMsgMiss,
       status: 'MISS'
-    }, 'cache')
-  })
+    }, 'cache'))
+  }
 
   // 执行查询
   const start = Date.now()
@@ -174,14 +175,14 @@ export async function handleCachedQuery(db, options, queryFunc, isVersioned = tr
   console.log(logMsgStore)
   
   // 异步上报 console.log 到 Worker（持久化）
-  import('./d1-client').then(({ reportTraceLog }) => {
-    reportTraceLog(ctx, getEnv(), { 
+  if (ctx && typeof ctx.waitUntil === 'function') {
+    ctx.waitUntil(reportTraceLog(ctx, getEnv(), { 
       path: cacheKey, 
       consoleLog: logMsgStore,
       status: 'STORE',
       elapsed: String(elapsed)
-    }, 'cache')
-  })
+    }, 'cache'))
+  }
 
   // 写入缓存 (带 TTL 控制)
   const response = new Response(JSON.stringify(results), {
