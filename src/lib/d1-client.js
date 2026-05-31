@@ -273,12 +273,13 @@ export async function reportTraceLog(ctx, env, logData, type = 'query') {
   }
 
   const queryString = new URLSearchParams(cleanParams).toString()
+  const logUrl = `https://mcb-crawler.internal/api/trace-log?${queryString}`
 
-  // 异步发送，不阻塞渲染（验证版本问题已解决）
+  // 异步发送
   if (ctx && typeof ctx.waitUntil === 'function') {
     ctx.waitUntil(
       env.MCB_CRAWLER.fetch(
-        new Request(`/api/trace-log?${queryString}`, {
+        new Request(logUrl, {
           method: 'GET',
           headers: { 'X-API-Secret': secret }
         })
