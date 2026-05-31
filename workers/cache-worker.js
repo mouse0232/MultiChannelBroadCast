@@ -782,6 +782,9 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url)
     
+    // 总入口日志：判断是否收到请求
+    console.log(`[ENTRY] ${request.method} ${url.pathname}`)
+
     // CORS Headers
     const corsHeaders = {
       'Access-Control-Allow-Origin': '*',
