@@ -71,11 +71,12 @@ export async function getChannels(Astro) {
 
   let results = response.data || []
 
-  // 异步上报日志
+  // 异步上报日志（带上缓存层输出的 consoleLog）
   reportTraceLog(ctx, env, {
     path: '/api/channels',
     resultCount: results.length,
-    status: response.status
+    status: response.status,
+    consoleLog: response.consoleLog || ''
   }, 'getChannels')
 
   return results
@@ -132,12 +133,13 @@ export async function getPosts(Astro, { channel = 'all', limit = 20, before = ''
 
   const posts = response.data;
 
-  // 异步上报日志
+  // 异步上报日志（带上缓存层输出的 consoleLog）
   reportTraceLog(ctx, env, {
     path: '/api/posts',
     params: { channel, limit: safeLimit, before, after },
     resultCount: posts?.length || 0,
-    status: response.status
+    status: response.status,
+    consoleLog: response.consoleLog || ''
   }, 'getPosts')
 
   return posts
@@ -173,11 +175,12 @@ export async function getPostById(Astro, id) {
     return result
   }, false, ctx)
 
-  // 异步上报日志，加入状态标识
+  // 异步上报日志，加入状态标识和 consoleLog
   reportTraceLog(ctx, env, {
     path: `/api/posts/${id}`,
     resultCount: response.data ? 1 : 0,
-    status: response.status
+    status: response.status,
+    consoleLog: response.consoleLog || ''
   }, 'getPostById')
 
   return response.data
@@ -223,12 +226,13 @@ export async function searchPosts(Astro, q, { channel = 'all', limit = 20 } = {}
 
   const results = response.data;
 
-  // 异步上报日志
+  // 异步上报日志（带上缓存层输出的 consoleLog）
   reportTraceLog(ctx, env, {
     path: '/api/posts/search',
     params: { q, channel, limit: safeLimit },
     resultCount: results?.length || 0,
-    status: response.status
+    status: response.status,
+    consoleLog: response.consoleLog || ''
   }, 'searchPosts')
 
   return results

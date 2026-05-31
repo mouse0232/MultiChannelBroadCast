@@ -140,32 +140,18 @@ export async function handleCachedQuery(db, options, queryFunc, isVersioned = tr
       const logMsg = `[Cache HIT] ${cacheKey} (${elapsed}ms)`
       console.log(logMsg)
       
-      // 异步上报 console.log 到 Worker（持久化）
-      if (ctx && typeof ctx.waitUntil === 'function') {
-        ctx.waitUntil(reportTraceLog(ctx, getEnv(), { 
-          path: cacheKey, 
-          consoleLog: logMsg,
-          status: 'HIT',
-          elapsed: String(elapsed)
-        }, 'cache'))
+      // 返回状态 'HIT'，带上 consoleLog 和 elapsed
+      return { 
+        data: await cachedResponse.json(), 
+        status: 'HIT',
+        consoleLog: logMsg,
+        elapsed: elapsed
       }
-      
-      // 返回状态 'HIT'
-      return { data: await cachedResponse.json(), status: 'HIT' }
     }
   }
 
   const logMsgMiss = `[Cache MISS] ${cacheKey}`
   console.log(logMsgMiss)
-  
-  // 异步上报 console.log 到 Worker（持久化）
-  if (ctx && typeof ctx.waitUntil === 'function') {
-    ctx.waitUntil(reportTraceLog(ctx, getEnv(), { 
-      path: cacheKey, 
-      consoleLog: logMsgMiss,
-      status: 'MISS'
-    }, 'cache'))
-  }
 
   // 执行查询
   const start = Date.now()
@@ -173,16 +159,6 @@ export async function handleCachedQuery(db, options, queryFunc, isVersioned = tr
   const elapsed = Date.now() - start
   const logMsgStore = `[Cache STORE] ${cacheKey} (Query: ${elapsed}ms)`
   console.log(logMsgStore)
-  
-  // 异步上报 console.log 到 Worker（持久化）
-  if (ctx && typeof ctx.waitUntil === 'function') {
-    ctx.waitUntil(reportTraceLog(ctx, getEnv(), { 
-      path: cacheKey, 
-      consoleLog: logMsgStore,
-      status: 'STORE',
-      elapsed: String(elapsed)
-    }, 'cache'))
-  }
 
   // 写入缓存 (带 TTL 控制)
   const response = new Response(JSON.stringify(results), {
@@ -204,6 +180,11 @@ export async function handleCachedQuery(db, options, queryFunc, isVersioned = tr
     }
   }
 
-  // 返回状态 'STORE'
-  return { data: results, status: 'STORE' }
+  // 返回状态 'STORE'，带上 consoleLog 和 elapsed
+  return { 
+    data: results, 
+    status: 'STORE',
+    consoleLog: logMsgStore,
+    elapsed: elapsed
+  }
 }
