@@ -283,7 +283,10 @@ export async function reportTraceLog(ctx, env, logData, type = 'query') {
           method: 'GET',
           headers: { 'X-API-Secret': secret }
         })
-      ).catch(err => console.error('Trace log failed:', err))
+      ).then(async (res) => {
+        const text = await res.text()
+        console.log('[Test] Worker 返回:', text)
+      }).catch(err => console.error('Trace log failed:', err))
     )
   }
 }
