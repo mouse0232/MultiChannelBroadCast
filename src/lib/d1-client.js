@@ -273,21 +273,19 @@ export async function reportTraceLog(ctx, env, logData, type = 'query') {
   }
 
   const queryString = new URLSearchParams(cleanParams).toString()
-  const logUrl = `https://trace.internal/api/trace-log?${queryString}`
 
-  // 使用 waitUntil 异步发送，不阻塞页面渲染
-  if (ctx && typeof ctx.waitUntil === 'function') {
-    ctx.waitUntil(
-      env.MCB_CRAWLER.fetch(
-        new Request(logUrl, {
-          method: 'GET',
-          headers: { 'X-API-Secret': secret }
-        })
-      ).then(async (res) => {
-        const text = await res.text()
-        console.log('[Test] Worker 返回:', text)
-      }).catch(err => console.error('Trace log failed:', err))
+  // 同步阻塞发送，用于调试验证
+  try {
+    const res = await env.MCB_CRAWLER.fetch(
+      new Request(`/api/trace-log?${queryString}`, {
+        method: 'GET',
+        headers: { 'X-API-Secret': secret }
+      })
     )
+    const text = await res.text()
+    console.error(`[Test] Worker 返回: ${text}`)
+  } catch (e) {
+    console.error('Trace log failed:', e.message)
   }
 }
 
