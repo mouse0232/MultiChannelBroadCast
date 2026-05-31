@@ -1262,9 +1262,7 @@ export default {
         // Worker 自己拼接简洁日志
         const elapsedStr = elapsed ? ` (${elapsed}ms)` : ''
         const countStr = count !== '0' ? ` | Count: ${count}` : ''
-        const logMsg = `[Direct D1] ${type} ${status}${elapsedStr}${countStr}`
-        console.log(logMsg)
-        console.error(logMsg)
+        console.info(`[Direct D1] ${type} ${status}${elapsedStr}${countStr}`)
 
         return new Response('OK')
       }
