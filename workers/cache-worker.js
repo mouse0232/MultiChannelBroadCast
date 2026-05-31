@@ -1277,7 +1277,7 @@ export default {
         console.error(logLine)
         console.log('[Step 6] Before return OK')
 
-        return new Response('OK')
+        return new Response("VER: 03720e8")
       }
 
       // API: 获取频道信息 (从 channel_meta 提取)
