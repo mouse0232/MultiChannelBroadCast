@@ -274,18 +274,16 @@ export async function reportTraceLog(ctx, env, logData, type = 'query') {
 
   const queryString = new URLSearchParams(cleanParams).toString()
 
-  // 同步阻塞发送，用于调试验证
-  try {
-    const res = await env.MCB_CRAWLER.fetch(
-      new Request(`/api/trace-log?${queryString}`, {
-        method: 'GET',
-        headers: { 'X-API-Secret': secret }
-      })
+  // 异步发送，不阻塞渲染（验证版本问题已解决）
+  if (ctx && typeof ctx.waitUntil === 'function') {
+    ctx.waitUntil(
+      env.MCB_CRAWLER.fetch(
+        new Request(`/api/trace-log?${queryString}`, {
+          method: 'GET',
+          headers: { 'X-API-Secret': secret }
+        })
+      ).catch(err => console.error('Trace log failed:', err))
     )
-    const text = await res.text()
-    console.error(`[Test] Worker 返回: ${text}`)
-  } catch (e) {
-    console.error('Trace log failed:', e.message)
   }
 }
 
