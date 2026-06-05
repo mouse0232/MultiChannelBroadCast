@@ -402,9 +402,11 @@ function processMediaUrls(html, workerUrl) {
 
     // 2. 处理视频和音频 (Local Worker Proxy)
     html = html.replace(
-        /(<(?:video|audio|source)[^>]*src=")(https?:\/\/(cdn\d+\.telegram-cdn\.org)(\/file\/[^"]+))(")/gi,
+        /(<(?:video|audio|source)[^>]*src=")(https?:\/\/(?:cdn\d+\.)?(?:telegram-cdn\.org|telesco\.pe)(\/file\/[^"]+))(")/gi,
         (match, prefix, fullUrl, host, path, suffix) => {
-            return `${prefix}/static/${host}${path}${suffix}`;
+            const cleanPath = fullUrl.replace(/^https?:\/\//, '');
+            console.log(`[Media URL] ${fullUrl} → /static/${cleanPath}`);
+            return `${prefix}/static/${cleanPath}${suffix}`;
         }
     );
 
@@ -1005,9 +1007,9 @@ export default {
       // ==========================================
       if (url.pathname.startsWith('/static/')) {
         // 提取目标路径 (去掉 /static/)
-        // 例如: cdn4.telegram-cdn.org/file/xyz.mp4
+        // 例如: cdn4.telegram-cdn.org/file/xyz.mp4?token=xxx
         const targetPath = decodeURIComponent(url.pathname.substring('/static/'.length));
-        
+
         const firstSlash = targetPath.indexOf('/');
         if (firstSlash === -1) {
           return new Response('Invalid Path', { status: 400 });
@@ -1015,7 +1017,8 @@ export default {
 
         const targetHost = targetPath.substring(0, firstSlash);
         const targetFile = targetPath.substring(firstSlash);
-        const targetUrl = `https://${targetHost}${targetFile}`;
+        // 保留查询参数（如 token）
+        const targetUrl = `https://${targetHost}${targetFile}${url.search}`;
 
         // 准备请求头 (透传 Range)
         const fetchHeaders = new Headers();
