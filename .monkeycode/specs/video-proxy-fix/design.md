@@ -48,9 +48,9 @@
 
 | 方案 | 优点 | 缺点 | 选择 |
 |------|------|------|------|
-| 方案 A：修复 `src/pages/static/[...url].js` | - 兼容所有平台<br>- 代码简洁 | - 需要维护两套代码 | ✓ 选择 |
-| 方案 B：使用 Worker 函数绑定 | - 代码复用<br>- 统一管理 | - 仅支持 Cloudflare<br>- 配置复杂 | 不选择 |
-| 方案 C：使用 Edge Middleware | - 灵活性高<br>- 可以预处理请求 | - 部分平台不支持<br>- 复杂度增加 | 不选择 |
+| 方案 A：修复 `src/pages/static/[...url].js` | - Cloudflare Pages 完全支持<br>- 代码简洁 | - 需要维护两套代码 | ✓ 选择 |
+| 方案 B：使用 Worker 函数绑定 | - 代码复用<br>- 统一管理 | - 需要额外配置 | 不选择 |
+| 方案 C：使用 Edge Middleware | - 灵活性高<br>- 可以预处理请求 | - Cloudflare Pages 不支持 | 不选择 |
 
 **最终选择：方案 A** - 修复 `src/pages/static/[...url].js`
 
@@ -58,7 +58,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Astro Pages 环境                          │
+│                 Cloudflare Pages 环境                        │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
 │  用户请求 /static/cdnX.telegram-cdn.org/file/xxx.mp4         │
@@ -226,22 +226,23 @@ export async function GET({ request, params, url }) {
 | 6. OPTIONS 处理 | 处理预检请求 | 符合 CORS 规范 |
 | 7. 错误日志 | 添加 console.error | 便于问题排查 |
 
-### 3.3 兼容性设计
+### 3.3 Cloudflare Pages 兼容性设计
 
-为确保多平台兼容性，遵循以下原则：
+为确保在 Cloudflare Pages 环境下正常工作，遵循以下原则：
 
 1. **使用标准的 Web API**：
-   - `fetch()` - 所有平台都支持
+   - `fetch()` - Cloudflare Pages 完全支持
    - `Headers` - 标准的 HTTP 头对象
    - `Response` - 标准的响应对象
 
 2. **避免平台特定 API**：
    - 不使用 Node.js 特有的 API（如 `http`、`https` 模块）
-   - 不使用 Cloudflare 特定的 API（如 `Cache` API）
+   - 不使用 Cloudflare 特定的 API（保持纯 JavaScript 实现）
 
 3. **遵循 Astro SSR 约定**：
    - 使用 Astro 的端点格式（`GET({ request, params, url })`）
    - 返回标准的 Response 对象
+   - Cloudflare Pages 会自动将其转换为 Edge Function
 
 ---
 
@@ -259,7 +260,7 @@ export async function GET({ request, params, url }) {
 
 2. 浏览器请求视频资源
    └─> GET /static/cdn4.telegram-cdn.org/file/xxx.mp4
-       └─> Astro 路由匹配 src/pages/static/[...url].js
+       └─> Cloudflare Pages 路由匹配 src/pages/static/[...url].js
            └─> 解析目标 URL
                └─> 验证域名白名单（cdn4.telegram-cdn.org 通过）
                    └─> 请求 https://cdn4.telegram-cdn.org/file/xxx.mp4
@@ -276,7 +277,7 @@ export async function GET({ request, params, url }) {
    └─> 浏览器发送 Range 请求
        └─> GET /static/cdn4.telegram-cdn.org/file/xxx.mp4
            └─> Headers: Range: bytes=1024000-2048000
-               └─> Astro 路由匹配 src/pages/static/[...url].js
+               └─> Cloudflare Pages 路由匹配 src/pages/static/[...url].js
                    └─> 透传 Range 请求头到 Telegram CDN
                        └─> Telegram CDN 返回 206 Partial Content
                            └─> Headers:
@@ -298,7 +299,7 @@ export async function GET({ request, params, url }) {
            - Origin: https://broadcast.yxj.wang
            - Access-Control-Request-Method: GET
            - Access-Control-Request-Headers: Range
-               └─> Astro 路由匹配 src/pages/static/[...url].js
+               └─> Cloudflare Pages 路由匹配 src/pages/static/[...url].js
                    └─> 返回 204 No Content
                        └─> Headers:
                            - Access-Control-Allow-Origin: *
@@ -354,7 +355,7 @@ catch (error) {
 
 ### 6.2 连接复用
 
-`fetch()` API 会自动复用 HTTP 连接，无需额外处理。
+`fetch()` API 会自动复用 HTTP 连接，无需额外处理。Cloudflare 的边缘网络也会优化连接复用。
 
 ### 6.3 响应头优化
 
@@ -480,10 +481,10 @@ describe('Static Proxy', () => {
    - 在不同浏览器中测试
    - 检查浏览器控制台是否有 CORS 错误
 
-4. **多平台测试**：
-   - Cloudflare Pages 环境
-   - Vercel 环境
-   - Netlify 环境
+4. **Cloudflare Pages 环境测试**：
+   - 部署到 Cloudflare Pages
+   - 验证视频播放功能正常
+   - 验证无平台特定错误
 
 ### 8.3 性能测试
 
@@ -497,6 +498,7 @@ lighthouse https://broadcast.yxj.wang/posts/akile_notice%2F1446 --view
 - First Contentful Paint (FCP)
 - Time to Interactive (TTI)
 - Cumulative Layout Shift (CLS)
+- Cloudflare Analytics 响应时间
 
 ---
 
@@ -512,13 +514,14 @@ lighthouse https://broadcast.yxj.wang/posts/akile_notice%2F1446 --view
    - 运行 `npm run dev` 进行本地测试
    - 验证视频可以正常播放
 
-3. **构建和部署**：
+3. **构建和部署到 Cloudflare Pages**：
    - 运行 `npm run build`
-   - 部署到 Cloudflare Pages / Vercel / Netlify
+   - 部署到 Cloudflare Pages（通过 Git 或 wrangler）
 
 4. **线上验证**：
    - 访问线上视频页面
    - 验证视频播放功能正常
+   - 检查 Cloudflare Analytics
 
 ### 9.2 回滚方案
 
@@ -547,13 +550,21 @@ if (error) {
 }
 ```
 
-### 10.2 监控指标
+### 10.2 Cloudflare Analytics 监控
 
-可以在 Cloudflare Analytics 中监控：
-- 请求量
-- 响应时间
-- 错误率
+在 Cloudflare Dashboard 中监控以下指标：
+- 请求量（Functions 请求）
+- 响应时间（Edge Response Time）
+- 错误率（4xx/5xx）
 - 带宽使用
+- 缓存命中率
+
+### 10.3 Cloudflare Logs
+
+使用 Cloudflare Logpush 或实时日志查看：
+- 访问日志
+- 错误日志
+- 性能日志
 
 ---
 
@@ -569,7 +580,7 @@ if (error) {
 
 1. **使用 R2 存储代理**：减少对 Telegram CDN 的依赖
 2. **实现智能缓存**：对小视频文件进行缓存
-3. **添加 CDN 加速**：使用 Cloudflare CDN 加速视频传输
+3. **使用 Cloudflare CDN 加速**：利用 Cloudflare 的全球边缘网络加速视频传输
 
 ---
 
@@ -581,6 +592,7 @@ if (error) {
 - [MDN Web Docs: CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS)
 - [Astro Endpoints](https://docs.astro.build/en/guides/endpoints/)
 - [Cloudflare Pages Functions](https://developers.cloudflare.com/pages/functions/)
+- [Cloudflare Analytics](https://developers.cloudflare.com/analytics/)
 
 ### 12.2 相关代码文件
 

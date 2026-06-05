@@ -61,18 +61,17 @@
 - 视频资源响应包含 `Access-Control-Allow-Origin: *` 头
 - 浏览器控制台无 CORS 相关错误
 
-### 2.4 需求 4：兼容多平台部署
+### 2.4 需求 4：兼容 Cloudflare Pages
 
 **需求 ID**: REQ-4
 **优先级**: P1 - 高
 
-**需求描述**：视频代理功能必须在 Cloudflare Pages、Vercel、Netlify 等多平台下正常工作。
+**需求描述**：视频代理功能必须在 Cloudflare Pages 环境下正常工作。
 
 **验收标准**：
 - 在 Cloudflare Pages 环境下视频可播放
-- 在 Vercel 环境下视频可播放
-- 在 Netlify 环境下视频可播放
-- 在 Node.js standalone 模式下视频可播放
+- 在 Cloudflare Pages 环境下支持 Range 请求
+- 在 Cloudflare Pages 环境下 CORS 配置正确
 
 ---
 
@@ -118,7 +117,7 @@
 ### 4.1 技术约束
 
 - 必须兼容 Astro SSR 模式
-- 必须兼容 Cloudflare Workers / Pages 运行时环境
+- 必须兼容 Cloudflare Pages 运行时环境
 - 不能使用 Node.js 特有的 API
 
 ### 4.2 业务约束
@@ -136,7 +135,7 @@
 | REQ-1 | 视频正常播放 | P0 | 待实现 |
 | REQ-2 | 支持 Range 请求 | P0 | 待实现 |
 | REQ-3 | CORS 支持 | P0 | 待实现 |
-| REQ-4 | 多平台兼容 | P1 | 待实现 |
+| REQ-4 | Cloudflare Pages 兼容 | P1 | 待实现 |
 | NFR-1 | 性能需求 | P1 | 待验证 |
 | NFR-2 | 可靠性需求 | P1 | 待验证 |
 | NFR-3 | 安全性需求 | P1 | 待实现 |
@@ -146,7 +145,7 @@
 ## 6. 依赖关系
 
 - 依赖现有的 `workers/cache-worker.js` 视频代理实现作为参考
-- 依赖 Cloudflare Workers / Pages 运行时环境
+- 依赖 Cloudflare Pages 运行时环境
 - 依赖 Astro SSR 模式
 
 ---
@@ -163,9 +162,8 @@
 ### 7.2 兼容性测试
 
 1. 在 Cloudflare Pages 环境测试
-2. 在 Vercel 环境测试
-3. 在不同浏览器中测试（Chrome、Firefox、Safari）
-4. 在不同设备中测试（桌面、移动）
+2. 在不同浏览器中测试（Chrome、Firefox、Safari）
+3. 在不同设备中测试（桌面、移动）
 
 ### 7.3 性能测试
 
@@ -180,14 +178,14 @@
 ### 8.1 技术风险
 
 - Astro Pages 路由可能优先于 Worker 路由
-- 不同平台的路由实现可能不一致
-- Range 请求在某些平台上可能不支持
+- Range 请求在 Cloudflare Pages 环境可能存在兼容性问题
+- CORS 配置可能需要特殊处理
 
 ### 8.2 缓解措施
 
-- 通过测试验证各平台行为
-- 查阅各平台文档确认支持情况
-- 提供备选方案（如 Worker 函数绑定）
+- 通过充分测试验证 Cloudflare Pages 行为
+- 查阅 Cloudflare Pages 文档确认支持情况
+- 提供备选方案（如使用 Worker 函数绑定）
 
 ---
 
