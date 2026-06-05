@@ -402,8 +402,9 @@ function processMediaUrls(html, workerUrl) {
 
     // 2. 处理视频和音频 (Local Worker Proxy)
     html = html.replace(
-        /(<(?:video|audio|source)[^>]*src=")(https?:\/\/(?:cdn\d+\.)?(?:telegram-cdn\.org|telesco\.pe)(\/file\/[^"]+))(")/gi,
-        (match, prefix, fullUrl, host, path, suffix) => {
+        /(<(?:video|audio|source)[^>]*src=")(https?:\/\/(?:cdn\d+\.)?(?:telegram-cdn\.org|telesco\.pe))(\/file\/[^"]+)(")/gi,
+        (match, prefix, domain, path, suffix) => {
+            const fullUrl = `${domain}${path}`;
             const cleanPath = fullUrl.replace(/^https?:\/\//, '');
             console.log(`[Media URL] ${fullUrl} → /static/${cleanPath}`);
             return `${prefix}/static/${cleanPath}${suffix}`;
